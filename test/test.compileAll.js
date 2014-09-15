@@ -9,7 +9,7 @@ describe('compileAll', function() {
   before(function(done) {
     Promise.all([
       compileAll({ base: 'components', dest: 'tmp' }),
-      compileAll({ base: 'node_modules', families: '@ali/ink', dest: 'tmp' })
+      compileAll({ base: 'node_modules', match: '@ali/ink', dest: 'tmp' })
     ])
       .nodeify(done)
   })

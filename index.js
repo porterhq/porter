@@ -43,7 +43,6 @@ function golem(opts) {
     var id = req.path.slice(1).replace(/\.js$/, '')
     var _bases = [].concat(bases)
 
-
     function findComponent(id, callback) {
       var base = _bases.shift()
 
