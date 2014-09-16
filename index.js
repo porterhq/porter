@@ -2,7 +2,7 @@
 
 var path = require('path')
 var fs = require('fs')
-var parser = require('./lib/parser')
+var parse = require('./lib/parse')
 var define = require('./lib/define')
 
 var cwd = process.cwd()
@@ -63,7 +63,7 @@ function golem(opts) {
     function sendComponent(err, factory) {
       if (err) return next(err)
 
-      var deps = parser(factory)
+      var deps = parse(factory)
 
       res.statusCode = 200
       res.setHeader('Content-Type', 'application/javascript')
@@ -79,6 +79,7 @@ function golem(opts) {
 }
 
 
+golem.parseDependencies = require('./lib/parse')
 golem.compile = require('./lib/compile')
 golem.compileAll = require('./lib/compileAll')
 
