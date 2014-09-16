@@ -16,6 +16,8 @@ function golem(opts) {
   bases = bases.map(function(base) {
     if (base[0] !== '/' && !/^\w:/.test(base))
       return path.join(cwd, base)
+    else
+      return base
   })
 
   var local = opts.local

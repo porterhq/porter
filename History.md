@@ -1,3 +1,9 @@
+1.0.1 / 2014-09-15
+==================
+
+ * Fix undefined base when multiple bases are set.
+
+
 1.0.0 / 2014-09-15
 ==================
 
