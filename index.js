@@ -44,14 +44,11 @@ function golem(opts) {
    * Should we implement version check against ./node_modules/@ali/ink/package.json here?
    */
   function stripVersion(id) {
-    var parts = id.split('/')
-
-    for (var i = 0, len = parts.length; i < len; i++) {
-      if (semver.valid(parts[i]))
-        parts.splice(i, 1)
-    }
-
-    return parts.join('/')
+    return id.split('/')
+      .filter(function(part) {
+        return !semver.valid(part)
+      })
+      .join('/')
   }
 
   return function(req, res, next) {
