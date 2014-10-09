@@ -2,6 +2,8 @@
 
 var path = require('path')
 var fs = require('fs')
+var semver = require('semver')
+
 var parse = require('./lib/parse')
 var define = require('./lib/define')
 
@@ -31,6 +33,27 @@ function golem(opts) {
     }
   }
 
+  /*
+   * The req.path might be something like:
+   *
+   * - `/@ali/ink/0.2.0/index.js`
+   * - `/@ali/ink/0.2.0/lib/display_object.js`
+   *
+   * Use this method to remove the version part out of req.path.
+   *
+   * Should we implement version check against ./node_modules/@ali/ink/package.json here?
+   */
+  function stripVersion(id) {
+    var parts = id.split('/')
+
+    for (var i = 0, len = parts.length; i < len; i++) {
+      if (semver.valid(parts[i]))
+        parts.splice(i, 1)
+    }
+
+    return parts.join('/')
+  }
+
   return function(req, res, next) {
     if (!req.path) {
       Object.defineProperty(req, 'path', {
@@ -52,7 +75,7 @@ function golem(opts) {
         return callback(new Error('Cannot find component ' + id))
       }
 
-      var fpath = (parseLocal(id) || path.join(base, id)) + '.js'
+      var fpath = (parseLocal(id) || path.join(base, stripVersion(id))) + '.js'
 
       fs.exists(fpath, function(exists) {
         if (exists)
@@ -84,6 +107,7 @@ function golem(opts) {
 golem.parseDependencies = require('./lib/parse')
 golem.compile = require('./lib/compile')
 golem.compileAll = require('./lib/compileAll')
+
 
 // Expose golem
 module.exports = golem

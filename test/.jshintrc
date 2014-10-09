@@ -2,5 +2,6 @@
   "mocha": true,
   "node": true,
   "asi": true,
-  "esnext": false
+  "esnext": false,
+  "unused": "vars"
 }
