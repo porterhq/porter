@@ -2,6 +2,8 @@
 
 var path = require('path')
 var fs = require('fs')
+var semver = require('semver')
+
 var parse = require('./lib/parse')
 var define = require('./lib/define')
 
@@ -31,6 +33,24 @@ function golem(opts) {
     }
   }
 
+  /*
+   * The req.path might be something like:
+   *
+   * - `/@ali/ink/0.2.0/index.js`
+   * - `/@ali/ink/0.2.0/lib/display_object.js`
+   *
+   * Use this method to remove the version part out of req.path.
+   *
+   * Should we implement version check against ./node_modules/@ali/ink/package.json here?
+   */
+  function stripVersion(id) {
+    return id.split('/')
+      .filter(function(part) {
+        return !semver.valid(part)
+      })
+      .join('/')
+  }
+
   return function(req, res, next) {
     if (!req.path) {
       Object.defineProperty(req, 'path', {
@@ -52,7 +72,7 @@ function golem(opts) {
         return callback(new Error('Cannot find component ' + id))
       }
 
-      var fpath = (parseLocal(id) || path.join(base, id)) + '.js'
+      var fpath = (parseLocal(id) || path.join(base, stripVersion(id))) + '.js'
 
       fs.exists(fpath, function(exists) {
         if (exists)
@@ -67,10 +87,18 @@ function golem(opts) {
 
       var deps = parse(factory)
 
-      res.statusCode = 200
-      res.setHeader('Content-Type', 'application/javascript')
-      res.write(define({ id: id, dependencies: deps, factory: factory }), encoding)
-      res.end()
+      if (res.is) {
+        res.status = 200
+        res.type = 'application/javascript'
+        res.body = define({ id: id, dependencies: deps, factory: factory })
+        next()
+      }
+      else {
+        res.statusCode = 200
+        res.setHeader('Content-Type', 'application/javascript')
+        res.write(define({ id: id, dependencies: deps, factory: factory }), encoding)
+        res.end()
+      }
     }
 
     findComponent(id, function(err, fpath) {
@@ -84,6 +112,7 @@ function golem(opts) {
 golem.parseDependencies = require('./lib/parse')
 golem.compile = require('./lib/compile')
 golem.compileAll = require('./lib/compileAll')
+
 
 // Expose golem
 module.exports = golem

@@ -1,7 +1,7 @@
 {
   "name": "@ali/golem",
   "description": "A connect middleware for browser side javascript module authoring.",
-  "version": "1.0.1",
+  "version": "2.0.0",
   "repository": {
     "type": "git",
     "url": "git@gitlab.alibaba-inc.com:central/golem.git"
@@ -11,11 +11,12 @@
   },
   "dependencies": {
     "@ali/belt": "~0.1.0",
-    "bluebird": "~1.2.0",
+    "bluebird": "~2.3.2",
     "debug": "~1.0.4",
     "glob": "~3.2.9",
     "heredoc": "~1.2.0",
     "mkdirp": "~0.3.5",
+    "semver": "~4.0.0",
     "uglify-js": "~2.3.6"
   },
   "devDependencies": {
@@ -26,6 +27,6 @@
     "mocha": "^1.20.1"
   },
   "scripts": {
-    "test": "DEBUG=golem mocha test/**/*.js"
+    "test": "rm -rf tmp ; DEBUG=golem mocha test/**/*.js"
   }
 }

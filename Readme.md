@@ -26,7 +26,7 @@ seajs.use('some/module', function() {
 })
 ```
 
-但不管怎么说，这种代码共享方式都只是一种曲线救国。因为理论上说，能够在 Node 中运行的前端代码，去掉了那层模块声明语法，比如把 SeaJS 的：
+但不管怎么说，这种代码共享方式都只是一种曲线救国。因为理论上说，能够在 Node 中运行的前端代码，去掉那层模块声明语法，本来就可以在 Node 中直接 `require`。比如把 SeaJS 的：
 
 ```js
 define(function(require, exports, module) {
@@ -40,7 +40,7 @@ define(function(require, exports, module) {
 // factory code
 ```
 
-也就是用 CommonJS 的模块写法，本来就可以直接在 Node 中 `require` 了。这是我们做 Golem 的初衷之一。我们也非常高兴地看到，无论是 Arale（及其背后的 SPM）、还是 KISSY，都已经开始去掉这一层实可省略的匿名函数。
+也就是用 CommonJS 的模块写法。这是我们做 Golem 的初衷之一。我们也非常高兴地看到，无论是 Arale（及其背后的 SPM）、还是 KISSY，都已经开始去掉这一层实可省略的匿名函数。
 
 ### Template - 模板
 
@@ -52,6 +52,8 @@ var template = require('./template')
 
 require('mustache').render(template, { ... })
 ```
+
+**2014-09-25 注**：这项特性抄袭自 component.io，尚未实现，以后是否实现待定。
 
 ## Usage
 
@@ -76,7 +78,7 @@ app.use(golem({ base: './components' }))
 ├── app.js              # 应用入口
 ├── components          # 应用自己的前端模块
 │   ├── arale
-│   │   └── upload.js
+│   │   └── upload.js
 │   └── papercut
 │       └── index.js
 └── node_modules        # 来自 NPM 的外部依赖

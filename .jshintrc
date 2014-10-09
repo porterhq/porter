@@ -2,5 +2,6 @@
   "node": true,
   "asi": true,
   "esnext": false,
-  "strict": true
+  "strict": true,
+  "unused": "vars"
 }
