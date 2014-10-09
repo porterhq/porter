@@ -90,10 +90,18 @@ function golem(opts) {
 
       var deps = parse(factory)
 
-      res.statusCode = 200
-      res.setHeader('Content-Type', 'application/javascript')
-      res.write(define({ id: id, dependencies: deps, factory: factory }), encoding)
-      res.end()
+      if (res.is) {
+        res.status = 200
+        res.type = 'application/javascript'
+        res.body = define({ id: id, dependencies: deps, factory: factory })
+        next()
+      }
+      else {
+        res.statusCode = 200
+        res.setHeader('Content-Type', 'application/javascript')
+        res.write(define({ id: id, dependencies: deps, factory: factory }), encoding)
+        res.end()
+      }
     }
 
     findComponent(id, function(err, fpath) {
