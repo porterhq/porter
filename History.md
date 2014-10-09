@@ -2,6 +2,7 @@
 ==================
 
  * Insert version into component id
+ * Update footprint of `.compile` and `.compileAll`
 
 
 1.0.1 / 2014-09-15
