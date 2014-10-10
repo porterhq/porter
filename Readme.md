@@ -143,11 +143,11 @@ Golem 本身不提供发布到 CDN 的功能，不过为了方便模块复用，
 
 此外，Golem Kit 还集成了许多对单个模块开发非常有帮助的功能，快 [去看看][golem-kit] 吧。
 
-## Golem Daemon - 文档网站
+### Golem Daemon - 文档网站
 
 // TODO
 
-## Golem Example - Golem 使用示例
+### Golem Example - Golem 使用示例
 
 为了方便理解 Golem 的好处，我们专门开发了一个与业务无关的 [Golem 示例][golem-example]，在其中演示了如何在一个 Node Web 应用中使用 NPM 安装外部前端模块，以及如何在应用中开发自有模块。
 
