@@ -1,7 +1,7 @@
 {
   "name": "@ali/golem",
   "description": "A connect middleware for browser side javascript module authoring.",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "repository": {
     "type": "git",
     "url": "git@gitlab.alibaba-inc.com:central/golem.git"

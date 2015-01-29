@@ -1,18 +1,20 @@
 'use strict';
 
-/* jshint esnext: true */
-var golem = require('./')
+var Promise = require('bluebird')
 
 
 module.exports = function(opts) {
-  var middleware = golem(opts)
-  var thunk = function(req, res) {
-    return function(callback) {
-      middleware(req, res, callback)
-    }
-  }
+  var golem = Promise.promisify(require('./')(opts))
 
-  return function*() {
-    yield thunk(this.request, this.response)
+  return function*(next) {
+    try {
+      yield golem(this.request, this.response)
+    }
+    catch (e) {
+      yield next
+      return
+    }
+
+    if (!this.body) yield next
   }
 }
