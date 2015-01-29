@@ -1,7 +1,10 @@
 {
   "node": true,
   "asi": true,
-  "esnext": false,
+  "esnext": true,
   "strict": true,
-  "unused": "vars"
+  "unused": "vars",
+  "globals": {
+    "Promise": true
+  }
 }
