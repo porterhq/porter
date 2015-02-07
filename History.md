@@ -1,3 +1,9 @@
+2.0.2 / 2015-02-07
+==================
+
+ * Fix the regular expression used to white list the module required.
+
+
 2.0.1 / 2015-01-29
 ==================
 
