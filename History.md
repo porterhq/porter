@@ -1,3 +1,9 @@
+2.1.0 / 2015-02-09
+==================
+
+ * Add `compileModule` as the specific node_module compiler
+
+
 2.0.2 / 2015-02-07
 ==================
 
