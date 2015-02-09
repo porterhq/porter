@@ -112,6 +112,7 @@ function golem(opts) {
 golem.parseDependencies = require('./lib/parse')
 golem.compile = require('./lib/compile')
 golem.compileAll = require('./lib/compileAll')
+golem.compileModule = require('./lib/compileModule')
 
 
 // Expose golem
