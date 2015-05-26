@@ -1,13 +1,13 @@
 'use strict';
 
 var Promise = require('native-or-bluebird')
-var caka = require('./index')
+var oceanify = require('./index')
 
 
 module.exports = function(opts) {
-  function cakaAsync(req, res) {
+  function oceanifyAsync(req, res) {
     return new Promise(function(resolve, reject) {
-      caka(req, res, function next(err) {
+      oceanify(req, res, function next(err) {
         if (err) reject(err)
         else resolve()
       })
@@ -16,7 +16,7 @@ module.exports = function(opts) {
 
   return function*(next) {
     try {
-      yield cakaAsync(this.request, this.response)
+      yield oceanifyAsync(this.request, this.response)
     }
     catch (e) {
       yield next

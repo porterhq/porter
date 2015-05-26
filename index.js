@@ -10,7 +10,7 @@ var define = require('./lib/define')
 var cwd = process.cwd()
 
 
-function caka(opts) {
+function oceanify(opts) {
   opts = opts || {}
   var bases = ['node_modules', opts.base || 'components']
   var encoding = opts.encoding || 'utf-8'
@@ -109,11 +109,11 @@ function caka(opts) {
 }
 
 
-caka.parseDependencies = require('./lib/parse')
-caka.compile = require('./lib/compile')
-caka.compileAll = require('./lib/compileAll')
-caka.compileModule = require('./lib/compileModule')
+oceanify.parseDependencies = require('./lib/parse')
+oceanify.compile = require('./lib/compile')
+oceanify.compileAll = require('./lib/compileAll')
+oceanify.compileModule = require('./lib/compileModule')
 
 
-// Expose caka
-module.exports = caka
+// Expose oceanify
+module.exports = oceanify

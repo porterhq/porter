@@ -1,10 +1,10 @@
 {
-  "name": "caka",
+  "name": "oceanify",
   "description": "A connect middleware for browser side javascript module authoring.",
   "version": "3.0.0",
   "repository": {
     "type": "git",
-    "url": "git@github.com:erzu/caka.git"
+    "url": "git@github.com:erzu/oceanify.git"
   },
   "dependencies": {
     "debug": "~1.0.4",
@@ -20,6 +20,6 @@
     "mocha": "^1.20.1"
   },
   "scripts": {
-    "test": "rm -rf tmp ; DEBUG=caka mocha test/**/*.js"
+    "test": "rm -rf tmp ; DEBUG=oceanify mocha test/**/*.js"
   }
 }
