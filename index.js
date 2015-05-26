@@ -10,7 +10,7 @@ var define = require('./lib/define')
 var cwd = process.cwd()
 
 
-function golem(opts) {
+function caka(opts) {
   opts = opts || {}
   var bases = ['node_modules', opts.base || 'components']
   var encoding = opts.encoding || 'utf-8'
@@ -36,12 +36,12 @@ function golem(opts) {
   /*
    * The req.path might be something like:
    *
-   * - `/@ali/ink/0.2.0/index.js`
-   * - `/@ali/ink/0.2.0/lib/display_object.js`
+   * - `/ink/0.2.0/index.js`
+   * - `/ink/0.2.0/lib/display_object.js`
    *
    * Use this method to remove the version part out of req.path.
    *
-   * Should we implement version check against ./node_modules/@ali/ink/package.json here?
+   * Should we implement version check against ./node_modules/ink/package.json here?
    */
   function stripVersion(id) {
     return id.split('/')
@@ -109,11 +109,11 @@ function golem(opts) {
 }
 
 
-golem.parseDependencies = require('./lib/parse')
-golem.compile = require('./lib/compile')
-golem.compileAll = require('./lib/compileAll')
-golem.compileModule = require('./lib/compileModule')
+caka.parseDependencies = require('./lib/parse')
+caka.compile = require('./lib/compile')
+caka.compileAll = require('./lib/compileAll')
+caka.compileModule = require('./lib/compileModule')
 
 
-// Expose golem
-module.exports = golem
+// Expose caka
+module.exports = caka

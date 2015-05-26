@@ -1,32 +1,25 @@
 {
-  "name": "@ali/golem",
+  "name": "caka",
   "description": "A connect middleware for browser side javascript module authoring.",
-  "version": "2.1.0",
+  "version": "3.0.0",
   "repository": {
     "type": "git",
-    "url": "git@gitlab.alibaba-inc.com:central/golem.git"
-  },
-  "publishConfig": {
-    "registry": "http://registry.npm.alibaba-inc.com"
+    "url": "git@github.com:erzu/caka.git"
   },
   "dependencies": {
-    "@ali/belt": "~0.1.0",
-    "bluebird": "~2.3.2",
     "debug": "~1.0.4",
     "glob": "~3.2.9",
     "heredoc": "~1.2.0",
     "mkdirp": "~0.3.5",
+    "native-or-bluebird": "~1.2.0",
     "semver": "~4.0.0",
-    "uglify-js": "~2.3.6"
+    "uglify-js": "~2.4.23"
   },
   "devDependencies": {
-    "@ali/belt": "~0.1.2",
-    "@ali/ink": "~0.1.7",
-    "@ali/matrix": "~0.1.1",
     "expect.js": "^0.3.1",
     "mocha": "^1.20.1"
   },
   "scripts": {
-    "test": "rm -rf tmp ; DEBUG=golem mocha test/**/*.js"
+    "test": "rm -rf tmp ; DEBUG=caka mocha test/**/*.js"
   }
 }

@@ -1,3 +1,11 @@
+3.0.0 / 2015-05-26
+==================
+
+ * Rename to caka because the name `golem` as package name is taken.
+ * Remove api `compileAll({ base: 'base/path', component: 'component-name', dest: 'public' })`
+ * Refactor code base to migrate to be in favor of Promise
+
+
 2.1.0 / 2015-02-09
 ==================
 

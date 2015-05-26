@@ -1,68 +1,65 @@
 'use strict';
 
-var Promise = require('bluebird')
-var glob = Promise.promisify(require('glob'))
-var fs = Promise.promisifyAll(require('fs'))
+var Promise = require('native-or-bluebird')
+var glob = require('glob')
+var fs = require('fs')
 var path = require('path')
 var expect = require('expect.js')
 
 var compileAll = require('..').compileAll
 
 
-describe('compileAll', function() {
-  var versions = {}
-
-  before(function(done) {
-    var components = ['@ali/belt', '@ali/ink']
-
-    var readVersions = Promise.all(components).map(function(component) {
-      return fs.readFileAsync(path.join('node_modules', component, 'package.json'), 'utf-8')
-        .then(JSON.parse)
-        .then(function(pkg) {
-          versions[pkg.name] = pkg.version
-        })
+function readFileAsync(fpath, encoding) {
+  return new Promise(function(resolve, reject) {
+    fs.readFile(fpath, encoding, function(err, content) {
+      if (err) reject(err)
+      else resolve(content)
     })
-
-    Promise.all([
-      readVersions,
-      compileAll({ base: 'components', dest: 'tmp' }),
-      compileAll({ base: 'node_modules', match: '@ali/{belt,ink}', dest: 'tmp' })
-    ])
-      .nodeify(done)
   })
+}
+
+function globAsync(pattern) {
+  return new Promise(function(resolve, reject) {
+    glob(pattern, function(err, entries) {
+      if (err) reject(err)
+      else resolve(entries)
+    })
+  })
+}
+
+
+describe('compileAll', function() {
+  function readPackage(name) {
+    return readFileAsync(path.join('node_modules', name, 'package.json'), 'utf-8')
+      .then(JSON.parse)
+  }
 
   it('should compile all modules within specified dir', function(done) {
-    Promise.all([
-      glob('./components/**/*.js'),
-      glob('./node_modules/@ali/{belt,ink}/**/*.js'),
-      glob('./tmp/**/*.js')
-    ])
-      .then(function(results) {
-        var components = results[0]
-        var node_modules = results[1]
-        var compiled = results[2]
+    var modules = ['semver', 'heredoc']
 
-        node_modules = node_modules.map(function(el) {
-          return el.replace('./node_modules/', '').replace(/(@ali\/\w+)/, function(m, pkg) {
-            return [pkg, versions[pkg]].join('/')
-          })
-        })
-
-        for (var i = node_modules.length - 1; i >= 0; i--) {
-          if (/(test|node_modules)/.test(node_modules[i]))
-            node_modules.splice(i, 1)
-        }
-
-        components = components.map(function(el) {
-          return el.replace('./components/', '')
-        })
-
-        compiled = compiled.map(function(el) {
-          return el.replace('./tmp/', '')
-        })
-
-        expect(components.concat(node_modules).sort()).to.eql(compiled)
+    compileAll({
+      base: 'node_modules',
+      match: '{' + modules.join(',') + '}',
+      dest: 'tmp'
+    })
+      .then(function() {
+        return Promise.all([
+          globAsync('./tmp/**/*.js'),
+          Promise.all(modules.map(readPackage))
+        ])
       })
-      .nodeify(done)
+      .then(function(results) {
+        var entries = results[0].map(function(entry) {
+          return entry.replace('./tmp/', '')
+        })
+
+        var packages = results[1].map(function(pkg) {
+          return path.join(pkg.name, pkg.version, pkg.main || 'index.js')
+        })
+
+        expect(entries.sort()).to.eql(packages.sort())
+        done()
+      })
+      .catch(done)
   })
 })
