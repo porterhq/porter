@@ -135,9 +135,9 @@ oceanify.compileAll()
 
 ## Facilities - 配套设施
 
-### Oceanify Kit - 命令行工具
+### Oceanifier - 命令行工具
 
-Oceanify 本身不提供发布到 CDN 的功能，不过为了方便模块复用，也方便不使用 Oceanify 的前端工程师也能使用基于 Oceanify 开发的前端模块，模块开发者可以使用 [Oceanify Kit][oceanifier] 命令行工具发布模块代码到 CDN：
+Oceanify 本身不提供发布到 CDN 的功能，不过为了方便模块复用，也方便不使用 Oceanify 的前端工程师也能使用基于 Oceanify 开发的前端模块，模块开发者可以使用 [Oceanifier][oceanifier] 命令行工具发布模块代码到 CDN：
 
 ```js
 ➜  belt git:(master) oceanify deploy
@@ -145,7 +145,7 @@ Oceanify 本身不提供发布到 CDN 的功能，不过为了方便模块复用
 
 将会压缩模块代码，合并 index.js 的依赖，并推送到 CDN。
 
-此外，Oceanify Kit 还集成了许多对单个模块开发非常有帮助的功能，快 [去看看][oceanifier] 吧。
+此外，Oceanifier 还集成了许多对单个模块开发非常有帮助的功能，快 [去看看][oceanifier] 吧。
 
 
 ### Oceanify Example - Oceanify 使用示例
