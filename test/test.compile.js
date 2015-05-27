@@ -1,36 +1,46 @@
 'use strict';
 
-var Promise = require('bluebird')
+var Promise = require('native-or-bluebird')
 var path = require('path')
 var expect = require('expect.js')
-var fs = Promise.promisifyAll(require('fs'))
+var fs = require('fs')
 
 var compile = require('..').compile
 
-var base = path.resolve(__dirname, '../node_modules/@ali/belt')
+var base = path.resolve(__dirname, '../node_modules/heredoc')
 var dest = path.resolve(__dirname, '../tmp')
 
 var pkg
 
 
+function readFileAsync(fpath, encoding) {
+  return new Promise(function(resolve, reject) {
+    fs.readFile(fpath, encoding, function(err, content) {
+      if (err) reject(err)
+      else resolve(content)
+    })
+  })
+}
+
+
 describe('compile', function() {
   before(function(done) {
-    fs.readFileAsync(path.join(base, 'package.json'), 'utf-8')
+    readFileAsync(path.join(base, 'package.json'), 'utf-8')
       .then(function(content) {
         pkg = JSON.parse(content)
-        var id = '@ali/belt/' + pkg.version + '/index.js'
+        var id = 'heredoc/' + pkg.version + '/index.js'
         var fpath = path.join(base, 'index.js')
 
         return compile({ base: base, id: id, fpath: fpath, dest: dest })
       })
-      .nodeify(done)
+      .then(done, done)
   })
 
   it('should insert version into the id of the compiled module', function(done) {
-    fs.readFileAsync(path.join(dest, '@ali/belt/' + pkg.version + '/index.js'), 'utf-8')
+    readFileAsync(path.join(dest, 'heredoc/' + pkg.version + '/index.js'), 'utf-8')
       .then(function(content) {
-        expect(content).to.contain('@ali/belt/' + pkg.version + '/index')
+        expect(content).to.contain('heredoc/' + pkg.version + '/index')
       })
-      .nodeify(done)
+      .then(done, done)
   })
 })
