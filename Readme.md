@@ -2,62 +2,6 @@
 
 我们希望借助 Oceanify，让前端代码能够模块化开发，并且直接使用 NPM 分享。同时，我们希望 Oceanify 可以帮助压缩、发布前端代码。
 
-
-## Evolving Component - 前端组件演化
-
-### CommonJS - 一致的模块写法
-
-在前些年，模块加载器如雨后春笋一般冒出来，我们看到形形色色的写法，比如：
-
-- RequireJS
-- SeaJS
-- KISSY
-- KSLITE
-- ……等等
-
-详细的语法差别，我在这篇 [知乎回答][loaders] 里有所描述。
-
-此外，前三者还考虑到了前后端代码的问题，比如你可以直接在 Node 中：
-
-```js
-var seajs = require('seajs')
-
-seajs.use('some/module', function() {
-  // code
-})
-```
-
-但不管怎么说，这种代码共享方式都只是一种曲线救国。因为理论上说，能够在 Node 中运行的前端代码，去掉那层模块声明语法，本来就可以在 Node 中直接 `require`。比如把 SeaJS 的：
-
-```js
-define(function(require, exports, module) {
-  // factory code
-})
-```
-
-变成：
-
-```js
-// factory code
-```
-
-也就是用 CommonJS 的模块写法。这是我们做 Oceanify 的初衷之一。我们也非常高兴地看到，无论是 Arale（及其背后的 SPM）、还是 KISSY，都已经开始去掉这一层实可省略的匿名函数。
-
-
-### Template - 模板
-
-通过 Oceanify，还可以直接 `require` HTML 文件，读入后是解析成 DOM，还是作为模板字符串处理，就悉听尊便了，比如：
-
-```js
-// 将会读入当前目录中的 template.html 文件
-var template = require('./template')
-
-require('mustache').render(template, { ... })
-```
-
-**2014-09-25 注**：这项特性是想抄袭 component.io，尚未实现，以后是否实现待定。
-
-
 ## Usage
 
 如果你的网站采用 Express 或者 Koa 开发，那么用 Oceanify 开发前端代码再合适不过。以 Express 为例，只需在 `app.js` 中添加如下代码即可：
@@ -131,6 +75,62 @@ oceanify.compileAll({ base: './components', dest: './public' })
 // 上面的 base 和 dest 为默认设置，因此也可以省略
 oceanify.compileAll()
 ```
+
+
+## Evolving Component - 前端组件演化
+
+### CommonJS - 一致的模块写法
+
+在前些年，模块加载器如雨后春笋一般冒出来，我们看到形形色色的写法，比如：
+
+- RequireJS
+- SeaJS
+- KISSY
+- KSLITE
+- ……等等
+
+详细的语法差别，我在这篇 [知乎回答][loaders] 里有所描述。
+
+此外，前三者还考虑到了前后端代码的问题，比如你可以直接在 Node 中：
+
+```js
+var seajs = require('seajs')
+
+seajs.use('some/module', function() {
+  // code
+})
+```
+
+但不管怎么说，这种代码共享方式都只是一种曲线救国。因为理论上说，能够在 Node 中运行的前端代码，去掉那层模块声明语法，本来就可以在 Node 中直接 `require`。比如把 SeaJS 的：
+
+```js
+define(function(require, exports, module) {
+  // factory code
+})
+```
+
+变成：
+
+```js
+// factory code
+```
+
+也就是用 CommonJS 的模块写法。这是我们做 Oceanify 的初衷之一。我们也非常高兴地看到，无论是 Arale（及其背后的 SPM）、还是 KISSY，都已经开始去掉这一层实可省略的匿名函数。
+
+
+### Template - 模板
+
+通过 Oceanify，还可以直接 `require` HTML 文件，读入后是解析成 DOM，还是作为模板字符串处理，就悉听尊便了，比如：
+
+```js
+// 将会读入当前目录中的 template.html 文件
+var template = require('./template')
+
+require('mustache').render(template, { ... })
+```
+
+**2014-09-25 注**：这项特性是想抄袭 component.io，尚未实现，以后是否实现待定。
+
 
 
 ## Facilities - 配套设施

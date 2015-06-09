@@ -1,4 +1,4 @@
-'use strict';
+'use strict'
 
 var Promise = require('native-or-bluebird')
 var path = require('path')

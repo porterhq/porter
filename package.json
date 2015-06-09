@@ -17,9 +17,11 @@
   },
   "devDependencies": {
     "expect.js": "^0.3.1",
-    "mocha": "^1.20.1"
+    "koa": "~0.21.0",
+    "mocha": "~2.2.5",
+    "supertest": "~1.0.1"
   },
   "scripts": {
-    "test": "rm -rf tmp ; DEBUG=oceanify mocha test/**/*.js"
+    "test": "rm -rf tmp ; DEBUG=oceanify mocha --harmony test/test.*.js"
   }
 }
