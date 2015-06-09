@@ -1,4 +1,4 @@
-'use strict';
+'use strict'
 
 var path = require('path')
 var fs = require('fs')
@@ -16,10 +16,9 @@ function oceanify(opts) {
   var encoding = opts.encoding || 'utf-8'
 
   bases = bases.map(function(base) {
-    if (base[0] !== '/' && !/^\w:/.test(base))
-      return path.join(cwd, base)
-    else
-      return base
+    return base[0] !== '/' && !/^\w:/.test(base)
+      ? path.join(cwd, base)
+      : base
   })
 
   var local = opts.local
@@ -28,8 +27,9 @@ function oceanify(opts) {
     if (!local) return
 
     for (var p in local) {
-      if (id.indexOf(p) === 0)
+      if (id.indexOf(p) === 0) {
         return path.resolve(cwd, local[p], path.relative(p, id))
+      }
     }
   }
 
@@ -65,20 +65,21 @@ function oceanify(opts) {
     var id = req.path.slice(1).replace(/\.js$/, '')
     var _bases = [].concat(bases)
 
-    function findComponent(id, callback) {
+    function findComponent(moduleId, callback) {
       var base = _bases.shift()
 
       if (!base) {
-        return callback(new Error('Cannot find component ' + id))
+        return callback(new Error('Cannot find component ' + moduleId))
       }
 
-      var fpath = (parseLocal(id) || path.join(base, stripVersion(id))) + '.js'
+      var fpath = (parseLocal(moduleId) || path.join(base, stripVersion(moduleId))) + '.js'
 
       fs.exists(fpath, function(exists) {
-        if (exists)
+        if (exists) {
           callback(null, fpath)
-        else
-          findComponent(id, callback)
+        } else {
+          findComponent(moduleId, callback)
+        }
       })
     }
 
