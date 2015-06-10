@@ -1,3 +1,9 @@
+3.0.2 / 2015-06-10
+==================
+
+ * Ignore test and components folder when publishing to npm
+ * Fix g.js
+
 
 3.0.1 / 2015-06-04
 ==================
