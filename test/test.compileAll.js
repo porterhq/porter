@@ -32,27 +32,27 @@ describe('compileAll', function() {
   var cwd = path.join(__dirname, 'example')
 
   function readPackage(name) {
-    return readFileAsync(path.join('node_modules', name, 'package.json'), 'utf-8')
+    return readFileAsync(path.join(cwd, 'node_modules', name, 'package.json'), 'utf-8')
       .then(JSON.parse)
   }
 
   it('should compile all modules', function(done) {
-    var modules = ['semver', 'heredoc']
+    var modules = ['inherits', 'heredoc']
 
     compileAll({
+      cwd: cwd,
       base: 'node_modules',
-      match: '{' + modules.join(',') + '}',
-      dest: 'tmp'
+      match: '{' + modules.join(',') + '}'
     })
       .then(function() {
         return Promise.all([
-          globAsync('./tmp/**/*.js'),
+          globAsync(path.join(cwd, 'public/**/*.js')),
           Promise.all(modules.map(readPackage))
         ])
       })
       .then(function(results) {
         var entries = results[0].map(function(entry) {
-          return entry.replace('./tmp/', '')
+          return path.relative(path.join(cwd, 'public'), entry)
         })
         var packages = results[1]
 
