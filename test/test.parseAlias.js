@@ -12,15 +12,15 @@ describe('parseAlias', function() {
       cwd: path.join(__dirname, 'example')
     })
 
-    expect(alias).to.eql({
-      'ma/nga': 'ma/nga-7e41e8e0',
-      'ma/saka/edit': 'ma/saka/edit-e03a6fb1',
-      yen: 'yen/1.2.3/index',
-      heredoc: 'heredoc/1.3.1/index',
-      'ez-editor': 'ez-editor/0.2.2/index',
-      crox: 'crox/1.2.7/build/crox-all-min',
-      'extend-object': 'extend-object/1.0.0/extend-object',
-      jquery: 'jquery/1.11.3/dist/jquery'
-    })
+    expect(alias['ma/nga']).to.match(/ma\/nga-[0-9a-f]{8}/)
+    expect(alias['ma/saka/edit']).to.match(/ma\/saka\/edit-[0-9a-f]{8}/)
+
+    expect(alias.yen).to.match(/yen\/\d+\.\d+\.\d+\/index/)
+    expect(alias.heredoc).to.match(/heredoc\/\d+\.\d+\.\d+\/index/)
+    expect(alias.inherits).to.match(/inherits\/\d+\.\d+\.\d+\/inherits_browser/)
+    expect(alias['ez-editor']).to.match(/ez-editor\/\d+\.\d+\.\d+\/index/)
+    expect(alias.crox).to.match(/crox\/\d+\.\d+\.\d+\/build\/crox-all-min/)
+    expect(alias['extend-object']).to.match(/extend-object\/\d+\.\d+\.\d+\/extend-object/)
+    expect(alias.jquery).to.match(/jquery\/\d+\.\d+\.\d+\/dist\/jquery/)
   })
 })
