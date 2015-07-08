@@ -29,12 +29,14 @@ function globAsync(pattern) {
 
 
 describe('compileAll', function() {
+  var cwd = path.join(__dirname, 'example')
+
   function readPackage(name) {
     return readFileAsync(path.join('node_modules', name, 'package.json'), 'utf-8')
       .then(JSON.parse)
   }
 
-  it('should compile all modules within specified dir', function(done) {
+  it('should compile all modules', function(done) {
     var modules = ['semver', 'heredoc']
 
     compileAll({
@@ -52,12 +54,32 @@ describe('compileAll', function() {
         var entries = results[0].map(function(entry) {
           return entry.replace('./tmp/', '')
         })
+        var packages = results[1]
 
-        var packages = results[1].map(function(pkg) {
-          return path.join(pkg.name, pkg.version, pkg.main || 'index.js')
+        packages.forEach(function(pkg) {
+          var id = path.join(pkg.name, pkg.version, pkg.main || 'index.js')
+          expect(entries.indexOf(id) >= 0).to.be(true)
         })
+        done()
+      })
+      .catch(done)
+  })
 
-        expect(entries.sort()).to.eql(packages.sort())
+  it('should compile all components', function(done) {
+    compileAll({
+      cwd: cwd,
+      base: 'components'
+    })
+      .then(function() {
+        return globAsync(path.join(cwd, 'public/**/*.js'))
+      })
+      .then(function(entries) {
+        return entries.map(function(entry) {
+          return path.relative(cwd, entry)
+        })
+      })
+      .then(function(entries) {
+        expect(entries.indexOf('public/ma/nga.js') >= 0).to.be(true)
         done()
       })
       .catch(done)

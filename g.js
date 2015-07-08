@@ -4,7 +4,7 @@ var Promise = require('native-or-bluebird')
 var oceanifyFactory = require('./index')
 
 
-module.exports = function(opts) {
+function oceanifyGenerator(opts) {
   var oceanify = oceanifyFactory(opts)
 
   function oceanifyAsync(req, res) {
@@ -25,3 +25,12 @@ module.exports = function(opts) {
     if (!this.body) yield next
   }
 }
+
+for (var p in oceanifyFactory) {
+  if (oceanifyFactory.hasOwnProperty(p)) {
+    oceanifyGenerator[p] = oceanifyFactory
+  }
+}
+
+
+module.exports = oceanifyGenerator

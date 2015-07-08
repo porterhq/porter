@@ -1,7 +1,8 @@
 'use strict'
 
-var app = require('../example')
 var request = require('supertest')
+
+var app = require('./example/app')
 
 
 describe('oceanify/g', function() {
