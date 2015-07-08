@@ -23,7 +23,7 @@
     "supertest": "~1.0.1"
   },
   "scripts": {
-    "test": "rm -rf test/example/public ; DEBUG=oceanify mocha --harmony --timeout 10000 test/test.*.js",
-    "cover": "istanbul cover _mocha test/test*.js -- --harmony --timeout 5000"
+    "test": "rm -rf test/example/public ; DEBUG=oceanify mocha --harmony --timeout 15000 test/test.*.js",
+    "cover": "istanbul cover _mocha test/test*.js -- --harmony --timeout 15000"
   }
 }

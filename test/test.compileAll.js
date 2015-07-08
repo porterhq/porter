@@ -38,7 +38,7 @@ describe('compileAll', function() {
       .catch(done)
   })
 
-  it('should compile all components and their depedencies', function(done) {
+  it('should compile all components and their dependencies', function(done) {
     compileAll({
       cwd: cwd,
       base: 'components'
