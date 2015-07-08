@@ -7,6 +7,15 @@ var parseAlias = require('../lib/parseAlias')
 
 
 describe('parseAlias', function() {
+  function hasAlias(actual, expected) {
+    var parts = expected.split('/')
+    var name = parts.shift()
+    var main = parts.join('\\/')
+    var regex = new RegExp('^' + name + '\\/[^\\/]+\\/' + main + '$')
+
+    return regex.test(actual)
+  }
+
   it('should parse dependenecies required in components', function() {
     var alias = parseAlias({
       cwd: path.join(__dirname, 'example')
@@ -15,12 +24,12 @@ describe('parseAlias', function() {
     expect(alias['ma/nga']).to.match(/ma\/nga-[0-9a-f]{8}/)
     expect(alias['ma/saka/edit']).to.match(/ma\/saka\/edit-[0-9a-f]{8}/)
 
-    expect(alias.yen).to.match(/yen\/\d+\.\d+\.\d+\/index/)
-    expect(alias.heredoc).to.match(/heredoc\/\d+\.\d+\.\d+\/index/)
-    expect(alias.inherits).to.match(/inherits\/\d+\.\d+\.\d+\/inherits_browser/)
-    expect(alias['ez-editor']).to.match(/ez-editor\/\d+\.\d+\.\d+\/index/)
-    expect(alias.crox).to.match(/crox\/\d+\.\d+\.\d+\/build\/crox-all-min/)
-    expect(alias['extend-object']).to.match(/extend-object\/\d+\.\d+\.\d+\/extend-object/)
-    expect(alias.jquery).to.match(/jquery\/\d+\.\d+\.\d+\/dist\/jquery/)
+    expect(hasAlias(alias.yen, 'yen/index')).to.be(true)
+    expect(hasAlias(alias.heredoc, 'heredoc/index')).to.be(true)
+    expect(hasAlias(alias.inherits, 'inherits/inherits_browser')).to.be(true)
+    expect(hasAlias(alias['ez-editor'], 'ez-editor/index')).to.be(true)
+    expect(hasAlias(alias.crox, 'crox/build/crox-all-min')).to.be(true)
+    expect(hasAlias(alias['extend-object'], 'extend-object/extend-object')).to.be(true)
+    expect(hasAlias(alias.jquery, 'jquery/dist/jquery')).to.be(true)
   })
 })

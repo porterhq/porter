@@ -1,50 +1,34 @@
 'use strict'
 
-var Promise = require('native-or-bluebird')
 var path = require('path')
 var expect = require('expect.js')
 var fs = require('fs')
 
 var compile = require('..').compile
+var parse = require('../lib/parse')
 
-var base = path.join(__dirname, 'example/node_modules/heredoc')
+var base = path.join(__dirname, 'example/components')
 var dest = path.join(__dirname, 'example/public')
 
 
-function readFile(fpath, encoding) {
-  return new Promise(function(resolve, reject) {
-    fs.readFile(fpath, encoding, function(err, content) {
-      if (err) reject(err)
-      else resolve(content)
-    })
-  })
-}
+var exists = fs.existsSync
+var readFile = fs.readFileSync
 
 
 describe('compile', function() {
-  var pkg
+  var fpath = path.join(base, 'ma/nga.js')
 
   before(function(done) {
-    readFile(path.join(base, 'package.json'), 'utf-8')
-      .then(JSON.parse)
-      .then(function(data) {
-        pkg = data
-        var id = 'heredoc/' + pkg.version + '/index.js'
-        var fpath = path.join(base, 'index.js')
-
-        return compile({ base: base, id: id, fpath: fpath, dest: dest })
-      })
+    compile({ base: base, fpath: fpath, dest: dest })
       .then(function() {
         done()
       })
       .catch(done)
   })
 
-  it('should insert version into the id of the compiled module', function(done) {
-    readFile(path.join(dest, 'heredoc/' + pkg.version + '/index.js'), 'utf-8')
-      .then(function(content) {
-        expect(content).to.contain('heredoc/' + pkg.version + '/index')
-      })
-      .then(done, done)
+  it('should generate the alias component', function() {
+    var meta = parse(readFile(fpath, 'utf-8'))
+    expect(exists(path.join(dest, 'ma/nga.js'))).to.be(true)
+    expect(exists(path.join(dest, 'ma/nga-' + meta.digest.slice(0, 8) + '.js'))).to.be(true)
   })
 })
