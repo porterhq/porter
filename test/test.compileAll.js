@@ -36,7 +36,7 @@ describe('compileAll', function() {
       .then(JSON.parse)
   }
 
-  it('should compile all modules', function(done) {
+  it('should compile matched modules', function(done) {
     var modules = ['inherits', 'heredoc']
 
     compileAll({
@@ -65,7 +65,7 @@ describe('compileAll', function() {
       .catch(done)
   })
 
-  it('should compile all components', function(done) {
+  it('should compile all components and their depedencies', function(done) {
     compileAll({
       cwd: cwd,
       base: 'components'
