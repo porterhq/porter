@@ -22,6 +22,6 @@
     "supertest": "~1.0.1"
   },
   "scripts": {
-    "test": "rm -rf tmp ; DEBUG=oceanify mocha --harmony test/test.*.js"
+    "test": "rm -rf test/example/public ; DEBUG=oceanify mocha --harmony test/test.*.js"
   }
 }

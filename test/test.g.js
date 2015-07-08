@@ -1,7 +1,22 @@
 'use strict'
 
-var request = require('supertest')
+/* eslint-disable no-eval */
+function hasGenerator() {
+  try {
+    eval('(function*(){})()')
+    return true
+  } catch (err) {
+    return false
+  }
+}
+/* eslint-enable no-eval */
 
+
+if (!hasGenerator()) {
+  return
+}
+
+var request = require('supertest')
 var app = require('./example/app')
 
 
