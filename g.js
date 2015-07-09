@@ -28,7 +28,7 @@ function oceanifyGenerator(opts) {
 
 for (var p in oceanifyFactory) {
   if (oceanifyFactory.hasOwnProperty(p)) {
-    oceanifyGenerator[p] = oceanifyFactory
+    oceanifyGenerator[p] = oceanifyFactory[p]
   }
 }
 
