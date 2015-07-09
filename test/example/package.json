@@ -3,7 +3,7 @@
   "description": "An example of oceanify",
   "version": "0.0.1",
   "dependencies": {
-    "crox": "~1.3.1",
+    "crox": "1.3.1",
     "express": "~4.13.1",
     "extend-object": "~1.0.0",
     "ez-editor": "~0.2.2",
@@ -12,5 +12,6 @@
     "jquery": "~1.11.2",
     "koa": "~0.21.0",
     "yen": "~1.2.1"
-  }
+  },
+  "license": "MIT"
 }
