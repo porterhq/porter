@@ -2,18 +2,25 @@
 
 var expect = require('expect.js')
 var path = require('path')
+var semver = require('semver')
 
 var parseAlias = require('../lib/parseAlias')
+var stripVersion = require('../lib/stripVersion')
 
 
 describe('parseAlias', function() {
-  function hasAlias(actual, expected) {
-    var parts = expected.split('/')
-    var name = parts.shift()
-    var main = parts.join('\\/')
-    var regex = new RegExp('^' + name + '\\/[^\\/]+\\/' + main + '$')
+  function hasVersion(actual, expected) {
+    if (/-[0-9a-f]{8}$/.test(actual)) {
+      return true
+    }
 
-    return regex.test(actual)
+    var parts = actual.split('/')
+
+    for (var i = 0, len = parts.length; i < len; i++) {
+      if (semver.valid(parts[i])) {
+        return true
+      }
+    }
   }
 
   it('should parse dependenecies required in components', function() {
@@ -21,15 +28,21 @@ describe('parseAlias', function() {
       cwd: path.join(__dirname, 'example')
     })
 
-    expect(alias['ma/nga']).to.match(/ma\/nga-[0-9a-f]{8}/)
-    expect(alias['ma/saka/edit']).to.match(/ma\/saka\/edit-[0-9a-f]{8}/)
+    for (var name in alias) {
+      expect(hasVersion(alias[name])).to.be(true)
+      alias[name] = stripVersion(alias[name])
+    }
 
-    expect(hasAlias(alias.yen, 'yen/index')).to.be(true)
-    expect(hasAlias(alias.heredoc, 'heredoc/index')).to.be(true)
-    expect(hasAlias(alias.inherits, 'inherits/inherits_browser')).to.be(true)
-    expect(hasAlias(alias['ez-editor'], 'ez-editor/index')).to.be(true)
-    expect(hasAlias(alias.crox, 'crox/build/crox-all-min')).to.be(true)
-    expect(hasAlias(alias['extend-object'], 'extend-object/extend-object')).to.be(true)
-    expect(hasAlias(alias.jquery, 'jquery/dist/jquery')).to.be(true)
+    expect(alias).to.eql({
+      'ma/nga': 'ma/nga',
+      'ma/saka/edit': 'ma/saka/edit',
+      yen: 'yen/index',
+      heredoc: 'heredoc/index',
+      inherits: 'inherits/inherits_browser',
+      'ez-editor': 'ez-editor/index',
+      crox: 'crox/build/crox-all-min',
+      'extend-object': 'extend-object/extend-object',
+      jquery: 'jquery/dist/jquery'
+    })
   })
 })

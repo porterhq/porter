@@ -2,12 +2,10 @@
 
 var path = require('path')
 var fs = require('fs')
-var semver = require('semver')
 
 var parse = require('./lib/parse')
 var define = require('./lib/define')
-
-var RE_DIGEST = /-[0-9a-f]{8}$/
+var stripVersion = require('./lib/stripVersion')
 
 
 function oceanify(opts) {
@@ -29,29 +27,6 @@ function oceanify(opts) {
       if (id.indexOf(p) === 0) {
         return path.resolve(cwd, local[p], path.relative(p, id))
       }
-    }
-  }
-
-  /*
-   * The req.path might be something like:
-   *
-   * - `/ink/0.2.0/index.js`
-   * - `/ink/0.2.0/lib/display_object.js`
-   *
-   * Use this method to remove the version part out of req.path.
-   *
-   * Should we implement version check against ./node_modules/ink/package.json here?
-   */
-  function stripVersion(id) {
-    if (RE_DIGEST.test(id)) {
-      return id.replace(RE_DIGEST, '')
-    }
-    else {
-      return id.split('/')
-        .filter(function(part) {
-          return !semver.valid(part)
-        })
-        .join('/')
     }
   }
 
