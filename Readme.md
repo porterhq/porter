@@ -2,6 +2,7 @@
 
 我们希望借助 Oceanify，让前端代码能够模块化开发，并且直接使用 NPM 分享。同时，我们希望 Oceanify 可以帮助压缩、发布前端代码。
 
+
 ## Usage
 
 如果你的网站采用 Express 或者 Koa 开发，那么用 Oceanify 开发前端代码再合适不过。以 Express 为例，只需在 `app.js` 中添加如下代码即可：
@@ -118,7 +119,7 @@ define(function(require, exports, module) {
 也就是用 CommonJS 的模块写法。这是我们做 Oceanify 的初衷之一。我们也非常高兴地看到，无论是 Arale（及其背后的 SPM）、还是 KISSY，都已经开始去掉这一层实可省略的匿名函数。
 
 
-### Template - 模板
+### Template - 模板（未实现）
 
 通过 Oceanify，还可以直接 `require` HTML 文件，读入后是解析成 DOM，还是作为模板字符串处理，就悉听尊便了，比如：
 
@@ -131,6 +132,16 @@ require('mustache').render(template, { ... })
 
 **2014-09-25 注**：这项特性是想抄袭 component.io，尚未实现，以后是否实现待定。
 
+
+## Tribute
+
+### cmd-util
+
+`lib/cmd-util` 来自 [cmd-util][cmd-util] 模块，源自 @[lepture][1] 的杰出工作。
+
+放入 oceanify 是为了方便集成 deheredoc 功能，以及确保 oceanify 和 cmd-util 中使用的
+UglifyJS 是同一份（不然假如我传入 oceanify 中解析好的 UglifyJS AST，在 cmd-util 里
+用 `instanceof` 判断语法节点类型就会出问题）。
 
 
 ## Facilities - 配套设施
@@ -157,3 +168,5 @@ Oceanify 本身不提供发布到 CDN 的功能，不过为了方便模块复用
 [yen]: https://github.com/erzu/yen
 [oceanify-example]: https://github.com/erzu/oceanify-example
 [oceanifier]: https://github.com/erzu/oceanifier
+[cmd-util]: https://www.npmjs.com/package/cmd-util
+[1]: https://github.com/lepture

@@ -1,5 +1,9 @@
 node_modules
 tmp
+coverage
+
+test/example/public
+test/example/node_modules
 
 .DS_Store
 *~

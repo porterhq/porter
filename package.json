@@ -16,12 +16,14 @@
     "uglify-js": "~2.4.23"
   },
   "devDependencies": {
-    "expect.js": "^0.3.1",
-    "koa": "~0.21.0",
+    "bluebird": "~2.9.32",
+    "expect.js": "~0.3.1",
+    "istanbul": "~0.3.17",
     "mocha": "~2.2.5",
     "supertest": "~1.0.1"
   },
   "scripts": {
-    "test": "rm -rf tmp ; DEBUG=oceanify mocha --harmony test/test.*.js"
+    "test": "rm -rf test/example/public ; DEBUG=oceanify mocha --harmony --timeout 15000 test/test.*.js",
+    "cover": "istanbul cover _mocha test/test*.js -- --harmony --timeout 15000"
   }
 }
