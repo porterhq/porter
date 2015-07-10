@@ -1,3 +1,13 @@
+3.1.0 / 2015-07-10
+==================
+
+ * Drafted english readme
+ * Expose stripVersion; fixed compileAll for names like @foo/bar
+ * Added _compileTree and `npm run cover`
+ * Installed bluebird as devDependency for node@0.10 testing
+ * Added `oceanify.parseAlias` helper
+
+
 3.0.2 / 2015-06-10
 ==================
 
