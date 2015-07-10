@@ -1,11 +1,117 @@
-# Oceanify - 前端模块化
+# Oceanify
 
-我们希望借助 Oceanify，让前端代码能够模块化开发，并且直接使用 NPM 分享。同时，我们希望 Oceanify 可以帮助压缩、发布前端代码。
+Oceanify is yet another solution for front end modularization. It features
+module transformation on the fly and a swift setup.
+
+
+## Goal
+
+Oceanify enables you to share and utilize front end modules to and from NPM.
+It provides a way to somehow different than browserify and webpack for front
+end module authoring in CommonJS module definition.
+
+With Oceanify, you can organize your browser modules and their dependencies like
+this:
+
+```bash
+.
+├── components          # browser modules
+│   ├── arale
+│   │   └── upload.js
+│   └── main.js
+└── node_modules        # with browser modules' dependencies installed via NPM
+    └── yen
+        ├── events.js
+        ├── index.js
+        └── support.js
+```
+
+Here's `main.js` would look like:
+
+```js
+var $ = require('yen')              // require a module from node_modules
+var Upload = require('arale/upload')  // require other modules in components
+
+
+var upload = new Upload('#btn-upload', { ... })
+
+$('form').on('submit', function() {
+  // ...
+})
+```
 
 
 ## Usage
 
-如果你的网站采用 Express 或者 Koa 开发，那么用 Oceanify 开发前端代码再合适不过。以 Express 为例，只需在 `app.js` 中添加如下代码即可：
+To use Oceanify one must be aware that there two version of it. The one you're
+reading about is a middleware for Express and Koa. The other is a command line
+tool built upon Oceanify, called Oceanifier, which is a little bit mouthful to
+pronounce.
+
+Anyway, to use Oceanify in your Express instance, just `app.use` it.
+
+```js
+var express = require('express')
+var oceanify = require('oceanify')
+
+var app = express()
+
+// that's it
+app.use(oceanify())
+```
+
+If you'd prefer your frontend modules in some other names rather than the
+default `components`, you can tell Oceanify that with the base option.
+
+```js
+app.use(oceanify({ base: 'browser_modules' }))
+```
+
+If Koa is the framework you're using, `require('oceanify/g')` instead.
+
+```js
+var koa = require('koa')
+var oceanify = require('oceanify')
+
+var app = koa()
+
+// that's it
+app.use(oceanify())
+```
+
+
+## Deployment
+
+Oceanfiy provides a static method for assets precompilation. It's called
+`oceanify.compileAll()`.
+
+```js
+var oceanify = require('oceanify')
+
+// Specify the entry modules
+oceanify.compileAll({ base: './components', dest: './public' })
+
+// You can omit the options since they're the defaults.
+oceanify.compileAll()
+```
+
+Oceanify will compile all the modules within `components` directory, find their
+dependencies in `node_modules` directory and compile them too.
+
+You can try the one in [Oceanify Example][oceanify-example]. Just execute
+`npm run precompile`.
+
+
+# Oceanify 前端模块化
+
+我们希望借助 Oceanify，让前端代码能够模块化开发，并且直接使用 NPM 分享。同时，我们希望
+Oceanify 可以帮助压缩、发布前端代码。
+
+
+## Usage - 用法
+
+如果你的网站采用 Express 或者 Koa 开发，那么用 Oceanify 开发前端代码再合适不过。以
+Express 为例，只需在 `app.js` 中添加如下代码即可：
 
 ```js
 var oceanify = require('oceanify')
@@ -13,11 +119,13 @@ var oceanify = require('oceanify')
 // 使用默认设置
 app.use(oceanify())
 
-// 指定前端代码所在目录，默认为 ./components，基准路径为 process.cwd()，即 Express 应用的根目录
+// 指定前端代码所在目录，默认为 ./components，基准路径为 process.cwd()，
+// 即 Express 应用的根目录
 app.use(oceanify({ base: './components' }))
 ```
 
-如果你用的开发框架是 Koa，改为 `require('oceanify/g')` 即可，这个函数将返回可供 Koa 使用的 generator function。
+如果你用的开发框架是 Koa，改为 `require('oceanify/g')` 即可，这个函数将返回可供 Koa
+使用的 generator function。
 
 不管是 Express 还是 Koa，比较推荐 Web 应用的目录结构如下：
 
@@ -37,7 +145,9 @@ app.use(oceanify({ base: './components' }))
         └── support.js
 ```
 
-不管是 components 还是 node_modules 中的模块，oceanify 都能够将它们封装为前端模块加载器所能接收的写法。所以在上述文件结构中，我们可以在 components 的模块中使用 [yen][yen] 模块，也可以 `require` components 中的兄弟模块：
+不管是 components 还是 node_modules 中的模块，oceanify 都能够将它们封装为前端模块加载器
+所能接收的写法。所以在上述文件结构中，我们可以在 components 的模块中使用 [yen][yen] 模块，
+也可以 `require` components 中的其他模块：
 
 ```js
 // components/papercut/index.js
@@ -58,14 +168,14 @@ define('papercut/index', ['yen', 'arale/upload'], function() {
 })
 ```
 
-还可以参考使用 connect 与 oceanify 搭建的 [Oceanify Example][oceanify-example]。
+还可以参考使用 koa 与 oceanify 搭建的 [Oceanify Example][oceanify-example]。
 
 
 ## Deployment - 部署时
 
 ### Compilation - 编译
 
-利用 `oceanify.compile()` 与 `oceanify.compileAll()` 方法，可以很方便地在部署时压缩代码。
+可以用 `oceanify.compileAll()` 方法帮你压缩代码。
 
 ```js
 var oceanify = require('oceanify')
@@ -76,6 +186,12 @@ oceanify.compileAll({ base: './components', dest: './public' })
 // 上面的 base 和 dest 为默认设置，因此也可以省略
 oceanify.compileAll()
 ```
+
+Oceanify 将会编译所有 `components` 目录中的模块，并找出这些模块依赖的外部（那些通过
+NPM 安装，放在 `node_modules` 目录下的）模块，然后一并编译掉。
+
+可以在 [Oceanify Example][oceanify-example] 里尝试编译，执行 `npm run precompile`
+即可。
 
 
 ## Evolving Component - 前端组件演化
@@ -148,24 +264,29 @@ UglifyJS 是同一份（不然假如我传入 oceanify 中解析好的 UglifyJS 
 
 ### Oceanifier - 命令行工具
 
-Oceanify 本身不提供发布到 CDN 的功能，不过为了方便模块复用，也方便不使用 Oceanify 的前端工程师也能使用基于 Oceanify 开发的前端模块，模块开发者可以使用 [Oceanifier][oceanifier] 命令行工具发布模块代码到 CDN：
+为了让不方便使用 Oceanify 的前端工程师也能享受 Oceanify 带来的便利，我们还提供了
+[Oceanifier][oceanifier] 命令行工具。使用 Oceanifier，我们不搭建 Express 或者 Koa
+服务，也可以使用 CommonJS 的模块写法。
 
-```js
-➜  belt git:(master) oceanify deploy
-```
+在我们提供的 [Oceanify Example][oceanify-example] 里，运行 Oceanifier 提供的命令
+`oceanify serve`，同样也能打开我们的效果演示。
 
-将会压缩模块代码，合并 index.js 的依赖，并推送到 CDN。
+因此，如果没条件自己搭服务，就试试 Oceanifier 跑静态环境吧。
 
-此外，Oceanifier 还集成了许多对单个模块开发非常有帮助的功能，快 [去看看][oceanifier] 吧。
+此外，Oceanifier 还集成了许多对单个模块开发非常有帮助的功能，我们有许多模块（[yen][yen]、
+[ez-editor][ez-editor] 等）都是使用 Oceanifier 管理的，快 [去看看][oceanifier]。
 
 
 ### Oceanify Example - Oceanify 使用示例
 
-为了方便理解 Oceanify 的好处，我们专门开发了一个与业务无关的 [Oceanify 示例][oceanify-example]，在其中演示了如何在一个 Node Web 应用中使用 NPM 安装外部前端模块，以及如何在应用中开发自有模块。
+为了方便理解 Oceanify 的好处，我们专门开发了一个与业务无关的
+[Oceanify 示例][oceanify-example]，在其中演示了如何在一个 Node Web 应用中使用 NPM
+安装外部前端模块，以及如何在应用中开发自有模块。
 
 
 [loaders]: http://www.zhihu.com/question/22739468/answer/29949594
 [yen]: https://github.com/erzu/yen
+[ez-editor]: https://github.com/erzu/ez-editor
 [oceanify-example]: https://github.com/erzu/oceanify-example
 [oceanifier]: https://github.com/erzu/oceanifier
 [cmd-util]: https://www.npmjs.com/package/cmd-util
