@@ -7,8 +7,8 @@ module transformation on the fly and a swift setup.
 ## Goal
 
 Oceanify enables you to share and utilize front end modules to and from NPM.
-It provides a way to somehow different than browserify and webpack for front
-end module authoring in CommonJS module definition.
+It provides a way that is somehow different from browserify and webpack for
+browser module authoring in CommonJS module definition.
 
 With Oceanify, you can organize your browser modules and their dependencies like
 this:
@@ -43,10 +43,10 @@ $('form').on('submit', function() {
 
 ## Usage
 
-To use Oceanify one must be aware that there two version of it. The one you're
-reading about is a middleware for Express and Koa. The other is a command line
-tool built upon Oceanify, called Oceanifier, which is a little bit mouthful to
-pronounce.
+To use Oceanify one must be aware that there are two versions of it. The one
+you're reading about is a middleware for Express and Koa. The other is a command
+line tool built upon Oceanify, called Oceanifier, which is a little bit mouthful
+to pronounce.
 
 Anyway, to use Oceanify in your Express instance, just `app.use` it.
 
