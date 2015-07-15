@@ -1,3 +1,10 @@
+3.1.1 / 2015-07-15
+==================
+
+ * Added alias value check in `.compileAll`
+ * Format readme
+
+
 3.1.0 / 2015-07-10
 ==================
 
