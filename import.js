@@ -3,7 +3,7 @@
 (function(global) {
 
   var registry = {}
-  var system = {}
+  var system = { base: '' }
 
 
   var ArrayFn = Array.prototype
@@ -33,38 +33,41 @@
   function request(url, callback) {
     var el = doc.createElement('script')
 
+    onload(el, function(err) {
+      el.onload = el.onerror = el.onreadystatechange = null
+      // head.removeChild(el)
+      el = null
+      callback(err)
+    })
+    el.async = true
+    el.src = url
+
+    head.insertBefore(el, baseElement)
+  }
+
+  function onload(el, callback) {
     if ('onload' in el) {
       el.onload = function() {
-        onload()
+        callback()
       }
       el.onerror = function() {
-        onload(new Error('Failed to fetch ' + url))
+        callback(new Error('Failed to fetch ' + el.src))
       }
     }
     else {
       el.onreadystatechange = function() {
         if (/loaded|complete/.test(el.readyState)) {
-          onload()
+          callback()
+        } else {
+          callback(new Error('Failed with wrong state ' + el.readyState))
         }
       }
-    }
-
-    el.async = true
-    el.src = url
-
-    head.insertBefore(el, baseElement)
-
-    function onload(err) {
-      el.onload = el.onerror = el.onreadystatechange = null
-      // head.removeChild(el)
-      el = null
-      callback(err)
     }
   }
 
 
   var RE_DIRNAME = /([^?#]*)\//
-  var RE_DUPLICATED_SLASH = /\/\/+/g
+  var RE_DUPLICATED_SLASH = /([^:])\/\/+/g
 
   function dirname(fpath) {
     var m = fpath.match(RE_DIRNAME)
@@ -96,7 +99,7 @@
       if (levels[i] === '.') levels.splice(i, 1)
     }
 
-    return levels.join('/').replace(RE_DUPLICATED_SLASH, '/')
+    return levels.join('/').replace(RE_DUPLICATED_SLASH, '$1/')
   }
 
 
@@ -262,7 +265,7 @@
   Module.resolve = function(id, context) {
     var map = system.modules
 
-    if (!map) return id
+    if (!map || !context) return id
 
     if (id.charAt(0) === '.') {
       return resolve(dirname(context), id)
@@ -289,12 +292,6 @@
     }
   }
 
-  Module.use = function(id) {
-    id = Module.resolve(id)
-    var mod = registry[id] || new Module(id)
-    mod.fetch()
-  }
-
 
   global.define = function define(id, deps, factory) {
     if (!factory) {
@@ -319,13 +316,24 @@
   global.system = system
 
 
-  var scripts = doc.scripts || doc.getElementsByTagName('script')
-  var currentScript = scripts[scripts.length - 1]
+  function bootstrap() {
+    var scripts = doc.scripts || doc.getElementsByTagName('script')
+    var currentScript = scripts[scripts.length - 1]
+    var parts = currentScript.src.split('/')
 
-  ;['import', 'base'].forEach(function(prop) {
-    system[prop] = currentScript.getAttribute('data-' + prop)
-  })
+    for (var i = 0, len = parts.length; i < len; i++) {
+      if (/^(?:app|imports|main|runner)\b/.test(parts[i])) {
+        system.base = parts.slice(0, i).join('/')
+        system.import = parts.slice(i).join('/').replace(/\.js$/, '')
+      }
+    }
 
-  Module.use(system.import)
+    onload(currentScript, function() {
+      var id = Module.resolve(system.import)
+      registry[id].resolve()
+    })
+  }
+
+  bootstrap()
 
 })(this)

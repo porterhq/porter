@@ -10,6 +10,8 @@ var parseMap = require('./lib/parseMap')
 var flattenMap = require('./lib/flattenMap')
 var define = require('./lib/define')
 
+var loader = fs.readFileSync(path.join(__dirname, 'import.js'))
+
 
 function readFile(fpath, encoding) {
   return new Promise(function(resolve, reject) {
@@ -110,10 +112,6 @@ function oceanify(opts) {
       return next()
     }
 
-    if (req.path === '/import.js') {
-      return sendFile('import.js')
-    }
-
     var id = req.path.slice(1).replace(/\.js$/, '')
 
     function sendComponent(err, factory) {
@@ -121,25 +119,17 @@ function oceanify(opts) {
         return err.code === 'ENOENT' ? send404() : next(err)
       }
 
-      var body = define(id, matchRequire.findAll(factory), factory)
+      var content = define(id, matchRequire.findAll(factory), factory)
 
-      if (/^(?:app|runner|main)\b/.test(id)) {
-        body = [
+      if (/^(?:app|imports|main|runner)\b/.test(id)) {
+        content = [
+          loader,
           define('system', [], 'module.exports = ' + JSON.stringify(system)),
-          body
+          content
         ].join('\n')
       }
 
-      sendContent(body)
-    }
-
-    function sendFile(fname) {
-      var fpath = path.join(__dirname, fname)
-
-      fs.readFile(fpath, encoding, function(err, content) {
-        if (err) next(err)
-        else sendContent(content)
-      })
+      sendContent(content)
     }
 
     function sendContent(content) {
