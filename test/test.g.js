@@ -32,7 +32,6 @@ describe('oceanify/g', function() {
   })
 
   it('should have got all the static methods', function() {
-    expect(oceanify.parseAlias).to.be.a('function')
     expect(oceanify.compileAll).to.be.a('function')
   })
 })

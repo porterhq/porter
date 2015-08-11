@@ -11,7 +11,15 @@
     "inherits": "~2.0.1",
     "jquery": "~1.11.2",
     "koa": "~0.21.0",
-    "yen": "~1.2.1"
+    "koa-static": "~1.4.9",
+    "yen": "1.2.4"
   },
-  "license": "MIT"
+  "scripts": {
+    "start": "node-dev --harmony app.js",
+    "express": "node express.js"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "node-dev": "~2.6.2"
+  }
 }

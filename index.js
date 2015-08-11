@@ -2,33 +2,100 @@
 
 var path = require('path')
 var fs = require('fs')
+var co = require('co')
+var semver = require('semver')
+var matchRequire = require('match-require')
 
-var parse = require('./lib/parse')
+var parseMap = require('./lib/parseMap')
+var flattenMap = require('./lib/flattenMap')
 var define = require('./lib/define')
-var stripVersion = require('./lib/stripVersion')
 
 
-function oceanify(opts) {
-  opts = opts || {}
-  var bases = ['node_modules', opts.base || 'components']
-  var encoding = opts.encoding || 'utf-8'
-  var cwd = opts.cwd || process.cwd()
-
-  bases = bases.map(function(base) {
-    return base[0] !== '/' && !/^\w:/.test(base)
-      ? path.join(cwd, base)
-      : base
+function readFile(fpath, encoding) {
+  return new Promise(function(resolve, reject) {
+    fs.readFile(fpath, encoding, function(err, content) {
+      if (err) reject(err)
+      else resolve(content)
+    })
   })
+}
 
-  var local = opts.local
 
-  function parseLocal(id) {
-    for (var p in local) {
-      if (id.indexOf(p) === 0) {
-        return path.resolve(cwd, local[p], path.relative(p, id))
-      }
+/*
+ * Find the path of a module in the dependencies map.
+ */
+function findModule(mod, dependenciesMap) {
+  var props = []
+
+  function walk(map) {
+    var name = mod.name
+
+    if (name in map && map[name].version === mod.version) {
+      return path.join(map[name].dir, mod.entry)
+    }
+
+    for (name in map) {
+      props.push(name)
+      var result = walk(map[name].dependencies)
+      if (result) return result
+      props.pop()
     }
   }
+
+  return walk(dependenciesMap)
+}
+
+
+function parseId(id, system) {
+  var parts = id.split('/')
+  var name = parts.shift()
+
+  if (name.charAt(0) === '@') {
+    name += '/' + parts.shift()
+  }
+
+  if (name in system.modules) {
+    var version = semver.valid(parts[0]) ? parts.shift() : ''
+
+    return {
+      name: name,
+      version: version,
+      entry: parts.join('/')
+    }
+  }
+  else {
+    return { name: id }
+  }
+}
+
+
+/*
+ * Factory
+ */
+function oceanify(opts) {
+  opts = opts || {}
+  var encoding = 'utf-8'
+  var cwd = opts.cwd || process.cwd()
+  var base = path.resolve(cwd, opts.base || 'components')
+
+  var dependenciesMap
+  var system
+
+  var parseLocal = co.wrap(function* (result) {
+    if (!opts.local) return result
+
+    var content = yield readFile(path.join(cwd, 'package.json'), encoding)
+    var pkg = JSON.parse(content)
+
+    result[pkg.name] = {
+      dir: cwd,
+      version: pkg.version,
+      main: pkg.main || 'index'
+    }
+
+    return result
+  })
+
 
   return function(req, res, next) {
     if (!req.path) {
@@ -39,66 +106,102 @@ function oceanify(opts) {
       })
     }
 
-    if (path.extname(req.path) !== '.js') return next()
+    if (path.extname(req.path) !== '.js') {
+      return next()
+    }
+
+    if (req.path === '/import.js') {
+      return sendFile('import.js')
+    }
 
     var id = req.path.slice(1).replace(/\.js$/, '')
-    var _bases = [].concat(bases)
 
-    function findComponent(moduleId, callback) {
-      var base = _bases.shift()
-
-      if (!base) {
-        return callback(new Error('Cannot find component ' + moduleId))
+    function sendComponent(err, factory) {
+      if (err) {
+        return err.code === 'ENOENT' ? send404() : next(err)
       }
 
-      var fpath = local
-        ? parseLocal(moduleId)
-        : path.join(base, stripVersion(moduleId)) + '.js'
+      var body = define(id, matchRequire.findAll(factory), factory)
 
-      fs.exists(fpath, function(exists) {
-        if (exists) {
-          callback(null, fpath)
-        } else {
-          findComponent(moduleId, callback)
-        }
+      if (/^(?:app|runner|main)\b/.test(id)) {
+        body = [
+          define('system', [], 'module.exports = ' + JSON.stringify(system)),
+          body
+        ].join('\n')
+      }
+
+      sendContent(body)
+    }
+
+    function sendFile(fname) {
+      var fpath = path.join(__dirname, fname)
+
+      fs.readFile(fpath, encoding, function(err, content) {
+        if (err) next(err)
+        else sendContent(content)
       })
     }
 
-    function sendComponent(err, factory) {
-      if (err) return next(err)
-
-      var deps = parse(factory).dependencies
-      var body = define({ id: id, dependencies: deps, factory: factory })
-
+    function sendContent(content) {
       if (res.is) {
         res.status = 200
         res.type = 'application/javascript'
-        res.body = body
+        res.body = content
         next()
       }
       else {
         res.statusCode = 200
         res.setHeader('Content-Type', 'application/javascript')
-        res.write(body, encoding)
+        res.write(content, encoding)
         res.end()
       }
     }
 
-    findComponent(id, function(err, fpath) {
-      if (err) return next(err)
-      fs.readFile(fpath, encoding, sendComponent)
-    })
+    function send404() {
+      if (res.is) {
+        res.status = 404
+        next()
+      }
+      else {
+        res.statusCode = 404
+        res.end()
+      }
+    }
+
+    function main() {
+      var mod = parseId(id, system)
+      var fpath
+
+      fpath = mod.name in system.modules
+        ? findModule(mod, dependenciesMap)
+        : path.join(base, mod.name)
+
+      if (fpath) {
+        fs.readFile(fpath + '.js', encoding, sendComponent)
+      } else {
+        send404()
+      }
+    }
+
+    if (system) {
+      main()
+    } else {
+      parseMap(opts).then(parseLocal).then(function(result) {
+        dependenciesMap = result
+        system = flattenMap(result)
+        main()
+      }, next)
+    }
   }
 }
 
 
-oceanify.parseDependencies = function(code) {
-  return parse(code).dependencies
-}
-oceanify.parseAlias = require('./lib/parseAlias')
-oceanify.compile = require('./lib/compile')
-oceanify.compileAll = require('./lib/compileAll')
-oceanify.compileModule = require('./lib/compileModule')
+var compileAll = require('./lib/compileAll')
+
+oceanify.parseMap = parseMap
+oceanify.compileAll = compileAll.compileAll
+oceanify.compileComponent = compileAll.compileComponent
+oceanify.compileModule = compileAll.compileModule
 
 
 // Expose oceanify
