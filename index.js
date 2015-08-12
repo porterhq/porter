@@ -116,7 +116,7 @@ function oceanify(opts) {
 
     function sendComponent(err, factory) {
       if (err) {
-        return err.code === 'ENOENT' ? send404() : next(err)
+        return next(err.code === 'ENOENT' ? null : err)
       }
 
       var content = define(id, matchRequire.findAll(factory), factory)
@@ -147,17 +147,6 @@ function oceanify(opts) {
       }
     }
 
-    function send404() {
-      if (res.is) {
-        res.status = 404
-        next()
-      }
-      else {
-        res.statusCode = 404
-        res.end()
-      }
-    }
-
     function main() {
       var mod = parseId(id, system)
       var fpath
@@ -169,7 +158,7 @@ function oceanify(opts) {
       if (fpath) {
         fs.readFile(fpath + '.js', encoding, sendComponent)
       } else {
-        send404()
+        next()
       }
     }
 

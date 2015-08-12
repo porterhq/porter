@@ -8,6 +8,7 @@ var oceanify = require('../../g')
 
 var app = koa()
 app.use(serve('public'))
+app.use(serve('views'))
 app.use(oceanify({ cwd: __dirname }))
 
 

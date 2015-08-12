@@ -290,7 +290,7 @@ UglifyJS 是同一份（不然假如我传入 oceanify 中解析好的 UglifyJS 
 [loaders]: http://www.zhihu.com/question/22739468/answer/29949594
 [yen]: https://github.com/erzu/yen
 [ez-editor]: https://github.com/erzu/ez-editor
-[oceanify-example]: https://github.com/erzu/oceanify-example
+[oceanify-example]: https://github.com/erzu/oceanify/test/example
 [oceanifier]: https://github.com/erzu/oceanifier
 [cmd-util]: https://www.npmjs.com/package/cmd-util
 [1]: https://github.com/lepture
