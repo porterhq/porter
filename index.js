@@ -161,7 +161,7 @@ function oceanify(opts) {
 
       var content = define(id, matchRequire.findAll(factory), factory)
 
-      if (/^(?:main|runner)\b/.test(id) || 'import' in req.query) {
+      if (/^(?:main|runner)\b/.test(id) || 'main' in req.query) {
         content = [
           loader,
           define('system', [], 'module.exports = ' + JSON.stringify(system)),
