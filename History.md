@@ -1,3 +1,16 @@
+
+4.0.0 / 2015-08-19
+==================
+
+  * Add homepage of test/example.
+  * Drop support of Node 0.10 and 0.11.
+  * Expose `.compileModule` and `.compileComponent` instead.
+  * Dropped sea.js depedency, use a homebrewed loader instead.
+  * With the customized loader, we now support recursive dependencies.
+  * And simplified the entry `<script>` as `<script src="/main.js"></script>`.
+  * Parse dependencies map automatically.
+
+
 3.1.1 / 2015-07-15
 ==================
 
