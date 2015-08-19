@@ -20,7 +20,7 @@ function oceanifyGenerator(opts) {
     try {
       yield oceanifyAsync(this.request, this.response)
     }
-    catch (e) { /* Ignore not found error */ }
+    catch (e) { console.error(e.stack) /* Ignore not found error */ }
 
     if (!this.body) yield next
   }

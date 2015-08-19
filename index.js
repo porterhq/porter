@@ -2,33 +2,142 @@
 
 var path = require('path')
 var fs = require('fs')
+var co = require('co')
+var semver = require('semver')
+var matchRequire = require('match-require')
 
-var parse = require('./lib/parse')
+var parseMap = require('./lib/parseMap')
+var flattenMap = require('./lib/flattenMap')
 var define = require('./lib/define')
-var stripVersion = require('./lib/stripVersion')
+var compileAll = require('./lib/compileAll')
+
+var loader = fs.readFileSync(path.join(__dirname, 'import.js'))
 
 
-function oceanify(opts) {
-  opts = opts || {}
-  var bases = ['node_modules', opts.base || 'components']
-  var encoding = opts.encoding || 'utf-8'
-  var cwd = opts.cwd || process.cwd()
-
-  bases = bases.map(function(base) {
-    return base[0] !== '/' && !/^\w:/.test(base)
-      ? path.join(cwd, base)
-      : base
+function readFile(fpath, encoding) {
+  return new Promise(function(resolve, reject) {
+    fs.readFile(fpath, encoding, function(err, content) {
+      if (err) reject(err)
+      else resolve(content)
+    })
   })
+}
 
-  var local = opts.local
 
-  function parseLocal(id) {
-    for (var p in local) {
-      if (id.indexOf(p) === 0) {
-        return path.resolve(cwd, local[p], path.relative(p, id))
-      }
+/*
+ * Find the path of a module in the dependencies map.
+ */
+function findModule(mod, dependenciesMap) {
+  var props = []
+
+  function walk(map) {
+    var name = mod.name
+
+    if (name in map && map[name].version === mod.version) {
+      return path.join(map[name].dir, mod.entry)
+    }
+
+    for (name in map) {
+      props.push(name)
+      var result = walk(map[name].dependencies)
+      if (result) return result
+      props.pop()
     }
   }
+
+  return walk(dependenciesMap)
+}
+
+
+function parseId(id, system) {
+  var parts = id.split('/')
+  var name = parts.shift()
+
+  if (name.charAt(0) === '@') {
+    name += '/' + parts.shift()
+  }
+
+  if (name in system.modules) {
+    var version = semver.valid(parts[0]) ? parts.shift() : ''
+
+    return {
+      name: name,
+      version: version,
+      entry: parts.join('/')
+    }
+  }
+  else {
+    return { name: id }
+  }
+}
+
+
+/*
+ * Factory
+ */
+function oceanify(opts) {
+  opts = opts || {}
+  var encoding = 'utf-8'
+  var cwd = opts.cwd || process.cwd()
+  var base = path.resolve(cwd, opts.base || 'components')
+
+  var dependenciesMap
+  var system
+
+  function* parseLocal(result) {
+    if (!opts.local) return result
+
+    var content = yield readFile(path.join(cwd, 'package.json'), encoding)
+    var pkg = JSON.parse(content)
+
+    result[pkg.name] = {
+      dir: cwd,
+      version: pkg.version,
+      main: pkg.main || 'index'
+    }
+
+    return result
+  }
+
+  var parseSystemPromise = co(function* () {
+    dependenciesMap = yield* parseLocal(yield parseMap(opts))
+    system = flattenMap(dependenciesMap)
+  })
+
+  var cacheModulePromise = Promise.resolve()
+  var cacheModuleList = []
+
+  function cacheModule(mod) {
+    if (cacheModuleList.indexOf(mod.name + '/' + mod.version) >= 0) return
+
+    var pkg = system.modules[mod.name][mod.version]
+    var main = pkg.main
+      ? pkg.main.replace(/^\.\//, '').replace(/\.js$/, '')
+      : 'index'
+
+    if (main === mod.entry) {
+      var fpath = findModule(mod, dependenciesMap)
+
+      while (!/node_modules$/.test(fpath)) {
+        fpath = path.dirname(fpath)
+      }
+
+      cacheModulePromise.then(function() {
+        return oceanify.compileModule({
+          base: fpath,
+          name: mod.name,
+          main: main,
+          version: mod.version,
+          dest: opts.dest
+        }).catch(function(err) {
+          console.error(err.stack)
+        })
+      })
+
+      cacheModuleList.push(mod.name + '/' + mod.version)
+    }
+  }
+
 
   return function(req, res, next) {
     if (!req.path) {
@@ -39,66 +148,77 @@ function oceanify(opts) {
       })
     }
 
-    if (path.extname(req.path) !== '.js') return next()
-
-    var id = req.path.slice(1).replace(/\.js$/, '')
-    var _bases = [].concat(bases)
-
-    function findComponent(moduleId, callback) {
-      var base = _bases.shift()
-
-      if (!base) {
-        return callback(new Error('Cannot find component ' + moduleId))
-      }
-
-      var fpath = local
-        ? parseLocal(moduleId)
-        : path.join(base, stripVersion(moduleId)) + '.js'
-
-      fs.exists(fpath, function(exists) {
-        if (exists) {
-          callback(null, fpath)
-        } else {
-          findComponent(moduleId, callback)
-        }
-      })
+    if (path.extname(req.path) !== '.js') {
+      return next()
     }
 
+    var id = req.path.slice(1).replace(/\.js$/, '')
+
     function sendComponent(err, factory) {
-      if (err) return next(err)
+      if (err) {
+        return next(err.code === 'ENOENT' ? null : err)
+      }
 
-      var deps = parse(factory).dependencies
-      var body = define({ id: id, dependencies: deps, factory: factory })
+      var content = define(id, matchRequire.findAll(factory), factory)
 
+      if (/^(?:app|imports|main|runner)\b/.test(id)) {
+        content = [
+          loader,
+          define('system', [], 'module.exports = ' + JSON.stringify(system)),
+          content
+        ].join('\n')
+      }
+
+      sendContent(content)
+    }
+
+    function sendContent(content) {
       if (res.is) {
         res.status = 200
         res.type = 'application/javascript'
-        res.body = body
+        res.body = content
         next()
       }
       else {
         res.statusCode = 200
         res.setHeader('Content-Type', 'application/javascript')
-        res.write(body, encoding)
+        res.write(content, encoding)
         res.end()
       }
     }
 
-    findComponent(id, function(err, fpath) {
-      if (err) return next(err)
-      fs.readFile(fpath, encoding, sendComponent)
-    })
+    function main() {
+      var mod = parseId(id, system)
+      var fpath
+
+      if (mod.name in system.modules) {
+        fpath = findModule(mod, dependenciesMap)
+        cacheModule(mod)
+      }
+      else {
+        fpath = path.join(base, mod.name)
+      }
+
+      if (fpath) {
+        fs.readFile(fpath + '.js', encoding, sendComponent)
+      } else {
+        next()
+      }
+    }
+
+    if (system) {
+      main()
+    } else {
+      parseSystemPromise.then(main, next)
+    }
   }
 }
 
 
-oceanify.parseDependencies = function(code) {
-  return parse(code).dependencies
-}
-oceanify.parseAlias = require('./lib/parseAlias')
-oceanify.compile = require('./lib/compile')
-oceanify.compileAll = require('./lib/compileAll')
-oceanify.compileModule = require('./lib/compileModule')
+oceanify.parseMap = parseMap
+oceanify.compileAll = compileAll.compileAll
+oceanify.compileComponent = compileAll.compileComponent
+oceanify.compileModule = compileAll.compileModule
 
 
 // Expose oceanify
