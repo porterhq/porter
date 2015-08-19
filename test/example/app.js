@@ -2,6 +2,7 @@
 
 var koa = require('koa')
 var serve = require('koa-static')
+var path = require('path')
 
 var oceanify = require('../../g')
 
@@ -9,7 +10,7 @@ var oceanify = require('../../g')
 var app = koa()
 app.use(serve('public'))
 app.use(serve('views'))
-app.use(oceanify({ cwd: __dirname }))
+app.use(oceanify({ cwd: __dirname, dest: path.join(__dirname, 'public') }))
 
 
 module.exports = app

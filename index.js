@@ -9,6 +9,7 @@ var matchRequire = require('match-require')
 var parseMap = require('./lib/parseMap')
 var flattenMap = require('./lib/flattenMap')
 var define = require('./lib/define')
+var compileAll = require('./lib/compileAll')
 
 var loader = fs.readFileSync(path.join(__dirname, 'import.js'))
 
@@ -83,7 +84,7 @@ function oceanify(opts) {
   var dependenciesMap
   var system
 
-  var parseLocal = co.wrap(function* (result) {
+  function* parseLocal(result) {
     if (!opts.local) return result
 
     var content = yield readFile(path.join(cwd, 'package.json'), encoding)
@@ -96,7 +97,46 @@ function oceanify(opts) {
     }
 
     return result
+  }
+
+  var parseSystemPromise = co(function* () {
+    dependenciesMap = yield* parseLocal(yield parseMap(opts))
+    system = flattenMap(dependenciesMap)
   })
+
+  var cacheModulePromise = Promise.resolve()
+  var cacheModuleList = []
+
+  function cacheModule(mod) {
+    if (cacheModuleList.indexOf(mod.name + '/' + mod.version) >= 0) return
+
+    var pkg = system.modules[mod.name][mod.version]
+    var main = pkg.main
+      ? pkg.main.replace(/^\.\//, '').replace(/\.js$/, '')
+      : 'index'
+
+    if (main === mod.entry) {
+      var fpath = findModule(mod, dependenciesMap)
+
+      while (!/node_modules$/.test(fpath)) {
+        fpath = path.dirname(fpath)
+      }
+
+      cacheModulePromise.then(function() {
+        return oceanify.compileModule({
+          base: fpath,
+          name: mod.name,
+          main: main,
+          version: mod.version,
+          dest: opts.dest
+        }).catch(function(err) {
+          console.error(err.stack)
+        })
+      })
+
+      cacheModuleList.push(mod.name + '/' + mod.version)
+    }
+  }
 
 
   return function(req, res, next) {
@@ -151,9 +191,13 @@ function oceanify(opts) {
       var mod = parseId(id, system)
       var fpath
 
-      fpath = mod.name in system.modules
-        ? findModule(mod, dependenciesMap)
-        : path.join(base, mod.name)
+      if (mod.name in system.modules) {
+        fpath = findModule(mod, dependenciesMap)
+        cacheModule(mod)
+      }
+      else {
+        fpath = path.join(base, mod.name)
+      }
 
       if (fpath) {
         fs.readFile(fpath + '.js', encoding, sendComponent)
@@ -165,17 +209,11 @@ function oceanify(opts) {
     if (system) {
       main()
     } else {
-      parseMap(opts).then(parseLocal).then(function(result) {
-        dependenciesMap = result
-        system = flattenMap(result)
-        main()
-      }, next)
+      parseSystemPromise.then(main, next)
     }
   }
 }
 
-
-var compileAll = require('./lib/compileAll')
 
 oceanify.parseMap = parseMap
 oceanify.compileAll = compileAll.compileAll
