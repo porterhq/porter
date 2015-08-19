@@ -172,11 +172,12 @@
 
     mod.status = MODULE_RESOLVING
 
-    for (var i = 0, len = deps.length; i < len; i++) {
-      var depName = deps[i]
+    deps = (mod.dependencies || []).map(function(depName) {
       var depId = Module.resolve(depName, mod.id)
-      var dep = registry[depId] || new Module(depId)
+      return registry[depId] || new Module(depId)
+    })
 
+    deps.forEach(function(dep) {
       dep.fetch()
       dep.dependents.push(mod)
 
@@ -188,12 +189,16 @@
       if (dep.status === MODULE_FETCHED) {
         dep.resolve()
       }
-    }
+    })
 
     /*
      * No more dependencies to resolve. Let's get the back track started.
      */
-    if (deps.length === 0) mod.resolved()
+    var resolved = deps.length === 0 || !deps.some(function(dep) {
+      return dep.status < MODULE_RESOLVED
+    })
+
+    if (resolved) mod.resolved()
   }
 
   Module.prototype.resolved = function() {
@@ -319,14 +324,17 @@
   function bootstrap() {
     var scripts = doc.scripts || doc.getElementsByTagName('script')
     var currentScript = scripts[scripts.length - 1]
-    var parts = currentScript.src.split('/')
+    var main = currentScript.getAttribute('src')
+    var base = currentScript.getAttribute('data-base') ||
+      location.href.split('/').slice(0, 3).join('/')
 
-    for (var i = 0, len = parts.length; i < len; i++) {
-      if (/^(?:app|imports|main|runner)\b/.test(parts[i])) {
-        system.base = parts.slice(0, i).join('/')
-        system.import = parts.slice(i).join('/').replace(/\.js$/, '')
-      }
+    if (/^(?:https?:)?\/\//.test(main)) {
+      if (!base) throw new Error('Please specify data-base')
+      main = main.replace(base, '')
     }
+
+    system.base = base
+    system.import = main.split('?')[0].replace(/\.js$/, '').replace(/^\//, '')
 
     onload(currentScript, function() {
       var id = Module.resolve(system.import)
