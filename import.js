@@ -25,6 +25,12 @@
     }
   }
 
+  if (!Date.now) {
+    Date.now = function() {
+      return +new Date()
+    }
+  }
+
 
   var doc = document
   var head = doc.head || doc.getElementsByTagName('head')[0] || doc.documentElement
@@ -66,6 +72,9 @@
   }
 
 
+  /*
+   * resolve paths
+   */
   var RE_DIRNAME = /([^?#]*)\//
   var RE_DUPLICATED_SLASH = /([^:])\/\/+/g
 
@@ -130,14 +139,71 @@
   }
 
 
+  /*
+   * EventEmitter from seajs
+   */
+  var events = {
+    // Bind event
+    on: function(name, callback) {
+      var events = this.events
+      var list = events[name] || (events[name] = [])
+      list.push(callback)
+      return this
+    },
+
+    // Remove event. If `callback` is undefined, remove all callbacks for the
+    // event. If `event` and `callback` are both undefined, remove all callbacks
+    // for all events
+    off: function(name, callback) {
+      // Remove *all* events
+      if (!(name || callback)) {
+        this.events = {}
+        return this
+      }
+
+      var events = this.events
+      var list = events[name]
+      if (list) {
+        if (callback) {
+          for (var i = list.length - 1; i >= 0; i--) {
+            if (list[i] === callback) {
+              list.splice(i, 1)
+            }
+          }
+        }
+        else {
+          delete events[name]
+        }
+      }
+
+      return this
+    },
+
+    // Emit event, firing all bound callbacks. Callbacks receive the same
+    // arguments as `emit` does, apart from the event name
+    emit: function(name, data) {
+      var list = this.events[name]
+
+      if (list) {
+        // Copy callback lists to prevent modification
+        list = list.slice()
+
+        // Execute event callbacks, use index because it's the faster.
+        for(var i = 0, len = list.length; i < len; i++) {
+          list[i](data)
+        }
+      }
+
+      return this
+    }
+  }
+
+
   var MODULE_INIT = 0
-  var MODULE_FETCHING = 1
-  var MODULE_FETCHED = 2
-  var MODULE_RESOLVING = 3
-  var MODULE_RESOLVED = 4
-  var MODULE_EXECUTING = 5
-  var MODULE_EXECUTED = 6
-  var MODULE_ERROR = 7
+  var MODULE_FETCHED = 1
+  var MODULE_RESOLVED = 2
+  var MODULE_EXECUTED = 3
+  var MODULE_ERROR = 4
 
 
   function Module(id, opts) {
@@ -145,21 +211,23 @@
     this.id = id
     this.dependencies = opts.dependencies
     this.dependents = []
+    this.events = {}
     this.factory = opts.factory
     this.status = MODULE_INIT
-
     registry[id] = this
   }
+
+  Object.assign(Module.prototype, events)
 
   Module.prototype.fetch = function() {
     var mod = this
 
-    if (mod.status < MODULE_FETCHING) {
-      mod.status = MODULE_FETCHING
+    if (mod.status < MODULE_FETCHED) {
       request(resolve(system.base, mod.id + '.js'), function(err) {
         if (err) {
           mod.status = MODULE_ERROR
         } else {
+          mod.status = MODULE_FETCHED
           mod.resolve()
         }
       })
@@ -169,8 +237,6 @@
   Module.prototype.resolve = function() {
     var mod = this
     var deps = mod.dependencies
-
-    mod.status = MODULE_RESOLVING
 
     deps = (mod.dependencies || []).map(function(depName) {
       var depId = Module.resolve(depName, mod.id)
@@ -209,10 +275,7 @@
       mod.status = MODULE_RESOLVED
     }
 
-    // entrance
-    if (mod.id === system.import) {
-      mod.execute()
-    }
+    mod.emit('resolved')
 
     for (var i = 0, len = dependents.length; i < len; i++) {
       var parent = dependents[i]
@@ -252,11 +315,25 @@
       return dep.exports
     }
 
-    mod.status = MODULE_EXECUTING
+    require.async = function(ids, fn) {
+      if (typeof ids === 'string') ids = [ids]
+      var entry = new Module(resolve(dirname(mod.id), Date.now().toString(36)))
+
+      entry.dependencies = ids
+      entry.factory = function(require) {
+        var mods = ids.map(function(id) { return require(id) })
+        fn.apply(null, mods)
+      }
+      entry.status = MODULE_FETCHED
+
+      entry.on('resolved', function() { entry.execute() })
+      entry.resolve()
+    }
+
     mod.exports = {}
 
     var exports = typeof factory === 'function'
-      ? factory.call(mod.exports, require, mod.exports, mod)
+      ? factory.call(null, require, mod.exports, mod)
       : factory
 
     if (exports) {
@@ -264,6 +341,13 @@
     }
 
     mod.status = MODULE_EXECUTED
+  }
+
+
+  Module.import = function(id, fn) {
+    var mod = registry[id] || new Module(id)
+    mod.on('resolved', fn)
+    mod.fetch()
   }
 
 
@@ -308,7 +392,6 @@
 
     mod.dependencies = deps
     mod.factory = factory
-    mod.status = MODULE_FETCHED
 
     if (id === 'system') {
       mod.resolve()
@@ -322,23 +405,32 @@
 
 
   function bootstrap() {
+    var cwd = location.href.split('/').slice(0, 3).join('/')
     var scripts = doc.scripts || doc.getElementsByTagName('script')
     var currentScript = scripts[scripts.length - 1]
     var main = currentScript.getAttribute('src')
-    var base = currentScript.getAttribute('data-base') ||
-      location.href.split('/').slice(0, 3).join('/')
+    var base = currentScript.getAttribute('data-base') || cwd
 
     if (/^(?:https?:)?\/\//.test(main)) {
-      if (!base) throw new Error('Please specify data-base')
-      main = main.replace(base, '')
+      if (main.indexOf(base) === 0) {
+        main = main.replace(base, '')
+      } else {
+        throw new Error('Please specify data-base')
+      }
     }
 
+    system.cwd = cwd
     system.base = base
-    system.import = main.split('?')[0].replace(/\.js$/, '').replace(/^\//, '')
+    system.main = main.split(/[?#]/)[0].replace(/\.js$/, '').replace(/^\//, '')
 
     onload(currentScript, function() {
-      var id = Module.resolve(system.import)
-      registry[id].resolve()
+      var id = Module.resolve(system.main)
+      var mod = registry[id]
+
+      mod.on('resolved', function() {
+        mod.execute()
+      })
+      mod.resolve()
     })
   }
 
