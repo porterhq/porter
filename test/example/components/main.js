@@ -21,3 +21,9 @@ console.log(Chart)
 // $('pre code').each(function(el) {
 //   hljs.highlightBlock(el)
 // })
+
+
+require.async('yen', function(yen) {
+  // amd style
+  console.log(yen)
+})
