@@ -1,0 +1,13 @@
+@import './base.css';
+@import '/ez-editor/assets/ez-editor.css';
+
+
+body {
+  padding: 50px;
+  background: #f0f0f0;
+}
+
+h1, h2, h3, h4 {
+  font-weight: 400;
+  color: #505050;
+}

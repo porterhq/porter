@@ -7,19 +7,22 @@
     "url": "git@github.com:erzu/oceanify.git"
   },
   "dependencies": {
+    "autoprefixer-core": "~5.2.1",
     "co": "~4.6.0",
     "debug": "~1.0.4",
     "glob": "~3.2.9",
     "heredoc": "~1.2.0",
     "match-require": "~1.1.1",
     "mkdirp": "~0.3.5",
-    "native-or-bluebird": "~1.2.0",
+    "postcss": "~5.0.3",
+    "postcss-import": "~7.0.0",
     "semver": "~4.0.0",
     "uglify-js": "~2.4.23"
   },
   "devDependencies": {
-    "bluebird": "~2.9.32",
+    "co-mocha": "~1.1.2",
     "expect.js": "~0.3.1",
+    "heredoc": "~1.2.0",
     "istanbul": "~0.3.17",
     "mocha": "~2.2.5",
     "supertest": "~1.0.1"

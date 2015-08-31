@@ -7,7 +7,7 @@
     "crox": "1.3.1",
     "express": "~4.13.1",
     "extend-object": "~1.0.0",
-    "ez-editor": "~0.2.2",
+    "ez-editor": "0.2.4",
     "heredoc": "~1.3.1",
     "highlight.js": "~8.7.0",
     "inherits": "~2.0.1",
@@ -18,7 +18,8 @@
   },
   "scripts": {
     "start": "node-dev --harmony app.js",
-    "express": "node express.js"
+    "express": "node --harmony express.js",
+    "precompile": "node --harmony bin/assets-precompile"
   },
   "license": "MIT",
   "devDependencies": {

@@ -1,0 +1,9 @@
+{
+  "name": "oceanify-example-fe",
+  "description": "An frontend module example of oceanify",
+  "version": "0.0.1",
+  "dependencies": {
+    "yen": "1.2.4"
+  },
+  "license": "MIT"
+}

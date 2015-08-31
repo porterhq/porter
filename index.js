@@ -3,22 +3,64 @@
 var path = require('path')
 var fs = require('fs')
 var co = require('co')
+var crypto = require('crypto')
 var semver = require('semver')
+var mkdirp = require('mkdirp')
 var matchRequire = require('match-require')
 
+var postcss = require('postcss')
+var autoprefixer = require('autoprefixer-core')
+
 var parseMap = require('./lib/parseMap')
-var flattenMap = require('./lib/flattenMap')
+var parseSystem = require('./lib/parseSystem')
 var define = require('./lib/define')
 var compileAll = require('./lib/compileAll')
+var compileStyleSheets = require('./lib/compileStyleSheets')
 
 var loader = fs.readFileSync(path.join(__dirname, 'import.js'))
 
+var RE_EXT = /(\.(?:css|js))$/
+var RE_MAIN = /^(?:main|runner)\b/
+
+
+function exists(fpath) {
+  return new Promise(function(resolve) {
+    fs.exists(fpath, resolve)
+  })
+}
 
 function readFile(fpath, encoding) {
   return new Promise(function(resolve, reject) {
     fs.readFile(fpath, encoding, function(err, content) {
       if (err) reject(err)
       else resolve(content)
+    })
+  })
+}
+
+function writeFile(fpath, content) {
+  return new Promise(function(resolve, reject) {
+    fs.writeFile(fpath, content, function(err) {
+      if (err) reject(err)
+      else resolve()
+    })
+  })
+}
+
+function readdir(dir) {
+  return new Promise(function(resolve, reject) {
+    fs.readdir(dir, function(err, entries) {
+      if (err) reject(err)
+      else resolve(entries)
+    })
+  })
+}
+
+function mkdirpAsync(dir, opts) {
+  return new Promise(function(resolve, reject) {
+    mkdirp(dir, opts || {}, function(err, made) {
+      if (err) reject(err)
+      else resolve(made)
     })
   })
 }
@@ -80,32 +122,19 @@ function oceanify(opts) {
   var encoding = 'utf-8'
   var cwd = opts.cwd || process.cwd()
   var base = path.resolve(cwd, opts.base || 'components')
+  var dest = path.resolve(cwd, opts.dest || 'public')
 
   var dependenciesMap
   var system
 
-  function* parseLocal(result) {
-    if (!opts.local) return result
-
-    var content = yield readFile(path.join(cwd, 'package.json'), encoding)
-    var pkg = JSON.parse(content)
-
-    result[pkg.name] = {
-      dir: cwd,
-      version: pkg.version,
-      main: pkg.main || 'index'
-    }
-
-    return result
-  }
-
   var parseSystemPromise = co(function* () {
-    dependenciesMap = yield* parseLocal(yield parseMap(opts))
-    system = flattenMap(dependenciesMap)
+    dependenciesMap = yield parseMap(opts)
+    system = parseSystem(dependenciesMap)
   })
 
   var cacheModulePromise = Promise.resolve()
   var cacheModuleList = []
+
 
   function cacheModule(mod) {
     if (cacheModuleList.indexOf(mod.name + '/' + mod.version) >= 0) return
@@ -128,7 +157,7 @@ function oceanify(opts) {
           name: mod.name,
           main: main,
           version: mod.version,
-          dest: opts.dest
+          dest: dest
         }).catch(function(err) {
           console.error(err.stack)
         })
@@ -138,30 +167,25 @@ function oceanify(opts) {
     }
   }
 
+  function* readModule(id, main) {
+    var mod = parseId(id, system)
+    var fpath
 
-  return function(req, res, next) {
-    if (!req.path) {
-      Object.defineProperty(req, 'path', {
-        get: function() {
-          return this.url.split('?')[0]
-        }
-      })
+    if (mod.name in system.modules) {
+      fpath = findModule(mod, dependenciesMap)
+      if (opts.cache) cacheModule(mod)
+    }
+    else {
+      fpath = path.join(base, mod.name)
     }
 
-    if (path.extname(req.path) !== '.js') {
-      return next()
-    }
+    if (yield exists(fpath)) {
+      var factory = yield readFile(fpath, encoding)
+      var content = define(
+        id.replace(RE_EXT, ''), matchRequire.findAll(factory), factory
+      )
 
-    var id = req.path.slice(1).replace(/\.js$/, '')
-
-    function sendComponent(err, factory) {
-      if (err) {
-        return next(err.code === 'ENOENT' ? null : err)
-      }
-
-      var content = define(id, matchRequire.findAll(factory), factory)
-
-      if (/^(?:main|runner)\b/.test(id) || 'main' in req.query) {
+      if (main) {
         content = [
           loader,
           define('system', [], 'module.exports = ' + JSON.stringify(system)),
@@ -169,47 +193,169 @@ function oceanify(opts) {
         ].join('\n')
       }
 
-      sendContent(content)
+      return content
     }
+  }
 
-    function sendContent(content) {
-      if (res.is) {
-        res.status = 200
-        res.type = 'application/javascript'
-        res.body = content
-        next()
-      }
-      else {
-        res.statusCode = 200
-        res.setHeader('Content-Type', 'application/javascript')
-        res.write(content, encoding)
-        res.end()
-      }
-    }
-
+  function sendModuleExpress(req, res, next) {
     function main() {
-      var mod = parseId(id, system)
-      var fpath
+      var id = req.path.slice(1)
 
-      if (mod.name in system.modules) {
-        fpath = findModule(mod, dependenciesMap)
-        cacheModule(mod)
-      }
-      else {
-        fpath = path.join(base, mod.name)
-      }
-
-      if (fpath) {
-        fs.readFile(fpath + '.js', encoding, sendComponent)
-      } else {
-        next()
-      }
+      return co(readModule(id, RE_MAIN.test(id) || 'main' in req.query))
+        .then(function(content) {
+          if (!content) return next()
+          res.statusCode = 200
+          res.setHeader('Content-Type', 'application/javascript')
+          res.write(content, encoding)
+          res.end()
+        })
     }
 
     if (system) {
-      main()
+      main().catch(next)
     } else {
-      parseSystemPromise.then(main, next)
+      parseSystemPromise.then(main).catch(next)
+    }
+  }
+
+  function* sendModule(ctx) {
+    if (!system) yield parseSystemPromise
+
+    var id = ctx.path.slice(1)
+    var main = RE_MAIN.test(id) || 'main' in ctx.query
+    var content = yield* readModule(id, main)
+
+    ctx.status = 200
+    ctx.type = 'application/javascript'
+    ctx.body = content
+  }
+
+
+  function* readCache(id, source) {
+    var md5 = crypto.createHash('md5')
+    md5.update(source)
+    var checksum = md5.digest('hex')
+    var cacheName = id.replace(RE_EXT, '-' + checksum + '$1')
+    var fpath = path.join(cwd, 'tmp', cacheName)
+
+    if (yield exists(fpath)) {
+      return yield readFile(fpath, encoding)
+    }
+  }
+
+  function* writeCache(id, source, content) {
+    var md5 = crypto.createHash('md5')
+    md5.update(source)
+    var cacheId = id.replace(RE_EXT, '-' + md5.digest('hex') + '$1')
+    var fpath = path.join(cwd, 'tmp', cacheId)
+
+    yield mkdirpAsync(path.dirname(fpath))
+    yield writeFile(fpath, content)
+    co(clearCache(id, cacheId))
+  }
+
+  function* clearCache(id, cacheId) {
+    var fname = path.basename(id)
+    var cacheName = path.basename(cacheId)
+    var dir = path.join(cwd, 'tmp', path.dirname(id))
+    var entries = yield readdir(dir)
+
+    for (var i = 0, len = entries.length; i < len; i++) {
+      var entry = entries[i]
+      if (entry !== cacheName &&
+          entry.replace(/-[0-9a-f]{32}(\.(?:js|css))$/, '$1') === fname) {
+        fs.unlink(path.join(dir, entry))
+      }
+    }
+  }
+
+
+  function* readStyle(id) {
+    var fpath = path.join(base, id)
+    var destPath = path.join(dest, id)
+
+    if (!(yield exists(fpath))) {
+      fpath = path.join(cwd, 'node_modules', id)
+    }
+
+    if (!(yield exists(fpath))) {
+      return
+    }
+
+    var source = yield readFile(fpath)
+    var cache = yield* readCache(id, source)
+
+    if (cache) return cache
+
+    var result = yield postcss()
+      .use(autoprefixer())
+      .process(source, {
+        from: path.relative(cwd, fpath),
+        to: path.relative(cwd, destPath),
+        map: { inline: false }
+      })
+
+    yield* writeCache(id, source, result.css)
+    yield mkdirpAsync(path.dirname(destPath))
+    yield writeFile(destPath + '.map', result.map)
+
+    return result.css
+  }
+
+  function* sendStyle(ctx) {
+    var id = ctx.path.slice(1)
+    var content = yield* readStyle(id)
+
+    if (content) {
+      ctx.status = 200
+      ctx.type = 'text/css'
+      ctx.body = content
+    }
+  }
+
+  function sendStyleExpress(req, res, next) {
+    var id = req.path.slice(1)
+
+    co(readStyle(id)).then(function(content) {
+      if (content) {
+        res.statusCode = 200
+        res.setHeader('Content-Type', 'text/css')
+        res.write(content)
+        res.end()
+      }
+      else {
+        next()
+      }
+    }).catch(next)
+  }
+
+
+  if (opts.express) {
+    return function(req, res, next) {
+      switch (path.extname(req.path)) {
+        case '.js':
+          sendModuleExpress(req, res, next)
+          break
+        case '.css':
+          sendStyleExpress(req, res, next)
+          break
+        default:
+          next()
+      }
+    }
+  }
+  else {
+    return function* (next) {
+      switch (path.extname(this.path)) {
+        case '.js':
+          yield* sendModule(this)
+          break
+        case '.css':
+          yield* sendStyle(this)
+          break
+      }
+
+      yield next
     }
   }
 }
@@ -219,7 +365,7 @@ oceanify.parseMap = parseMap
 oceanify.compileAll = compileAll.compileAll
 oceanify.compileComponent = compileAll.compileComponent
 oceanify.compileModule = compileAll.compileModule
-
+oceanify.compileStyleSheets = compileStyleSheets
 
 // Expose oceanify
 module.exports = oceanify

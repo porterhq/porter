@@ -6,3 +6,4 @@ node_js:
 install:
   - npm install
   - cd test/example ; npm install ; cd -
+  - cd test/example-fe ; npm install ; cd -
