@@ -1,4 +1,16 @@
 
+4.1.0 / 2015-08-31
+==================
+
+  * Add: support components/stylesheets (fixes #11)
+  * Fix: add line break after factory code (fixes #10)
+  * Update: drop cmd-util dependency
+  * Update: change documentation of compile tasks to reflect latest code
+  * Fix: lock ez-editor version in test/example
+  * Fix: url of oceanify example
+  * Fix: typos in readme
+
+
 4.0.1 / 2015-08-25
 ==================
 
