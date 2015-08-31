@@ -70,7 +70,7 @@ describe('oceanify', function() {
 
   it('should handle stylesheets in node_modules', function(done) {
     request(app.listen())
-      .get('/ez-editor/assets/editor.css')
+      .get('/ez-editor/assets/ez-editor.css')
       .expect('Content-Type', /css/)
       .expect(200)
       .end(done)
