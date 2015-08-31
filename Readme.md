@@ -1,7 +1,64 @@
 # Oceanify
 
-Oceanify is yet another solution for front end modularization. It features
+Oceanify is yet another solution for frontend modularization. It features
 module transformation on the fly and a swift setup.
+
+## tl;dr
+
+With Oceanify setup, you can write your webpages like this:
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Oceanify Rocks!</title>
+  <link rel="stylesheet" type="text/css" href="/main.css">
+</head>
+<body>
+  <h1>Oceanify Rocks!</h1>
+  <script src="/main.js"></script>
+</body>
+</html>
+```
+
+And witin `main.js`, you can `require` any dependencies you want:
+
+```js
+var $ = require('jquery')
+var cropper = require('cropper')
+
+var nav = require('./nav')
+
+// setup page with those required components and modules
+```
+
+You can do the same in `main.css`:
+
+```css
+@import '/cropper/dist/cropper.css';
+
+@import './nav.css';
+```
+
+And when you want your web pages and application be production ready, simply
+run:
+
+```js
+var co = require('co')
+var oceanify = require('oceanify')
+
+co([
+  oceanify.compileAll(),          // js components and modules
+  oceanify.compileStyleSheets()   // css files
+])
+  .then(function() {
+    console.log('assets compiled.')
+  })
+  .catch(function(err) {
+    console.error(err.stack)
+  })
+```
 
 
 ## Goal
@@ -144,10 +201,68 @@ and postcss-import. You gonna need some minification tools like
 Oceanify 可以帮助压缩、发布前端代码。
 
 
+## tl;dr - 一言以蔽之
+
+借助 Oceanify，我们可以这样做前端开发：
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Oceanify Rocks!</title>
+  <link rel="stylesheet" type="text/css" href="/main.css">
+</head>
+<body>
+  <h1>Oceanify Rocks!</h1>
+  <script src="/main.js"></script>
+</body>
+</html>
+```
+
+在 `main.js` 里，你可以任意 `require` 依赖：
+
+```js
+var $ = require('jquery')
+var cropper = require('cropper')
+
+var nav = require('./nav')
+
+// 页面逻辑代码
+```
+
+在 `main.css` 也可以放肆 `@import`：
+
+```css
+@import '/cropper/dist/cropper.css';
+
+@import './nav.css';
+```
+
+到上线的时候，可以使用如下代码压缩静态资源，Oceanify 将会压缩、合并相关文件，所以不必担心
+`@import` 会拖慢页面展现，也不必担心优化工具说你的页面请求数过多啦：
+
+```js
+var co = require('co')
+var oceanify = require('oceanify')
+
+co([
+  oceanify.compileAll(),          // js components and modules
+  oceanify.compileStyleSheets()   // css files
+])
+  .then(function() {
+    console.log('assets compiled.')
+  })
+  .catch(function(err) {
+    console.error(err.stack)
+  })
+```
+
+
 ## Usage - 用法
 
 如果你的网站采用 Express 或者 Koa 开发，那么用 Oceanify 开发前端代码再合适不过。以
-Express 为例，只需在 `app.js` 中添加如下代码即可：
+Koa 为例，只需在 `app.js` 中添加如下代码即可：
 
 ```js
 var oceanify = require('oceanify')
@@ -155,13 +270,16 @@ var oceanify = require('oceanify')
 // 使用默认设置
 app.use(oceanify())
 
-// 指定前端代码所在目录，默认为 ./components，基准路径为 process.cwd()，
-// 即 Express 应用的根目录
-app.use(oceanify({ base: './components' }))
+// 指定前端代码所在目录，默认为 components，根路径为 process.cwd()，即应用根目录
+app.use(oceanify({ base: 'components' }))
 ```
 
-如果你用的开发框架是 Koa，改为 `require('oceanify/g')` 即可，这个函数将返回可供 Koa
-使用的 generator function。
+如果你用的开发框架是 Express，则需要修改初始化代码为：
+
+```js
+app.use(oceanify({ express: true }))
+```
+
 
 不管是 Express 还是 Koa，比较推荐 Web 应用的目录结构如下：
 
@@ -171,8 +289,7 @@ app.use(oceanify({ base: './components' }))
 ├── components          # 应用自己的前端模块
 │   ├── arale
 │   │   └── upload.js
-│   └── papercut
-│       └── index.js
+│   └── main.js
 └── node_modules        # 来自 NPM 的外部依赖
     └── yen
         ├── easing.js
@@ -186,14 +303,14 @@ app.use(oceanify({ base: './components' }))
 也可以 `require` components 中的其他模块：
 
 ```js
-// components/papercut/index.js
+// components/main.js
 var $ = require('yen')
 var Upload = require('arale/upload')
 
 // code
 ```
 
-在浏览器请求 `/papercut/index.js` 时，oceanify 将返回：
+在浏览器请求 `/main.js` 时，oceanify 将返回：
 
 ```js
 define('papercut/index', ['yen', 'arale/upload'], function() {
@@ -214,13 +331,26 @@ define('papercut/index', ['yen', 'arale/upload'], function() {
 可以用 `oceanify.compileAll()` 方法帮你压缩代码。
 
 ```js
+var co = require('co')
 var oceanify = require('oceanify')
 
 // 指定前端代码所在目录，以及编译文件存放目录
-oceanify.compileAll({ base: './components', dest: './public' })
+co(oceanify.compileAll({ base: './components', dest: './public' }))
+  .then(function() {
+    console.log('done')
+  })
+  .catch(function(err) {
+    console.log(err.stack)
+  })
 
 // 上面的 base 和 dest 为默认设置，因此也可以省略
-oceanify.compileAll()
+co(oceanify.compileAll())
+  .then(function() {
+    console.log('done')
+  })
+  .catch(function(err) {
+    console.log(err.stack)
+  })
 ```
 
 Oceanify 将会编译所有 `components` 目录中的模块，并找出这些模块依赖的外部（那些通过
@@ -228,64 +358,6 @@ NPM 安装，放在 `node_modules` 目录下的）模块，然后一并编译掉
 
 可以在 [Oceanify Example][oceanify-example] 里尝试编译，执行 `npm run precompile`
 即可。
-
-
-## Evolving Component - 前端组件演化
-
-### CommonJS - 一致的模块写法
-
-在前些年，模块加载器如雨后春笋一般冒出来，我们看到形形色色的写法，比如：
-
-- RequireJS
-- SeaJS
-- KISSY
-- KSLITE
-- ……等等
-
-详细的语法差别，我在这篇 [知乎回答][loaders] 里有所描述。
-
-此外，前三者还考虑到了前后端代码的问题，比如你可以直接在 Node 中：
-
-```js
-var seajs = require('seajs')
-
-seajs.use('some/module', function() {
-  // code
-})
-```
-
-但不管怎么说，这种代码共享方式都只是一种曲线救国。因为理论上说，能够在 Node 中运行的前端代码，
-去掉那层模块声明语法，本来就可以在 Node 中直接 `require`。比如把 SeaJS 的：
-
-```js
-define(function(require, exports, module) {
-  // factory code
-})
-```
-
-变成：
-
-```js
-// factory code
-```
-
-也就是用 CommonJS 的模块写法。这是我们做 Oceanify 的初衷之一。我们也非常高兴地看到，无论是
-Arale（及其背后的 SPM）、还是 KISSY，都已经开始去掉这一层实可省略的匿名函数。
-
-
-### Template - 模板（未实现）
-
-通过 Oceanify，还可以直接 `require` HTML 文件，读入后是解析成 DOM，还是作为模板字符串
-处理，就悉听尊便了，比如：
-
-```js
-// 将会读入当前目录中的 template.html 文件
-var template = require('./template')
-
-require('mustache').render(template, { ... })
-```
-
-**2014-09-25 注**：这项特性是想抄袭 component.io，尚未实现，以后是否实现待定。
 
 
 ## Facilities - 配套设施
