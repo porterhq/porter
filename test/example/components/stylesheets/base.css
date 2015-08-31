@@ -1,0 +1,10 @@
+body {
+  margin: 0;
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 14px;
+}
+
+pre, code {
+  font-size: 0.9em;
+  font-family: Consolas, "Liberation Mono", Menlo, Courier, monospace;
+}

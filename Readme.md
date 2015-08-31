@@ -6,8 +6,8 @@ module transformation on the fly and a swift setup.
 
 ## Goal
 
-Oceanify enables you to share and utilize front end modules to and from NPM.
-It provides a way that is somehow different from browserify and webpack for
+Oceanify enables you to share and utilize frontend modules to and from NPM.
+It provides a way that is somehow different than browserify and webpack for
 browser module authoring in CommonJS module definition.
 
 With Oceanify, you can organize your browser modules and their dependencies like
@@ -48,13 +48,13 @@ you're reading about is a middleware for Express and Koa. The other is a command
 line tool built upon Oceanify, called Oceanifier, which is a little bit mouthful
 to pronounce.
 
-Anyway, to use Oceanify in your Express instance, just `app.use` it.
+Anyway, to use Oceanify in your Koa instance, just `app.use` it.
 
 ```js
-var express = require('express')
+var koa = require('koa')
 var oceanify = require('oceanify')
 
-var app = express()
+var app = koa()
 
 // that's it
 app.use(oceanify())
@@ -67,32 +67,45 @@ default `components`, you can tell Oceanify that with the base option.
 app.use(oceanify({ base: 'browser_modules' }))
 ```
 
-If Koa is the framework you're using, `require('oceanify/g')` instead.
+If Express is the framework you're using, you need to tell Oceanify about it:
 
 ```js
-var koa = require('koa')
+var express = require('express')
 var oceanify = require('oceanify')
 
-var app = koa()
+var app = express()
 
 // that's it
-app.use(oceanify())
+app.use(oceanify({ express: true }))
 ```
 
 
 ## Deployment
 
-Oceanfiy provides a static method for assets precompilation. It's called
-`oceanify.compileAll()`.
+Oceanfiy provides two static methods for assets precompilation. It's called
+`oceanify.compileAll()` and `oceanify.compileStyleSheets()`.
+
+
+### `.compileAll*([options])`
+
+`.compileAll([options])` is a generator function. You need to wrap the returned
+generator object to make it function properly.
 
 ```js
+var co = require('co')
 var oceanify = require('oceanify')
 
 // Specify the entry modules
-oceanify.compileAll({ base: './components', dest: './public' })
+co(oceanify.compileAll({ base: './components', dest: './public' }))
+  .then(function() {
+    console.log('done')
+  })
+  .catch(function(err) {
+    console.error(err.stack)
+  })
 
 // You can omit the options since they're the defaults.
-oceanify.compileAll()
+co(oceanify.compileAll())
 ```
 
 Oceanify will compile all the modules within `components` directory, find their
@@ -100,6 +113,29 @@ dependencies in `node_modules` directory and compile them too.
 
 You can try the one in [Oceanify Example][oceanify-example]. Just execute
 `npm run precompile`.
+
+
+### `.compileStyleSheets*([options])`
+
+`.compileStyleSheets([options])` is a generator function. You need to wrap the
+returned generator object to make it function properly.
+
+```js
+var co = require('co')
+var oceanify = require('oceanify')
+
+co(oceanify.compileStyleSheets({ base: './components', dest: './public' }))
+  .then(function() {
+    console.log('done')
+  })
+  .catch(function() {
+    console.error(err.stack)
+  })
+```
+
+Currenty `.compileStyleSheets` just process the source code with autoprefixer
+and postcss-import. You gonna need some minification tools like
+[cssnano][cssnano].
 
 
 # Oceanify 前端模块化
@@ -252,17 +288,6 @@ require('mustache').render(template, { ... })
 **2014-09-25 注**：这项特性是想抄袭 component.io，尚未实现，以后是否实现待定。
 
 
-## Tribute
-
-### cmd-util
-
-`lib/cmd-util` 来自 [cmd-util][cmd-util] 模块，源自 [@lepture][1] 的杰出工作。
-
-放入 oceanify 是为了方便集成 deheredoc 功能，以及确保 oceanify 和 cmd-util 中使用的
-UglifyJS 是同一份（不然假如我传入 oceanify 中解析好的 UglifyJS AST，在 cmd-util 里
-用 `instanceof` 判断语法节点类型就会出问题）。
-
-
 ## Facilities - 配套设施
 
 ### Oceanifier - 命令行工具
@@ -272,7 +297,7 @@ UglifyJS 是同一份（不然假如我传入 oceanify 中解析好的 UglifyJS 
 服务，也可以使用 CommonJS 的模块写法。
 
 在我们提供的 [Oceanify Example][oceanify-example] 里，运行 Oceanifier 提供的命令
-`oceanify serve`，同样也能打开我们的效果演示。
+`ocean serve`，同样也能打开我们的效果演示。
 
 因此，如果没条件自己搭服务，就试试 Oceanifier 跑静态环境吧。
 
@@ -293,4 +318,4 @@ UglifyJS 是同一份（不然假如我传入 oceanify 中解析好的 UglifyJS 
 [oceanify-example]: https://github.com/erzu/oceanify/test/example
 [oceanifier]: https://github.com/erzu/oceanifier
 [cmd-util]: https://www.npmjs.com/package/cmd-util
-[1]: https://github.com/lepture
+[cssnano]: https://github.com/ben-eb/cssnano

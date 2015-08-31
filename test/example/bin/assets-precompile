@@ -1,0 +1,19 @@
+#!/usr/bin/env node --harmony
+
+'use strict'
+
+var co = require('co')
+
+var oceanify = require('../../..')
+
+
+co(function*() {
+  yield* oceanify.compileAll()
+  yield* oceanify.compileStyleSheets({ match: 'stylesheets/app.css' })
+})
+  .then(function() {
+    console.log('done')
+  })
+  .catch(function(err) {
+    console.error(err.stack)
+  })

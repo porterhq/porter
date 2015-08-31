@@ -392,6 +392,7 @@
 
     mod.dependencies = deps
     mod.factory = factory
+    mod.status = MODULE_FETCHED
 
     if (id === 'system') {
       mod.resolve()

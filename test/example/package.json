@@ -18,7 +18,8 @@
   },
   "scripts": {
     "start": "node-dev --harmony app.js",
-    "express": "node express.js"
+    "express": "node --harmony express.js",
+    "precompile": "node --harmony bin/assets-precompile"
   },
   "license": "MIT",
   "devDependencies": {

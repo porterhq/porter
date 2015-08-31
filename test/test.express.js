@@ -1,15 +1,8 @@
 'use strict'
 
 var request = require('supertest')
-var path = require('path')
 
-var express = require('./example/express')
-var oceanify = require('..')
-
-var app = express()
-app.use(oceanify({
-  cwd: path.join(__dirname, 'example')
-}))
+var app = require('./example/express')
 
 
 describe('oceanify', function() {

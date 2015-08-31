@@ -4,7 +4,7 @@ var koa = require('koa')
 var serve = require('koa-static')
 var path = require('path')
 
-var oceanify = require('../../g')
+var oceanify = require('../..')
 
 
 var app = koa()

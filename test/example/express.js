@@ -1,7 +1,15 @@
 'use strict'
 
+var express =  require('express')
+var path = require('path')
 
-/*
- * In this way we can keep the express dependency in test/example.
- */
-module.exports = require('express')
+var oceanify = require('../..')
+
+var app = express()
+app.use(oceanify({
+  cwd: path.join(__dirname),
+  express: true
+}))
+
+
+module.exports = app
