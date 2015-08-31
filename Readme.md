@@ -5,7 +5,7 @@ module transformation on the fly and a swift setup.
 
 ## tl;dr
 
-With Oceanify setup, you can write your webpages like this:
+With Oceanify, you can write web pages and applications in old style:
 
 ```html
 <!DOCTYPE html>
@@ -22,7 +22,7 @@ With Oceanify setup, you can write your webpages like this:
 </html>
 ```
 
-And witin `main.js`, you can `require` any dependencies you want:
+And within `main.js`, you can `require` any dependencies you want:
 
 ```js
 var $ = require('jquery')
