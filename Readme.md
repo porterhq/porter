@@ -387,7 +387,7 @@ NPM 安装，放在 `node_modules` 目录下的）模块，然后一并编译掉
 [loaders]: http://www.zhihu.com/question/22739468/answer/29949594
 [yen]: https://github.com/erzu/yen
 [ez-editor]: https://github.com/erzu/ez-editor
-[oceanify-example]: https://github.com/erzu/oceanify/test/example
+[oceanify-example]: https://github.com/erzu/oceanify/tree/master/test/example
 [oceanifier]: https://github.com/erzu/oceanifier
 [cmd-util]: https://www.npmjs.com/package/cmd-util
 [cssnano]: https://github.com/ben-eb/cssnano
