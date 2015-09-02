@@ -137,7 +137,17 @@ function oceanify(opts) {
 
 
   function cacheModule(mod) {
-    if (cacheModuleList.indexOf(mod.name + '/' + mod.version) >= 0) return
+    var blacklist = opts.cacheExcept
+
+    // module is being cached already
+    if (cacheModuleList.indexOf(mod.name + '/' + mod.version) >= 0) {
+      return
+    }
+
+    // opst.cacheExcept would be something like `['yen']`
+    if (Array.isArray(blacklist) && blacklist.indexOf(mod.name) >= 0) {
+      return
+    }
 
     var pkg = system.modules[mod.name][mod.version]
     var main = pkg.main
@@ -218,16 +228,21 @@ function oceanify(opts) {
     }
   }
 
-  function* sendModule(ctx) {
+  function* sendModule(ctx, next) {
     if (!system) yield parseSystemPromise
 
     var id = ctx.path.slice(1)
     var main = RE_MAIN.test(id) || 'main' in ctx.query
     var content = yield* readModule(id, main)
 
-    ctx.status = 200
-    ctx.type = 'application/javascript'
-    ctx.body = content
+    if (content) {
+      ctx.status = 200
+      ctx.type = 'application/javascript'
+      ctx.body = content
+    }
+    else {
+      yield next
+    }
   }
 
 
@@ -276,10 +291,7 @@ function oceanify(opts) {
 
     if (!(yield exists(fpath))) {
       fpath = path.join(cwd, 'node_modules', id)
-    }
-
-    if (!(yield exists(fpath))) {
-      return
+      if (!(yield exists(fpath))) return
     }
 
     var source = yield readFile(fpath)
@@ -302,7 +314,7 @@ function oceanify(opts) {
     return result.css
   }
 
-  function* sendStyle(ctx) {
+  function* sendStyle(ctx, next) {
     var id = ctx.path.slice(1)
     var content = yield* readStyle(id)
 
@@ -310,6 +322,9 @@ function oceanify(opts) {
       ctx.status = 200
       ctx.type = 'text/css'
       ctx.body = content
+    }
+    else {
+      yield next
     }
   }
 
@@ -348,14 +363,14 @@ function oceanify(opts) {
     return function* (next) {
       switch (path.extname(this.path)) {
         case '.js':
-          yield* sendModule(this)
+          yield* sendModule(this, next)
           break
         case '.css':
-          yield* sendStyle(this)
+          yield* sendStyle(this, next)
           break
+        default:
+          yield next
       }
-
-      yield next
     }
   }
 }

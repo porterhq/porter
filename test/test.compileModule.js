@@ -4,6 +4,7 @@ require('co-mocha')
 var path = require('path')
 var expect = require('expect.js')
 var exists = require('fs').existsSync
+var exec = require('child_process').execSync
 
 var compileModule = require('..').compileModule
 
@@ -24,5 +25,9 @@ describe('compileModule', function () {
 
     var fpath = path.join(cwd, 'public', pkg.name, pkg.version, main + '.js')
     expect(exists(fpath)).to.be(true)
+  })
+
+  after(function() {
+    exec('rm -rf ' + path.join(__dirname, 'example', 'public'))
   })
 })
