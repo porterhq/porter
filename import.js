@@ -200,10 +200,11 @@
 
 
   var MODULE_INIT = 0
-  var MODULE_FETCHED = 1
-  var MODULE_RESOLVED = 2
-  var MODULE_EXECUTED = 3
-  var MODULE_ERROR = 4
+  var MODULE_FETCHING = 1
+  var MODULE_FETCHED = 2
+  var MODULE_RESOLVED = 3
+  var MODULE_EXECUTED = 4
+  var MODULE_ERROR = 5
 
 
   function Module(id, opts) {
@@ -222,14 +223,11 @@
   Module.prototype.fetch = function() {
     var mod = this
 
-    if (mod.status < MODULE_FETCHED) {
+    if (mod.status < MODULE_FETCHING) {
+      mod.status = MODULE_FETCHING
       request(resolve(system.base, mod.id + '.js'), function(err) {
-        if (err) {
-          mod.status = MODULE_ERROR
-        } else {
-          mod.status = MODULE_FETCHED
-          mod.resolve()
-        }
+        mod.status = err ? MODULE_ERROR : MODULE_FETCHED
+        mod.resolve()
       })
     }
   }

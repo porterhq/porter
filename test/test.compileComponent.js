@@ -4,6 +4,7 @@ require('co-mocha')
 var path = require('path')
 var expect = require('expect.js')
 var fs = require('fs')
+var exec = require('child_process').execSync
 
 var compileComponent = require('..').compileComponent
 
@@ -17,5 +18,9 @@ describe('compileComponent', function() {
 
     yield compileComponent({ base: base, id: 'ma/nga', dest: dest })
     expect(exists(path.join(dest, 'ma/nga.js'))).to.be(true)
+  })
+
+  after(function() {
+    exec('rm -rf ' + path.join(__dirname, 'example', 'public'))
   })
 })

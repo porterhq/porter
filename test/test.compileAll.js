@@ -4,6 +4,7 @@ require('co-mocha')
 var glob = require('glob').sync
 var path = require('path')
 var expect = require('expect.js')
+var exec = require('child_process').execSync
 
 var compileAll = require('..').compileAll
 
@@ -29,5 +30,9 @@ describe('compileAll', function() {
     // since oceanify is a module wrapper for browser, we'll stick with
     // bower.json if there is one.
     expect(entries).to.contain('public/crox/1.2.7/build/crox-all-min.js')
+  })
+
+  after(function () {
+    exec('rm -rf ' + path.join(__dirname, 'example', 'public'))
   })
 })
