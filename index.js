@@ -185,7 +185,6 @@ function oceanify(opts) {
       }
 
       try {
-        console.log(fpath)
         yield* oceanify.compileModule({
           base: fpath,
           name: mod.name,
