@@ -1,4 +1,13 @@
 
+4.1.2 / 2015-09-06
+==================
+
+  * New: add cache control headers
+  * New: add opts.self for use cases like heredoc
+  * Update: use autoprefixer@6 instead 
+  * Docs: refactored Readme
+
+
 4.1.1 / 2015-09-02
 ==================
 
