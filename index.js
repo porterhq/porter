@@ -132,7 +132,7 @@ function oceanify(opts) {
   var cwd = opts.cwd || process.cwd()
   var base = path.resolve(cwd, opts.base || 'components')
   var dest = path.resolve(cwd, opts.dest || 'public')
-  var cacheExceptions = opts.cacheExcept
+  var cacheExceptions = opts.cacheExcept || []
 
   if (typeof cacheExceptions === 'string') {
     cacheExceptions = [cacheExceptions]
@@ -154,17 +154,19 @@ function oceanify(opts) {
 
   function* cacheModule(mod) {
     if (cacheModuleList.indexOf(mod.name + '/' + mod.version) >= 0 ||
+        mod.name === pkg.name ||
         cacheExceptions[0] === '*' ||
         cacheExceptions.indexOf(mod.name) >= 0) {
       return
     }
 
-    var pkg = system.modules[mod.name][mod.version]
-    var main = pkg.main
-      ? pkg.main.replace(/^\.\//, '').replace(/\.js$/, '')
+    var data = system.modules[mod.name][mod.version]
+    var main = data.main
+      ? data.main.replace(/^\.\//, '').replace(/\.js$/, '')
       : 'index'
 
-    if (main === mod.entry) {
+    if (main + '.js' === mod.entry) {
+      cacheModuleList.push(mod.name + '/' + mod.version)
       var fpath = findModule(mod, dependenciesMap)
 
       while (fpath && !/node_modules$/.test(fpath)) {
@@ -177,13 +179,13 @@ function oceanify(opts) {
       }
 
       var stats = yield lstat(path.join(fpath, mod.name))
-
       if (stats.isSymbolicLink()) {
         console.log('Ignore symbolic linked module %s', mod.name)
         return
       }
 
       try {
+        console.log(fpath)
         yield* oceanify.compileModule({
           base: fpath,
           name: mod.name,
@@ -195,8 +197,6 @@ function oceanify(opts) {
       catch (err) {
         console.error(err.stack)
       }
-
-      cacheModuleList.push(mod.name + '/' + mod.version)
     }
   }
 
@@ -220,9 +220,10 @@ function oceanify(opts) {
     var stats = yield lstat(fpath)
     var dependencies = matchRequire.findAll(factory)
 
-    var content = opts.self && !(mod.name in system.modules)
-      ? defineComponent(id.replace(RE_EXT, ''), dependencies, factory)
-      : define(id.replace(RE_EXT, ''), dependencies, factory)
+    var content = (opts.self && !(mod.name in system.modules)
+      ? defineComponent
+      : define
+    )(id.replace(RE_EXT, ''), dependencies, factory)
 
     if (main) {
       content = [

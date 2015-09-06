@@ -2,6 +2,9 @@
 /* eslint-disable semi-spacing, strict */
 (function(global) {
 
+  // do not override
+  if (global.define) return
+
   var registry = {}
   var system = { base: '' }
 
@@ -142,7 +145,7 @@
   /*
    * EventEmitter from seajs
    */
-  var events = {
+  var EventEmitter = {
     // Bind event
     on: function(name, callback) {
       var events = this.events
@@ -218,7 +221,7 @@
     registry[id] = this
   }
 
-  Object.assign(Module.prototype, events)
+  Object.assign(Module.prototype, EventEmitter)
 
   Module.prototype.fetch = function() {
     var mod = this
@@ -318,8 +321,8 @@
       var entry = new Module(resolve(dirname(mod.id), Date.now().toString(36)))
 
       entry.dependencies = ids
-      entry.factory = function(require) {
-        var mods = ids.map(function(id) { return require(id) })
+      entry.factory = function(_require) {
+        var mods = ids.map(function(id) { return _require(id) })
         fn.apply(null, mods)
       }
       entry.status = MODULE_FETCHED

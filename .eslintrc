@@ -12,6 +12,7 @@
     "no-undef": 2,
     "no-underscore-dangle": 0,
     "no-use-before-define": [2, "nofunc"],
-    "no-unused-vars": [2, { "vars": "all", "args": "none" }]
+    "no-unused-vars": [2, { "vars": "all", "args": "none" }],
+    "no-shadow": 2
   }
 }
