@@ -9,7 +9,7 @@ var mkdirp = require('mkdirp')
 var matchRequire = require('match-require')
 
 var postcss = require('postcss')
-var autoprefixer = require('autoprefixer-core')
+var autoprefixer = require('autoprefixer')
 
 var parseMap = require('./lib/parseMap')
 var parseSystem = require('./lib/parseSystem')
@@ -32,7 +32,7 @@ function exists(fpath) {
 function readFile(fpath, encoding) {
   return new Promise(function(resolve, reject) {
     fs.readFile(fpath, encoding, function(err, content) {
-      if (err) reject(err)
+      if (err) reject(new Error(err.message))
       else resolve(content)
     })
   })
@@ -61,6 +61,15 @@ function mkdirpAsync(dir, opts) {
     mkdirp(dir, opts || {}, function(err, made) {
       if (err) reject(err)
       else resolve(made)
+    })
+  })
+}
+
+function lstat(fpath) {
+  return new Promise(function(resolve, reject) {
+    fs.lstat(fpath, function(err, stats) {
+      if (err) reject(err)
+      else resolve(stats)
     })
   })
 }
@@ -123,29 +132,30 @@ function oceanify(opts) {
   var cwd = opts.cwd || process.cwd()
   var base = path.resolve(cwd, opts.base || 'components')
   var dest = path.resolve(cwd, opts.dest || 'public')
+  var cacheExceptions = opts.cacheExcept
+
+  if (typeof cacheExceptions === 'string') {
+    cacheExceptions = [cacheExceptions]
+  }
 
   var dependenciesMap
   var system
+  var pkg
 
   var parseSystemPromise = co(function* () {
     dependenciesMap = yield parseMap(opts)
     system = parseSystem(dependenciesMap)
+    pkg = JSON.parse(yield readFile(path.join(cwd, 'package.json'), 'utf-8'))
   })
 
   var cacheModulePromise = Promise.resolve()
   var cacheModuleList = []
 
 
-  function cacheModule(mod) {
-    var blacklist = opts.cacheExcept
-
-    // module is being cached already
-    if (cacheModuleList.indexOf(mod.name + '/' + mod.version) >= 0) {
-      return
-    }
-
-    // opst.cacheExcept would be something like `['yen']`
-    if (Array.isArray(blacklist) && blacklist.indexOf(mod.name) >= 0) {
+  function* cacheModule(mod) {
+    if (cacheModuleList.indexOf(mod.name + '/' + mod.version) >= 0 ||
+        cacheExceptions[0] === '*' ||
+        cacheExceptions.indexOf(mod.name) >= 0) {
       return
     }
 
@@ -157,21 +167,34 @@ function oceanify(opts) {
     if (main === mod.entry) {
       var fpath = findModule(mod, dependenciesMap)
 
-      while (!/node_modules$/.test(fpath)) {
+      while (fpath && !/node_modules$/.test(fpath)) {
         fpath = path.dirname(fpath)
       }
 
-      cacheModulePromise.then(function() {
-        return oceanify.compileModule({
+      if (!fpath) {
+        console.error('Failed to find module %s', mod.name)
+        return
+      }
+
+      var stats = yield lstat(path.join(fpath, mod.name))
+
+      if (stats.isSymbolicLink()) {
+        console.log('Ignore symbolic linked module %s', mod.name)
+        return
+      }
+
+      try {
+        yield* oceanify.compileModule({
           base: fpath,
           name: mod.name,
           main: main,
           version: mod.version,
           dest: dest
-        }).catch(function(err) {
-          console.error(err.stack)
         })
-      })
+      }
+      catch (err) {
+        console.error(err.stack)
+      }
 
       cacheModuleList.push(mod.name + '/' + mod.version)
     }
@@ -183,42 +206,82 @@ function oceanify(opts) {
 
     if (mod.name in system.modules) {
       fpath = findModule(mod, dependenciesMap)
-      if (opts.cache) cacheModule(mod)
+      cacheModulePromise = cacheModulePromise.then(function() {
+        return co(cacheModule(mod))
+      })
     }
     else {
       fpath = path.join(base, mod.name)
     }
 
-    if (yield exists(fpath)) {
-      var factory = yield readFile(fpath, encoding)
-      var content = define(
-        id.replace(RE_EXT, ''), matchRequire.findAll(factory), factory
-      )
+    if (!(yield exists(fpath))) return
 
-      if (main) {
-        content = [
-          loader,
-          define('system', [], 'module.exports = ' + JSON.stringify(system)),
-          content
-        ].join('\n')
-      }
+    var factory = yield readFile(fpath, encoding)
+    var stats = yield lstat(fpath)
+    var dependencies = matchRequire.findAll(factory)
 
-      return content
+    var content = opts.self && !(mod.name in system.modules)
+      ? defineComponent(id.replace(RE_EXT, ''), dependencies, factory)
+      : define(id.replace(RE_EXT, ''), dependencies, factory)
+
+    if (main) {
+      content = [
+        loader,
+        define('system', [], 'module.exports = ' + JSON.stringify(system)),
+        content
+      ].join('\n')
     }
+
+    return [content, {
+      'Cache-Control': 'must-revalidate',
+      'Content-Type': 'application/javascript',
+      ETag: crypto.createHash('md5').update(content).digest('hex'),
+      'Last-Modified': stats.mtime
+    }]
+  }
+
+  function defineComponent(id, dependencies, factory) {
+    for (let i = 0; i < dependencies.length; i++) {
+      let dep = dependencies[i]
+      let fpath = path.resolve(base, dep)
+
+      if (dep.indexOf('..') === 0 &&
+          fpath.indexOf(base) < 0 &&
+          fpath.indexOf(cwd) === 0) {
+        let depAlias = fpath.replace(cwd, pkg.name)
+        dependencies[i] = depAlias
+        factory = matchRequire.replaceAll(factory, function(match, quote, name) {
+          return name === dep
+            ? ['require(', depAlias, ')'].join(quote)
+            : match
+        })
+      }
+    }
+
+    return define(id, dependencies, factory)
   }
 
   function sendModuleExpress(req, res, next) {
     function main() {
       var id = req.path.slice(1)
+      var isMain = RE_MAIN.test(id) || 'main' in req.query
 
-      return co(readModule(id, RE_MAIN.test(id) || 'main' in req.query))
-        .then(function(content) {
-          if (!content) return next()
-          res.statusCode = 200
-          res.setHeader('Content-Type', 'application/javascript')
+      return co(readModule(id, isMain)).then(function(result) {
+        if (!result) return next()
+        var content = result[0]
+        var headers = result[1]
+
+        res.statusCode = 200
+        res.set(headers)
+
+        if (req.fresh) {
+          res.statusCode = 304
+        } else {
           res.write(content, encoding)
-          res.end()
-        })
+        }
+
+        res.end()
+      })
     }
 
     if (system) {
@@ -233,12 +296,16 @@ function oceanify(opts) {
 
     var id = ctx.path.slice(1)
     var main = RE_MAIN.test(id) || 'main' in ctx.query
-    var content = yield* readModule(id, main)
+    var result = yield* readModule(id, main)
 
-    if (content) {
+    if (result) {
       ctx.status = 200
-      ctx.type = 'application/javascript'
-      ctx.body = content
+      ctx.set(result[1])
+      if (ctx.fresh) {
+        ctx.status = 304
+      } else {
+        ctx.body = result[0]
+      }
     }
     else {
       yield next
@@ -247,9 +314,7 @@ function oceanify(opts) {
 
 
   function* readCache(id, source) {
-    var md5 = crypto.createHash('md5')
-    md5.update(source)
-    var checksum = md5.digest('hex')
+    var checksum = crypto.createHash('md5').update(source).digest('hex')
     var cacheName = id.replace(RE_EXT, '-' + checksum + '$1')
     var fpath = path.join(cwd, 'tmp', cacheName)
 
@@ -285,6 +350,8 @@ function oceanify(opts) {
   }
 
 
+  var postcssProcessor = postcss().use(autoprefixer())
+
   function* readStyle(id) {
     var fpath = path.join(base, id)
     var destPath = path.join(dest, id)
@@ -294,34 +361,48 @@ function oceanify(opts) {
       if (!(yield exists(fpath))) return
     }
 
-    var source = yield readFile(fpath)
+    var source = yield readFile(fpath, encoding)
     var cache = yield* readCache(id, source)
+    var stats = yield lstat(fpath)
+    var content
 
-    if (cache) return cache
-
-    var result = yield postcss()
-      .use(autoprefixer())
-      .process(source, {
+    if (cache) {
+      content = cache
+    }
+    else {
+      let result = yield postcssProcessor.process(source, {
         from: path.relative(cwd, fpath),
         to: path.relative(cwd, destPath),
         map: { inline: false }
       })
 
-    yield* writeCache(id, source, result.css)
-    yield mkdirpAsync(path.dirname(destPath))
-    yield writeFile(destPath + '.map', result.map)
+      yield* writeCache(id, source, result.css)
+      yield mkdirpAsync(path.dirname(destPath))
+      yield writeFile(destPath + '.map', result.map)
 
-    return result.css
+      content = result.css
+    }
+
+    return [content, {
+      'Content-Type': 'text/css',
+      'Cache-Control': 'must-revalidate',
+      ETag: crypto.createHash('md5').update(content).digest('hex'),
+      'Last-Modified': stats.mtime
+    }]
   }
 
   function* sendStyle(ctx, next) {
     var id = ctx.path.slice(1)
-    var content = yield* readStyle(id)
+    var result = yield* readStyle(id)
 
-    if (content) {
+    if (result) {
       ctx.status = 200
-      ctx.type = 'text/css'
-      ctx.body = content
+      ctx.set(result[1])
+      if (ctx.fresh) {
+        ctx.status = 304
+      } else {
+        ctx.body = result[0]
+      }
     }
     else {
       yield next
@@ -331,11 +412,15 @@ function oceanify(opts) {
   function sendStyleExpress(req, res, next) {
     var id = req.path.slice(1)
 
-    co(readStyle(id)).then(function(content) {
-      if (content) {
+    co(readStyle(id)).then(function(result) {
+      if (result) {
         res.statusCode = 200
-        res.setHeader('Content-Type', 'text/css')
-        res.write(content)
+        res.set(result[1])
+        if (req.fresh) {
+          res.statusCode = 304
+        } else {
+          res.write(result[0])
+        }
         res.end()
       }
       else {
