@@ -98,7 +98,7 @@
             throw new Error('Top level reached.')
           }
         }
-        else {
+        else if (part !== '.') {
           levels.push(part)
         }
       }

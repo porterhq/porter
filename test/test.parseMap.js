@@ -10,8 +10,9 @@ var parseMap = require('../lib/parseMap')
 describe('parseMap', function() {
   it('parse frontend module', function* () {
     var map = yield parseMap({
+      base: 'test',
       cwd: path.join(__dirname, 'example-fe'),
-      base: 'test'
+      self: true
     })
 
     expect(map).to.be.an(Object)

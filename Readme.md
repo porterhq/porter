@@ -1,11 +1,12 @@
 # Oceanify
 
-Oceanify is yet another solution for frontend modularization. It features
+Oceanify is yet another solution for browser modularization. It features
 module transformation on the fly and a swift setup.
 
 ## tl;dr
 
-With Oceanify, you can write web pages and applications in old style:
+With Oceanify, you can write web pages and applications in old style but can
+also take advantage of the modular pattern:
 
 ```html
 <!DOCTYPE html>
@@ -22,7 +23,7 @@ With Oceanify, you can write web pages and applications in old style:
 </html>
 ```
 
-And within `main.js`, you can `require` any dependencies you want:
+In `main.js`, you can `require` dependencies:
 
 ```js
 var $ = require('jquery')
@@ -33,16 +34,14 @@ var nav = require('./nav')
 // setup page with those required components and modules
 ```
 
-You can do the same in `main.css`:
+And you can do the same in `main.css`:
 
 ```css
-@import '/cropper/dist/cropper.css';
-
-@import './nav.css';
+@import '/cropper/dist/cropper.css';  /* stylesheets in node_modules */
+@import './nav.css';                  /* stylesheets in components */
 ```
 
-And when you want your web pages and application be production ready, simply
-run:
+When you want your web pages and application be production ready, simply run:
 
 ```js
 var co = require('co')
@@ -61,27 +60,30 @@ co([
 ```
 
 
-## Goal
+## Structure
 
-Oceanify enables you to share and utilize frontend modules to and from NPM.
-It provides a way that is somehow different than browserify and webpack for
-browser module authoring in CommonJS module definition.
-
-With Oceanify, you can organize your browser modules and their dependencies like
-this:
+Oceanify introduces a code organization pattern like below:
 
 ```bash
 .
 ├── components          # browser modules
+│   ├── stylesheets
+│   │   ├── base.css
+│   │   └── iconfont.css
 │   ├── arale
 │   │   └── upload.js
-│   └── main.js
+│   ├── main.js
+│   └── main.css
 └── node_modules        # dependencies
     └── yen
         ├── events.js
         ├── index.js
         └── support.js
 ```
+
+All the dependencies are at `node_modules` directory. All of project's browser
+code, js and css, are put at `components` folder. In `components`, you can
+`require` and `@import` dependencies from `components` and `node_modules`.
 
 Here's `main.js` would look like:
 
@@ -97,13 +99,19 @@ $('form').on('submit', function() {
 })
 ```
 
+And here's `main.css`:
+
+```css
+@import './stylesheets/base.css';
+@import './stylesheets/iconfont.css';
+```
+
 
 ## Usage
 
 To use Oceanify one must be aware that there are two versions of it. The one
 you're reading about is a middleware for Express and Koa. The other is a command
-line tool built upon Oceanify, called Oceanifier, which is a little bit mouthful
-to pronounce.
+line tool built upon Oceanify, called [Oceanifier][oceanifier].
 
 Anyway, to use Oceanify in your Koa instance, just `app.use` it.
 
@@ -117,7 +125,7 @@ var app = koa()
 app.use(oceanify())
 ```
 
-If you'd prefer your frontend modules in some other names rather than the
+If you'd prefer your browser modules in some other names rather than the
 default `components`, you can tell Oceanify that with the base option.
 
 ```js
@@ -135,6 +143,276 @@ var app = express()
 // that's it
 app.use(oceanify({ express: true }))
 ```
+
+
+## Options
+
+### `base`
+
+The directory that your components are put in. The default is `components`.
+
+
+### `cacheExcept`
+
+By default, Oceanify caches node modules transformations by compiling them once
+accessed. The compiled result will be put in the path specified by the `dest`
+option.
+
+If you want to fiddle with some of these modules, you can tell Oceanify to
+ignore them through `cacheExcept` option like:
+
+```js
+app.use(oceanify({ cacheExcept: 'heredoc' }))
+app.use(oceanify({ cacheExcept: ['heredoc', 'yen' }))
+```
+
+To turn off the caching of js modules completely, pass `*` to `cacheExcept`:
+
+```js
+app.use(oceanify({ cacheExcept: '*' }))
+```
+
+
+### `cwd`
+
+**This option shall not be used much. It is for test purposes.**
+
+By default, Oceanify uses `process.cwd()` as the `cwd`. In test cases like
+`test/test.index.js` in the source code, we need to change the `cwd` to
+`path.join(__dirname, 'test/example')`.
+
+You don't need this option.
+
+
+### `dest`
+
+The folder to store compiled caches. The cache feature requires middleware like
+`koa-static` to function properly:
+
+```js
+// koa
+app.use(require('koa-static')(path.join(__dirname, 'public')))
+app.use(requrie('oceanify')({ dest: 'public' }))
+
+// express
+app.use(express.static(path.join(__dirname, 'public')))
+app.use(requrie('oceanify')())    // public is the default
+```
+
+The stylesheet feature uses the option too. When compiling CSS from
+`components`, Oceanify will generate the correspondent source map and put it
+into the folder specified by `dest` option.
+
+
+### `express`
+
+By default, the middleware returned by `oceanify()` is in Koa format. To make
+Oceanify function properly in Express, we need to tell Oceanify about it:
+
+```js
+app.use(require('oceanify')({ express: true }))
+```
+
+
+### `self`
+
+Normally we won't be needing this option. This option is for Oceanifier mostly.
+However, when developing a browser module, we might need to require js files
+outside of the components folder.
+
+Take heredoc for example, the test codes are shared between Node and browser.
+In `test/test.heredoc.js`, it requires `../index`. When `self` option is turned
+on, the wrapped result of `test/test.heredoc.js` will be something like:
+
+```js
+define('test/test.heredoc', ['should', 'heredoc/index'], function(require, exports, module) {
+  var heredoc = require('heredoc/index')
+  // ...
+})
+```
+
+Otherwise Oceanifier will fail to serve `../index` from `test/test.heredoc`.
+
+
+## How Does It Work
+
+### CMD on the Fly
+
+At first glance this seems a bit of black magic. How can browser know where to
+`require` when executing `main.js`? The secret is all of the js files in both
+`components` and `node_modules` will be wrapped into Common Module Declaration
+format on the fly:
+
+```js
+define(id, deps, function(require, exports, module) {
+  // actual main.js content
+})
+```
+
+The `id` is deducted from the file path. The `dependencies` is extracted from
+the factory code thanks to the [match-require][match-require] module. The
+`factory` is left untouched for now.
+
+As of `main.js`, the wrapping does a little bit further. Oceanify will put two
+things before the wrapped `main.js`.
+
+1. Loader
+2. System data
+
+
+### Loader
+
+But where is the loader? you might ask.
+
+No matter CMD, AMD, or whatever MD, we gonna need a module loader. To support
+the dependencies tree in `node_modules`, we forked a CMD module loader called
+[sea.js][seajs], which is popular in China.
+
+The loader provided by Oceanify flattens the tree generated by NPM. If the tree
+were something like:
+
+```bash
+➜  heredoc git:(master) ✗ tree node_modules -I "mocha|standard"
+node_modules
+└── should
+    ├── index.js
+    ├── node_modules
+    │   ├── should-equal
+    │   │   ├── index.js
+    │   │   └── package.json
+    │   ├── should-format
+    │   │   ├── index.js
+    │   │   └── package.json
+    │   └── should-type
+    │       ├── index.js
+    │       └── package.json
+    └── package.json
+```
+
+It will be flattened into:
+
+```js
+{
+  "should": {
+    "6.0.3": {
+      "main": "./lib/should.js",
+      "dependencies": {
+        "should-type": "0.0.4",
+        "should-format": "0.0.7",
+        "should-equal": "0.3.1"
+      }
+    }
+  },
+  "should-type": {
+    "0.0.4": {}
+  },
+  "should-format": {
+    "0.0.7": {
+      "dependencies": {
+        "should-type": "0.0.4"
+      }
+    }
+  },
+  "should-equal": {
+    "0.3.1": {
+      "dependencies": {
+        "should-type": "0.0.4"
+      }
+    }
+  }
+}
+```
+
+The original dependency path `should/should-type` is now put into the same
+level. There are `dependencies` Object still, to store the actual version that
+is required by `should`.
+
+Notice the structure supports multiple versions. So if your project uses jQuery
+1.x but a module you'd like to require uses jQuery 2.x, you can just lay back
+and be relaxed. But IMHO, requiring two or even more versions of libraries like
+jQuery is a little bit heavy.
+
+
+### System Data
+
+Except the `system.modules` metioned above, the system data contains other
+informations too. Take heredoc for example, the generated system data looks
+like below:
+
+```js
+{
+  "base": "http://localhost:5000",
+  "cwd": "http://localhost:5000",
+  "main": "runner",
+  "modules": { ... },
+  "dependencies": {
+    "heredoc": "1.3.1",
+    "should": "6.0.3"
+  }
+}
+```
+
+- `base` is the root path of components and node modules.
+- `cwd` is the host part of `location.href`. If there's no `base` specified,
+  `base` will be `cwd`.
+- `main` is the main entrance of the tree.
+- `modules` is the flattened dependencies tree.
+- `dependencies` is the map of all the dependencies required by components.
+
+
+### Wrap It Up
+
+So here's the flow:
+
+1. Browser requests `/main.js`;
+2. Oceanify prepares the content of `/main.js` with 1) Loader, 2) System data,
+   and 3) the wrapped `main.js` module;
+3. Browser executes the returned `/main.js`, Loader kicks in;
+4. Loader resolves the dependencies of `main.js` module;
+5. Browser requests the dependencies per Loader's request;
+6. Loader executes the factory of `main.js` once all the dependencies are
+   resolved.
+
+
+## Why Oceanify
+
+### A Wrapper for SeaJS
+
+Oceanify starts as a wrapper for SeaJS. But SeaJS comes short when we need
+multiple versions coexist in the same page. In SeaJS the `require` has no
+context. In Node however, the `require` traverses up all the way.
+
+So we write our own Loader for Oceanify.
+
+
+### Why Not Webpack?
+
+That's a little bit difficult to answer. When the first version of Oceanify is
+developed, we weren't aware of Webpack yet. When Webpack got popular, Oceanify
+meets most of our requirements already.
+
+From the technical perspective, Oceanify is a bit like browserify. It's built
+upon the ecosystem of NPM. With Oceanify, you can require modules installed via
+NPM directly but there's nothing else. There isn't much of transformers to
+configure.
+
+
+### Why Not Browserify?
+
+In the projects from our work that use Oceanify, the wrap on the fly and
+`require.async` features are the two we liked a lot. With wrap on the fly, we
+don't need to setup a file watcher or something similar. With `require.async`,
+we can migrate history code with ease.
+
+
+### Wrap It Up
+
+I have to admit that the points made in why not webpack or browserify are pale.
+Webpack has a middleware to build on the fly too. With enough time spent on
+browserify and its ecosystem, we probably can setup something similar with
+Oceanify too.
+
+But it's really hard to give Oceanify up just yet.
 
 
 ## Deployment
@@ -195,199 +473,12 @@ and postcss-import. You gonna need some minification tools like
 [cssnano][cssnano].
 
 
-# Oceanify 前端模块化
-
-我们希望借助 Oceanify，让前端代码能够模块化开发，并且直接使用 NPM 分享。同时，我们希望
-Oceanify 可以帮助压缩、发布前端代码。
-
-
-## tl;dr - 一言以蔽之
-
-借助 Oceanify，我们可以这样做前端开发：
-
-```html
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Oceanify Rocks!</title>
-  <link rel="stylesheet" type="text/css" href="/main.css">
-</head>
-<body>
-  <h1>Oceanify Rocks!</h1>
-  <script src="/main.js"></script>
-</body>
-</html>
-```
-
-在 `main.js` 里，你可以任意 `require` 依赖：
-
-```js
-var $ = require('jquery')
-var cropper = require('cropper')
-
-var nav = require('./nav')
-
-// 页面逻辑代码
-```
-
-在 `main.css` 也可以放肆 `@import`：
-
-```css
-@import '/cropper/dist/cropper.css';
-
-@import './nav.css';
-```
-
-到上线的时候，可以使用如下代码压缩静态资源，Oceanify 将会压缩、合并相关文件，所以不必担心
-`@import` 会拖慢页面展现，也不必担心优化工具说你的页面请求数过多啦：
-
-```js
-var co = require('co')
-var oceanify = require('oceanify')
-
-co([
-  oceanify.compileAll(),          // js components and modules
-  oceanify.compileStyleSheets()   // css files
-])
-  .then(function() {
-    console.log('assets compiled.')
-  })
-  .catch(function(err) {
-    console.error(err.stack)
-  })
-```
-
-
-## Usage - 用法
-
-如果你的网站采用 Express 或者 Koa 开发，那么用 Oceanify 开发前端代码再合适不过。以
-Koa 为例，只需在 `app.js` 中添加如下代码即可：
-
-```js
-var oceanify = require('oceanify')
-
-// 使用默认设置
-app.use(oceanify())
-
-// 指定前端代码所在目录，默认为 components，根路径为 process.cwd()，即应用根目录
-app.use(oceanify({ base: 'components' }))
-```
-
-如果你用的开发框架是 Express，则需要修改初始化代码为：
-
-```js
-app.use(oceanify({ express: true }))
-```
-
-
-不管是 Express 还是 Koa，比较推荐 Web 应用的目录结构如下：
-
-```bash
-.
-├── app.js              # 应用入口
-├── components          # 应用自己的前端模块
-│   ├── arale
-│   │   └── upload.js
-│   └── main.js
-└── node_modules        # 来自 NPM 的外部依赖
-    └── yen
-        ├── easing.js
-        ├── events.js
-        ├── index.js
-        └── support.js
-```
-
-不管是 components 还是 node_modules 中的模块，oceanify 都能够将它们封装为前端模块加载器
-所能接收的写法。所以在上述文件结构中，我们可以在 components 的模块中使用 [yen][yen] 模块，
-也可以 `require` components 中的其他模块：
-
-```js
-// components/main.js
-var $ = require('yen')
-var Upload = require('arale/upload')
-
-// code
-```
-
-在浏览器请求 `/main.js` 时，oceanify 将返回：
-
-```js
-define('papercut/index', ['yen', 'arale/upload'], function() {
-  var $ = require('yen')
-  var Upload = require('arale/upload')
-
-  // code
-})
-```
-
-还可以参考使用 koa 与 oceanify 搭建的 [Oceanify Example][oceanify-example]。
-
-
-## Deployment - 部署时
-
-### Compilation - 编译
-
-可以用 `oceanify.compileAll()` 方法帮你压缩代码。
-
-```js
-var co = require('co')
-var oceanify = require('oceanify')
-
-// 指定前端代码所在目录，以及编译文件存放目录
-co(oceanify.compileAll({ base: './components', dest: './public' }))
-  .then(function() {
-    console.log('done')
-  })
-  .catch(function(err) {
-    console.log(err.stack)
-  })
-
-// 上面的 base 和 dest 为默认设置，因此也可以省略
-co(oceanify.compileAll())
-  .then(function() {
-    console.log('done')
-  })
-  .catch(function(err) {
-    console.log(err.stack)
-  })
-```
-
-Oceanify 将会编译所有 `components` 目录中的模块，并找出这些模块依赖的外部（那些通过
-NPM 安装，放在 `node_modules` 目录下的）模块，然后一并编译掉。
-
-可以在 [Oceanify Example][oceanify-example] 里尝试编译，执行 `npm run precompile`
-即可。
-
-
-## Facilities - 配套设施
-
-### Oceanifier - 命令行工具
-
-为了让不方便使用 Oceanify 的前端工程师也能享受 Oceanify 带来的便利，我们还提供了
-[Oceanifier][oceanifier] 命令行工具。使用 Oceanifier，我们不搭建 Express 或者 Koa
-服务，也可以使用 CommonJS 的模块写法。
-
-在我们提供的 [Oceanify Example][oceanify-example] 里，运行 Oceanifier 提供的命令
-`ocean serve`，同样也能打开我们的效果演示。
-
-因此，如果没条件自己搭服务，就试试 Oceanifier 跑静态环境吧。
-
-此外，Oceanifier 还集成了许多对单个模块开发非常有帮助的功能，我们有许多模块（[yen][yen]、
-[ez-editor][ez-editor] 等）都是使用 Oceanifier 管理的，快 [去看看][oceanifier]。
-
-
-### Oceanify Example - Oceanify 使用示例
-
-为了方便理解 Oceanify 的好处，我们专门开发了一个与业务无关的
-[Oceanify 示例][oceanify-example]，在其中演示了如何在一个 Node Web 应用中使用 NPM
-安装外部前端模块，以及如何在应用中开发自有模块。
-
 
 [loaders]: http://www.zhihu.com/question/22739468/answer/29949594
 [yen]: https://github.com/erzu/yen
 [ez-editor]: https://github.com/erzu/ez-editor
 [oceanify-example]: https://github.com/erzu/oceanify/tree/master/test/example
 [oceanifier]: https://github.com/erzu/oceanifier
-[cmd-util]: https://www.npmjs.com/package/cmd-util
 [cssnano]: https://github.com/ben-eb/cssnano
+[seajs]: https://github.com/seajs/seajs
+[match-require]: https://github.com/yiminghe/match-require
