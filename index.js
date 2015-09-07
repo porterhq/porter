@@ -432,6 +432,8 @@ function oceanify(opts) {
 
   if (opts.express) {
     return function(req, res, next) {
+      if (res.headerSent) return next()
+
       switch (path.extname(req.path)) {
         case '.js':
           sendModuleExpress(req, res, next)
@@ -446,6 +448,8 @@ function oceanify(opts) {
   }
   else {
     return function* (next) {
+      if (this.headerSent) return yield next
+
       switch (path.extname(this.path)) {
         case '.js':
           yield* sendModule(this, next)

@@ -155,15 +155,15 @@ The directory that your components are put in. The default is `components`.
 ### `cacheExcept`
 
 By default, Oceanify caches node modules transformations by compiling them once
-accessed. The compiled result will be put in the path specified by the `dest`
-option.
+they are accessed. The compiled result will be put in the path specified by the
+`dest` option.
 
 If you want to fiddle with some of these modules, you can tell Oceanify to
 ignore them through `cacheExcept` option like:
 
 ```js
 app.use(oceanify({ cacheExcept: 'heredoc' }))
-app.use(oceanify({ cacheExcept: ['heredoc', 'yen' }))
+app.use(oceanify({ cacheExcept: ['heredoc', 'yen'] }))
 ```
 
 To turn off the caching of js modules completely, pass `*` to `cacheExcept`:
