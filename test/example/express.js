@@ -7,7 +7,7 @@ var oceanify = require('../..')
 
 var app = express()
 app.use(oceanify({
-  cwd: path.join(__dirname),
+  root: path.join(__dirname),
   express: true
 }))
 

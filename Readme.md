@@ -173,12 +173,12 @@ app.use(oceanify({ cacheExcept: '*' }))
 ```
 
 
-### `cwd`
+### `root`
 
 **This option shall not be used much. It is for test purposes.**
 
-By default, Oceanify uses `process.cwd()` as the `cwd`. In test cases like
-`test/test.index.js` in the source code, we need to change the `cwd` to
+By default, Oceanify uses `process.cwd()` as the `root`. In test cases like
+`test/test.index.js` in the source code, we need to change the `root` to
 `path.join(__dirname, 'test/example')`.
 
 You don't need this option.

@@ -7,11 +7,11 @@ var expect = require('expect.js')
 var parseMap = require('../lib/parseMap')
 
 
-describe('parseMap', function() {
+describe('oceanify.parseMap', function() {
   it('parse frontend module', function* () {
-    var map = yield parseMap({
+    var map = yield* parseMap({
       base: 'test',
-      cwd: path.join(__dirname, 'example-fe'),
+      root: path.join(__dirname, 'example-fe'),
       self: true
     })
 
@@ -26,7 +26,7 @@ describe('parseMap', function() {
 
   it('parse application modules', function* () {
     var map = yield parseMap({
-      cwd: path.join(__dirname, 'example')
+      root: path.join(__dirname, 'example')
     })
 
     expect(map).to.be.an(Object)

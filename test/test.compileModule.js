@@ -9,25 +9,24 @@ var exec = require('child_process').execSync
 var compileModule = require('..').compileModule
 
 
-describe('compileModule', function () {
-  it('should compile specified module', function* () {
-    var cwd = path.join(__dirname, 'example')
-    var pkg = require('./example/node_modules/yen/package')
-    var main = (pkg.main || 'index').replace(/\.js$/, '')
+describe('oceanify.compileModule', function () {
 
-    yield compileModule({
-      base: path.join(cwd, 'node_modules'),
-      dest: path.join(cwd, 'public'),
-      name: pkg.name,
-      version: pkg.version,
-      main: main
-    })
-
-    var fpath = path.join(cwd, 'public', pkg.name, pkg.version, main + '.js')
-    expect(exists(fpath)).to.be(true)
+  before(function () {
+    exec('rm -rf ' + path.join(__dirname, 'example', 'tmp'))
   })
 
-  after(function() {
-    exec('rm -rf ' + path.join(__dirname, 'example', 'public'))
+  it('should compile specified module', function* () {
+    var root = path.join(__dirname, 'example')
+    var pkg = require('./example/node_modules/yen/package')
+    var main = (pkg.main || 'index').replace(/\.js$/, '')
+    var id = path.join(pkg.name, pkg.version, main)
+
+    yield* compileModule(id, {
+      root: root,
+      dest: 'tmp'
+    })
+
+    var fpath = path.join(root, 'tmp', id + '.js')
+    expect(exists(fpath)).to.be(true)
   })
 })

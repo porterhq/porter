@@ -1,6 +1,7 @@
 node_modules
 tmp
 coverage
+docs
 
 test/example/node_modules
 test/example/public

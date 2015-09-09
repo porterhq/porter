@@ -9,9 +9,13 @@ var expect = require('expect.js')
 var compileStyleSheets = require('../lib/compileStyleSheets')
 
 
-describe('compileStyleSheets', function() {
+describe('oceanify.compileStyleSheets', function() {
   before(function() {
     process.chdir(path.join(__dirname, 'example'))
+  })
+
+  before(function () {
+    exec('rm -rf ' + path.join(__dirname, 'example', 'public'))
   })
 
   it('compiles stylesheets', function* () {
@@ -21,9 +25,5 @@ describe('compileStyleSheets', function() {
 
     expect(exists(path.join(__dirname, 'example/public/stylesheets/app.css')))
       .to.be(true)
-  })
-
-  after(function() {
-    exec('rm -rf ' + path.join(__dirname, 'example', 'public'))
   })
 })

@@ -3,10 +3,10 @@
 (function(global) {
 
   // do not override
-  if (global.define) return
+  if (global.oceanify) return
 
-  var registry = {}
-  var system = { base: '' }
+  var system = { base: '', registry: {} }
+  var registry = system.registry
 
 
   var ArrayFn = Array.prototype
@@ -402,40 +402,51 @@
     }
   }
 
-  global.registry = registry
-  global.system = system
+  global.oceanify = system
 
 
-  function bootstrap() {
+  function grub() {
     var cwd = location.href.split('/').slice(0, 3).join('/')
     var scripts = doc.scripts || doc.getElementsByTagName('script')
     var currentScript = scripts[scripts.length - 1]
-    var main = currentScript.getAttribute('src')
+    var main = currentScript.getAttribute('data-main')
     var base = currentScript.getAttribute('data-base') || cwd
+    var src = currentScript.getAttribute('src')
 
-    if (/^(?:https?:)?\/\//.test(main)) {
-      if (main.indexOf(base) === 0) {
-        main = main.replace(base, '')
-      } else {
-        throw new Error('Please specify data-base')
+    if (!main && src) {
+      main = src.split(/[?#]/)[0].replace(/\.js$/, '')
+
+      if (/^(?:https?:)?\/\//.test(main)) {
+        if (main.indexOf(base) === 0) {
+          main = main.replace(base, '')
+        } else {
+          throw new Error('Please specify data-base')
+        }
       }
     }
 
     system.cwd = cwd
     system.base = base
-    system.main = main.split(/[?#]/)[0].replace(/\.js$/, '').replace(/^\//, '')
+    system.main = main.replace(/^\//, '')
 
-    onload(currentScript, function() {
-      var id = Module.resolve(system.main)
-      var mod = registry[id]
-
-      mod.on('resolved', function() {
-        mod.execute()
-      })
-      mod.resolve()
-    })
+    if (src) {
+      onload(currentScript, bootstrap)
+    } else {
+      setTimeout(bootstrap, 0)
+    }
   }
 
-  bootstrap()
+  function bootstrap() {
+    var id = Module.resolve(system.main)
+    var mod = registry[id]
+
+    mod.on('resolved', function() {
+      mod.execute()
+    })
+    mod.resolve()
+  }
+
+
+  grub()
 
 })(this)

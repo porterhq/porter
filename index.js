@@ -1,5 +1,9 @@
 'use strict'
 
+/**
+ * @module
+ */
+
 var path = require('path')
 var fs = require('fs')
 var co = require('co')
@@ -7,6 +11,9 @@ var crypto = require('crypto')
 var semver = require('semver')
 var mkdirp = require('mkdirp')
 var matchRequire = require('match-require')
+var objectAssign = require('object-assign')
+var mime = require('mime')
+var debug = require('debug')('oceanify')
 
 var postcss = require('postcss')
 var autoprefixer = require('autoprefixer')
@@ -17,10 +24,13 @@ var define = require('./lib/define')
 var compileAll = require('./lib/compileAll')
 var compileStyleSheets = require('./lib/compileStyleSheets')
 
-var loader = fs.readFileSync(path.join(__dirname, 'import.js'))
+var loaderPath = path.join(__dirname, 'import.js')
+var loader = fs.readFileSync(loaderPath, 'utf-8')
+var loaderStats = fs.statSync(loaderPath)
 
-var RE_EXT = /(\.(?:css|js))$/
+var RE_EXT = /(\.(?:css|js))$/i
 var RE_MAIN = /^(?:main|runner)\b/
+var RE_ASSET_EXT = /\.(?:gif|jpg|jpeg|png|svg|swf)$/i
 
 
 function exists(fpath) {
@@ -75,31 +85,31 @@ function lstat(fpath) {
 }
 
 
-/*
- * Find the path of a module in the dependencies map.
+/**
+ * @typedef  {Module}
+ * @type     {Object}
+ * @property {string} name
+ * @property {string} version
+ * @property {string} entry
+ *
+ * @typedef  {DependenciesMap}
+ * @type     {Object}
+ *
+ * @typedef  {System}
+ * @type     {Object}
+ * @property {Object} dependencies
+ * @property {Object} modules
+ *
+ * @typedef  {uAST}
+ * @type     {Object}
  */
-function findModule(mod, dependenciesMap) {
-  var props = []
 
-  function walk(map) {
-    var name = mod.name
-
-    if (name in map && map[name].version === mod.version) {
-      return path.join(map[name].dir, mod.entry)
-    }
-
-    for (name in map) {
-      props.push(name)
-      var result = walk(map[name].dependencies)
-      if (result) return result
-      props.pop()
-    }
-  }
-
-  return walk(dependenciesMap)
-}
-
-
+/**
+ * @param  {string} id
+ * @param  {Object} system
+ *
+ * @returns {Module}  mod
+ */
 function parseId(id, system) {
   var parts = id.split('/')
   var name = parts.shift()
@@ -123,15 +133,55 @@ function parseId(id, system) {
 }
 
 
-/*
+/**
+ * Find the path of a module in the dependencies map.
+ *
+ * @param {Module} mod
+ * @param {DependenciesMap} dependenciesMap
+ *
+ * @returns {string} fpath     The path to the specified module
+ */
+function findModule(mod, dependenciesMap) {
+  var props = []
+
+  function walk(map) {
+    var name = mod.name
+
+    if (name in map && map[name].version === mod.version) {
+      return path.join(map[name].dir, mod.entry)
+    }
+
+    for (name in map) {
+      props.push(name)
+      var result = walk(map[name].dependencies)
+      if (result) return result
+      props.pop()
+    }
+  }
+
+  return walk(dependenciesMap)
+}
+
+
+/**
  * Factory
+ *
+ * @param {Object}        opts
+ * @param {string}       [opts.root=process.cwd()] Override current working directory
+ * @param {string}       [opts.base=components]   Base directory name or path
+ * @param {string}       [opts.dest=public]       Cache destination
+ * @param {string|Array} [opts.cacheExcept=[]]    Cache exceptions
+ * @param {boolean}      [opts.self=false]        Include host module itself
+ * @param {boolean}      [opts.express=false]     Express middleware
+ *
+ * @returns {Function|GeneratorFunction} A middleware for Koa or Express
  */
 function oceanify(opts) {
   opts = opts || {}
   var encoding = 'utf-8'
-  var cwd = opts.cwd || process.cwd()
-  var base = path.resolve(cwd, opts.base || 'components')
-  var dest = path.resolve(cwd, opts.dest || 'public')
+  var root = opts.root || process.cwd()
+  var base = path.resolve(root, opts.base || 'components')
+  var dest = path.resolve(root, opts.dest || 'public')
   var cacheExceptions = opts.cacheExcept || []
 
   if (typeof cacheExceptions === 'string') {
@@ -143,9 +193,9 @@ function oceanify(opts) {
   var pkg
 
   var parseSystemPromise = co(function* () {
-    dependenciesMap = yield parseMap(opts)
+    dependenciesMap = yield* parseMap(opts)
     system = parseSystem(dependenciesMap)
-    pkg = JSON.parse(yield readFile(path.join(cwd, 'package.json'), 'utf-8'))
+    pkg = JSON.parse(yield readFile(path.join(root, 'package.json'), 'utf-8'))
   })
 
   var cacheModulePromise = Promise.resolve()
@@ -180,16 +230,13 @@ function oceanify(opts) {
 
       var stats = yield lstat(path.join(fpath, mod.name))
       if (stats.isSymbolicLink()) {
-        console.log('Ignore symbolic linked module %s', mod.name)
+        debug('Ignored symbolic linked module %s', mod.name)
         return
       }
 
       try {
-        yield* oceanify.compileModule({
+        yield* oceanify.compileModule(path.join(mod.name, mod.version, main), {
           base: fpath,
-          name: mod.name,
-          main: main,
-          version: mod.version,
           dest: dest
         })
       }
@@ -200,6 +247,8 @@ function oceanify(opts) {
   }
 
   function* readModule(id, main) {
+    if (!system) yield parseSystemPromise
+
     var mod = parseId(id, system)
     var fpath
 
@@ -247,8 +296,8 @@ function oceanify(opts) {
 
       if (dep.indexOf('..') === 0 &&
           fpath.indexOf(base) < 0 &&
-          fpath.indexOf(cwd) === 0) {
-        let depAlias = fpath.replace(cwd, pkg.name)
+          fpath.indexOf(root) === 0) {
+        let depAlias = fpath.replace(root, pkg.name)
         dependencies[i] = depAlias
         factory = matchRequire.replaceAll(factory, function(match, quote, name) {
           return name === dep
@@ -261,62 +310,10 @@ function oceanify(opts) {
     return define(id, dependencies, factory)
   }
 
-  function sendModuleExpress(req, res, next) {
-    function main() {
-      var id = req.path.slice(1)
-      var isMain = RE_MAIN.test(id) || 'main' in req.query
-
-      return co(readModule(id, isMain)).then(function(result) {
-        if (!result) return next()
-        var content = result[0]
-        var headers = result[1]
-
-        res.statusCode = 200
-        res.set(headers)
-
-        if (req.fresh) {
-          res.statusCode = 304
-        } else {
-          res.write(content, encoding)
-        }
-
-        res.end()
-      })
-    }
-
-    if (system) {
-      main().catch(next)
-    } else {
-      parseSystemPromise.then(main).catch(next)
-    }
-  }
-
-  function* sendModule(ctx, next) {
-    if (!system) yield parseSystemPromise
-
-    var id = ctx.path.slice(1)
-    var main = RE_MAIN.test(id) || 'main' in ctx.query
-    var result = yield* readModule(id, main)
-
-    if (result) {
-      ctx.status = 200
-      ctx.set(result[1])
-      if (ctx.fresh) {
-        ctx.status = 304
-      } else {
-        ctx.body = result[0]
-      }
-    }
-    else {
-      yield next
-    }
-  }
-
-
   function* readCache(id, source) {
     var checksum = crypto.createHash('md5').update(source).digest('hex')
     var cacheName = id.replace(RE_EXT, '-' + checksum + '$1')
-    var fpath = path.join(cwd, 'tmp', cacheName)
+    var fpath = path.join(root, 'tmp', cacheName)
 
     if (yield exists(fpath)) {
       return yield readFile(fpath, encoding)
@@ -327,7 +324,7 @@ function oceanify(opts) {
     var md5 = crypto.createHash('md5')
     md5.update(source)
     var cacheId = id.replace(RE_EXT, '-' + md5.digest('hex') + '$1')
-    var fpath = path.join(cwd, 'tmp', cacheId)
+    var fpath = path.join(root, 'tmp', cacheId)
 
     yield mkdirpAsync(path.dirname(fpath))
     yield writeFile(fpath, content)
@@ -337,7 +334,7 @@ function oceanify(opts) {
   function* clearCache(id, cacheId) {
     var fname = path.basename(id)
     var cacheName = path.basename(cacheId)
-    var dir = path.join(cwd, 'tmp', path.dirname(id))
+    var dir = path.join(root, 'tmp', path.dirname(id))
     var entries = yield readdir(dir)
 
     for (var i = 0, len = entries.length; i < len; i++) {
@@ -357,7 +354,7 @@ function oceanify(opts) {
     var destPath = path.join(dest, id)
 
     if (!(yield exists(fpath))) {
-      fpath = path.join(cwd, 'node_modules', id)
+      fpath = path.join(root, 'node_modules', id)
       if (!(yield exists(fpath))) return
     }
 
@@ -371,8 +368,8 @@ function oceanify(opts) {
     }
     else {
       let result = yield postcssProcessor.process(source, {
-        from: path.relative(cwd, fpath),
-        to: path.relative(cwd, destPath),
+        from: path.relative(root, fpath),
+        to: path.relative(root, destPath),
         map: { inline: false }
       })
 
@@ -384,49 +381,45 @@ function oceanify(opts) {
     }
 
     return [content, {
-      'Content-Type': 'text/css',
-      'Cache-Control': 'must-revalidate',
-      ETag: crypto.createHash('md5').update(content).digest('hex'),
       'Last-Modified': stats.mtime
     }]
   }
 
-  function* sendStyle(ctx, next) {
-    var id = ctx.path.slice(1)
-    var result = yield* readStyle(id)
+
+  function* readAsset(id, isMain) {
+    var ext = path.extname(id)
+    var fpath = path.join(base, id)
+    var result = null
+
+    if (id === 'import.js') {
+      result = [loader, {
+        'Last-Modified': loaderStats.mtime
+      }]
+    }
+    else if (ext === '.js') {
+      result = yield* readModule(id, isMain)
+    }
+    else if (ext === '.css') {
+      result = yield* readStyle(id, isMain)
+    }
+    else if (RE_ASSET_EXT.test(ext) && (yield exists(fpath))) {
+      let content = yield readFile(fpath, encoding)
+      let stats = yield lstat(fpath)
+
+      result = [content, {
+        'Last-Modified': stats.mtime
+      }]
+    }
 
     if (result) {
-      ctx.status = 200
-      ctx.set(result[1])
-      if (ctx.fresh) {
-        ctx.status = 304
-      } else {
-        ctx.body = result[0]
-      }
+      objectAssign(result[1], {
+        'Cache-Control': 'max-age=0',
+        'Content-Type': mime.lookup(ext) + '; charset=utf-8',
+        ETag: crypto.createHash('md5').update(result[0]).digest('hex')
+      })
     }
-    else {
-      yield next
-    }
-  }
 
-  function sendStyleExpress(req, res, next) {
-    var id = req.path.slice(1)
-
-    co(readStyle(id)).then(function(result) {
-      if (result) {
-        res.statusCode = 200
-        res.set(result[1])
-        if (req.fresh) {
-          res.statusCode = 304
-        } else {
-          res.write(result[0])
-        }
-        res.end()
-      }
-      else {
-        next()
-      }
-    }).catch(next)
+    return result
   }
 
 
@@ -434,31 +427,45 @@ function oceanify(opts) {
     return function(req, res, next) {
       if (res.headerSent) return next()
 
-      switch (path.extname(req.path)) {
-        case '.js':
-          sendModuleExpress(req, res, next)
-          break
-        case '.css':
-          sendStyleExpress(req, res, next)
-          break
-        default:
+      var id = req.path.slice(1)
+      var isMain = RE_MAIN.test(id) || 'main' in req.query
+
+      co(readAsset(id, isMain)).then(function(result) {
+        if (result) {
+          res.statusCode = 200
+          res.set(result[1])
+          if (req.fresh) {
+            res.statusCode = 304
+          } else {
+            res.write(result[0])
+          }
+          res.end()
+        }
+        else {
           next()
-      }
+        }
+      }).catch(next)
     }
   }
   else {
     return function* (next) {
       if (this.headerSent) return yield next
 
-      switch (path.extname(this.path)) {
-        case '.js':
-          yield* sendModule(this, next)
-          break
-        case '.css':
-          yield* sendStyle(this, next)
-          break
-        default:
-          yield next
+      var id = this.path.slice(1)
+      var isMain = RE_MAIN.test(id) || 'main' in this.query
+      var result = yield* readAsset(id, isMain)
+
+      if (result) {
+        this.status = 200
+        this.set(result[1])
+        if (this.fresh) {
+          this.status = 304
+        } else {
+          this.body = result[0]
+        }
+      }
+      else {
+        yield next
       }
     }
   }
@@ -471,5 +478,5 @@ oceanify.compileComponent = compileAll.compileComponent
 oceanify.compileModule = compileAll.compileModule
 oceanify.compileStyleSheets = compileStyleSheets
 
-// Expose oceanify
+
 module.exports = oceanify

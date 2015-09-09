@@ -4,23 +4,49 @@ require('co-mocha')
 var path = require('path')
 var expect = require('expect.js')
 var fs = require('fs')
+var heredoc = require('heredoc').strip
 var exec = require('child_process').execSync
 
 var compileComponent = require('..').compileComponent
+var parseMap = require('..').parseMap
 
 var exists = fs.existsSync
+var readFile = fs.readFileSync
 
 
-describe('compileComponent', function() {
+describe('oceanify.compileComponent', function() {
+  var root = path.join(__dirname, 'example')
+  var dest = path.join(root, 'tmp')
+
+
+  before(function () {
+    exec('rm -rf ' + path.join(__dirname, 'example', 'tmp'))
+  })
+
   it('should compile component', function* () {
-    var base = path.join(__dirname, 'example/components')
-    var dest = path.join(__dirname, 'example/public')
-
-    yield compileComponent({ base: base, id: 'ma/nga', dest: dest })
+    yield compileComponent('ma/nga', { root: root, dest: dest })
     expect(exists(path.join(dest, 'ma/nga.js'))).to.be(true)
   })
 
-  after(function() {
-    exec('rm -rf ' + path.join(__dirname, 'example', 'public'))
+  it('should compile shadow component', function* () {
+    var map = yield* parseMap({ root: root })
+
+    yield* compileComponent('shadow/9527', {
+      root: root,
+      dest: dest,
+      dependencies: ['yen'],
+      factory: heredoc(function() {/*
+        'use strict'
+        var $ = require('yen')
+        console.log($)
+      */}),
+      dependenciesMap: map
+    })
+
+    var content = readFile(path.join(dest, 'shadow/9527.js'), 'utf-8')
+
+    expect(content).to.contain('shadow/9527')
+    expect(content).to.contain('yen/1.2.4/index')
+    expect(content).to.contain('yen/1.2.4/events')
   })
 })

@@ -38,10 +38,10 @@ function globAsync(dir, opts) {
   })
 }
 
-function requestPath(path) {
+function requestPath(apath) {
   return new Promise(function(resolve, reject) {
     request(app.listen())
-      .get(path)
+      .get(apath)
       .expect(200)
       .end(function(err) {
         if (err) reject(err)

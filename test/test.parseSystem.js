@@ -8,10 +8,10 @@ var parseMap = require('../lib/parseMap')
 var parseSystem = require('../lib/parseSystem')
 
 
-describe('parseSystem', function() {
+describe('oceanify.parseSystem', function() {
   it('flatten the dependencies map', function* () {
     var map = yield parseMap({
-      cwd: path.join(__dirname, 'example')
+      root: path.join(__dirname, 'example')
     })
     var system = parseSystem(map)
 

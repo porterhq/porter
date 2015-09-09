@@ -5,7 +5,7 @@ var request = require('supertest')
 var app = require('./example/express')
 
 
-describe('oceanify', function() {
+describe('oceanify/express', function() {
   it('should handle components', function(done) {
     request(app)
       .get('/ma/nga.js')
