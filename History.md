@@ -1,4 +1,16 @@
 
+4.2.0 / 2015-09-10
+==================
+
+  * Update: compileComponent with node modules included
+  * Docs: comments about functions in jsdoc format, cannot generate
+    anything fancy yet.
+  * Fix: fix filename in source map when bundling files like
+    node_modules/@ali/pebble/node_modules/yen/index.js
+  * New: serve assets other than js and css from components too
+  * New: proper source map support
+
+
 4.1.5 / 2015-09-07
 ==================
 
