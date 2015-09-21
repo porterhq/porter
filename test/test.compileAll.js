@@ -12,7 +12,7 @@ var compileAll = require('..').compileAll
 describe('oceanify.compileAll', function() {
   var root = path.join(__dirname, 'example')
 
-  before(function () {
+  beforeEach(function () {
     exec('rm -rf ' + path.join(__dirname, 'example', 'public'))
   })
 
@@ -20,7 +20,8 @@ describe('oceanify.compileAll', function() {
     yield compileAll({
       root: root,
       base: 'components',
-      dest: 'public'
+      dest: 'public',
+      sourceOptions: { root: '/' }
     })
 
     var entries = glob(path.join(root, 'public/**/*.{js,map}')).map(function(entry) {
@@ -35,5 +36,21 @@ describe('oceanify.compileAll', function() {
 
     expect(entries).to.contain('public/crox/1.3.1/build/crox-all.js')
     expect(entries).to.contain('public/crox/1.3.1/build/crox-all.js.map')
+  })
+
+  it('should compile components in muitiple bases', function* () {
+    yield compileAll({
+      root: root,
+      base: ['components', 'browser_modules'],
+      dest: 'public',
+      sourceOptions: { root: '/' }
+    })
+
+    var entries = glob(path.join(root, 'public/**/*.{js,map}')).map(function(entry) {
+      return path.relative(root, entry)
+    })
+
+    expect(entries).to.contain('public/v2/main.js')
+    expect(entries).to.contain('public/v2/main.js.map')
   })
 })

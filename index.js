@@ -29,7 +29,7 @@ var loader = fs.readFileSync(loaderPath, 'utf-8')
 var loaderStats = fs.statSync(loaderPath)
 
 var RE_EXT = /(\.(?:css|js))$/i
-var RE_MAIN = /^(?:main|runner)\b/
+var RE_MAIN = /\/(?:main|runner)\.js$/
 var RE_ASSET_EXT = /\.(?:gif|jpg|jpeg|png|svg|swf)$/i
 
 
@@ -164,15 +164,32 @@ function findModule(mod, dependenciesMap) {
 
 
 /**
+ * Find the path of a component in mutiple base directories
+ *
+ * @param {string} id
+ * @param {Array}  bases
+ * @yield {string} path of the component found
+ */
+function* findComponent(id, bases) {
+  for (let i = 0; i < bases.length; i++) {
+    let componentPath = path.join(bases[i], id)
+    if (yield exists(componentPath)) {
+      return componentPath
+    }
+  }
+}
+
+
+/**
  * Factory
  *
  * @param {Object}        opts
  * @param {string}       [opts.root=process.cwd()] Override current working directory
- * @param {string}       [opts.base=components]   Base directory name or path
- * @param {string}       [opts.dest=public]       Cache destination
- * @param {string|Array} [opts.cacheExcept=[]]    Cache exceptions
- * @param {boolean}      [opts.self=false]        Include host module itself
- * @param {boolean}      [opts.express=false]     Express middleware
+ * @param {string|Array} [opts.base=components]    Base directory name or path
+ * @param {string}       [opts.dest=public]        Cache destination
+ * @param {string|Array} [opts.cacheExcept=[]]     Cache exceptions
+ * @param {boolean}      [opts.self=false]         Include host module itself
+ * @param {boolean}      [opts.express=false]      Express middleware
  *
  * @returns {Function|GeneratorFunction} A middleware for Koa or Express
  */
@@ -180,9 +197,11 @@ function oceanify(opts) {
   opts = opts || {}
   var encoding = 'utf-8'
   var root = opts.root || process.cwd()
-  var base = path.resolve(root, opts.base || 'components')
   var dest = path.resolve(root, opts.dest || 'public')
   var cacheExceptions = opts.cacheExcept || []
+  var bases = [].concat(opts.base || 'components').map(function(dir) {
+    return path.resolve(root, dir)
+  })
 
   if (typeof cacheExceptions === 'string') {
     cacheExceptions = [cacheExceptions]
@@ -237,7 +256,10 @@ function oceanify(opts) {
       try {
         yield* oceanify.compileModule(path.join(mod.name, mod.version, main), {
           base: fpath,
-          dest: dest
+          dest: dest,
+          sourceOptions: {
+            root: '/'
+          }
         })
       }
       catch (err) {
@@ -259,10 +281,10 @@ function oceanify(opts) {
       })
     }
     else {
-      fpath = path.join(base, mod.name)
+      fpath = yield* findComponent(mod.name, bases)
     }
 
-    if (!(yield exists(fpath))) return
+    if (!fpath) return
 
     var factory = yield readFile(fpath, encoding)
     var stats = yield lstat(fpath)
@@ -290,6 +312,8 @@ function oceanify(opts) {
   }
 
   function defineComponent(id, dependencies, factory) {
+    var base = bases[0]
+
     for (let i = 0; i < dependencies.length; i++) {
       let dep = dependencies[i]
       let fpath = path.resolve(base, dep)
@@ -350,10 +374,10 @@ function oceanify(opts) {
   var postcssProcessor = postcss().use(autoprefixer())
 
   function* readStyle(id) {
-    var fpath = path.join(base, id)
+    var fpath = yield* findComponent(id, bases)
     var destPath = path.join(dest, id)
 
-    if (!(yield exists(fpath))) {
+    if (!fpath) {
       fpath = path.join(root, 'node_modules', id)
       if (!(yield exists(fpath))) return
     }
@@ -388,7 +412,7 @@ function oceanify(opts) {
 
   function* readAsset(id, isMain) {
     var ext = path.extname(id)
-    var fpath = path.join(base, id)
+    var fpath = yield* findComponent(id, bases)
     var result = null
 
     if (id === 'import.js') {
@@ -402,7 +426,7 @@ function oceanify(opts) {
     else if (ext === '.css') {
       result = yield* readStyle(id, isMain)
     }
-    else if (RE_ASSET_EXT.test(ext) && (yield exists(fpath))) {
+    else if (RE_ASSET_EXT.test(ext) && fpath) {
       let content = yield readFile(fpath, encoding)
       let stats = yield lstat(fpath)
 
@@ -428,7 +452,7 @@ function oceanify(opts) {
       if (res.headerSent) return next()
 
       var id = req.path.slice(1)
-      var isMain = RE_MAIN.test(id) || 'main' in req.query
+      var isMain = RE_MAIN.test(req.path) || 'main' in req.query
 
       co(readAsset(id, isMain)).then(function(result) {
         if (result) {
@@ -452,7 +476,7 @@ function oceanify(opts) {
       if (this.headerSent) return yield next
 
       var id = this.path.slice(1)
-      var isMain = RE_MAIN.test(id) || 'main' in this.query
+      var isMain = RE_MAIN.test(this.path) || 'main' in this.query
       var result = yield* readAsset(id, isMain)
 
       if (result) {
