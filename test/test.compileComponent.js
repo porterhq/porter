@@ -16,11 +16,11 @@ var readFile = fs.readFileSync
 
 describe('oceanify.compileComponent', function() {
   var root = path.join(__dirname, 'example')
-  var dest = path.join(root, 'tmp')
+  var dest = path.join(root, 'public')
 
 
   before(function () {
-    exec('rm -rf ' + path.join(__dirname, 'example', 'tmp'))
+    exec('rm -rf ' + path.join(__dirname, 'example', 'public'))
   })
 
   it('should compile component', function* () {

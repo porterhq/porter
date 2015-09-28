@@ -2,7 +2,7 @@
 
 var request = require('supertest')
 
-var app = require('./example/express')
+var app = require('./example/app-express')
 
 
 describe('oceanify/express', function() {
@@ -11,6 +11,13 @@ describe('oceanify/express', function() {
       .get('/ma/nga.js')
       .expect('Content-Type', /javascript/)
       .expect(200)
+      .end(done)
+  })
+
+  it('should hand over if component or dependency not found', function(done) {
+    request(app)
+      .get('/404.js')
+      .expect(404)
       .end(done)
   })
 })

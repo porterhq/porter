@@ -11,8 +11,10 @@
     "co": "~4.6.0",
     "debug": "~1.0.4",
     "glob": "~3.2.9",
+    "istanbul": "~0.3.21",
     "match-require": "~1.1.1",
     "mime": "~1.3.4",
+    "minimist": "~1.2.0",
     "mkdirp": "~0.3.5",
     "object-assign": "~4.0.1",
     "postcss": "~5.0.4",
@@ -29,7 +31,7 @@
     "supertest": "~1.0.1"
   },
   "scripts": {
-    "test": "rm -rf test/example/{tmp,public} ; DEBUG=oceanify mocha --harmony --timeout 15000 test/test.*.js",
+    "test": "rm -rf test/example/public ; DEBUG=oceanify mocha --harmony --timeout 15000 test/test.*.js",
     "cover": "istanbul cover _mocha test/test.*.js -- --harmony --timeout 15000"
   },
   "engines": {

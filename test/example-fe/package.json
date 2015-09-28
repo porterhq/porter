@@ -5,5 +5,9 @@
   "dependencies": {
     "yen": "1.2.4"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "koa": "^1.0.0",
+    "koa-static": "^1.4.9"
+  }
 }

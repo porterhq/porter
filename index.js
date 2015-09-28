@@ -9,7 +9,6 @@ var fs = require('fs')
 var co = require('co')
 var crypto = require('crypto')
 var semver = require('semver')
-var mkdirp = require('mkdirp')
 var matchRequire = require('match-require')
 var objectAssign = require('object-assign')
 var mime = require('mime')
@@ -23,6 +22,9 @@ var parseSystem = require('./lib/parseSystem')
 var define = require('./lib/define')
 var compileAll = require('./lib/compileAll')
 var compileStyleSheets = require('./lib/compileStyleSheets')
+var findComponent = require('./lib/findComponent')
+var findModule = require('./lib/findModule')
+var Cache = require('./lib/Cache')
 
 var loaderPath = path.join(__dirname, 'import.js')
 var loader = fs.readFileSync(loaderPath, 'utf-8')
@@ -44,33 +46,6 @@ function readFile(fpath, encoding) {
     fs.readFile(fpath, encoding, function(err, content) {
       if (err) reject(new Error(err.message))
       else resolve(content)
-    })
-  })
-}
-
-function writeFile(fpath, content) {
-  return new Promise(function(resolve, reject) {
-    fs.writeFile(fpath, content, function(err) {
-      if (err) reject(err)
-      else resolve()
-    })
-  })
-}
-
-function readdir(dir) {
-  return new Promise(function(resolve, reject) {
-    fs.readdir(dir, function(err, entries) {
-      if (err) reject(err)
-      else resolve(entries)
-    })
-  })
-}
-
-function mkdirpAsync(dir, opts) {
-  return new Promise(function(resolve, reject) {
-    mkdirp(dir, opts || {}, function(err, made) {
-      if (err) reject(err)
-      else resolve(made)
     })
   })
 }
@@ -134,62 +109,16 @@ function parseId(id, system) {
 
 
 /**
- * Find the path of a module in the dependencies map.
- *
- * @param {Module} mod
- * @param {DependenciesMap} dependenciesMap
- *
- * @returns {string} fpath     The path to the specified module
- */
-function findModule(mod, dependenciesMap) {
-  var props = []
-
-  function walk(map) {
-    var name = mod.name
-
-    if (name in map && map[name].version === mod.version) {
-      return path.join(map[name].dir, mod.entry)
-    }
-
-    for (name in map) {
-      props.push(name)
-      var result = walk(map[name].dependencies)
-      if (result) return result
-      props.pop()
-    }
-  }
-
-  return walk(dependenciesMap)
-}
-
-
-/**
- * Find the path of a component in mutiple base directories
- *
- * @param {string} id
- * @param {Array}  bases
- * @yield {string} path of the component found
- */
-function* findComponent(id, bases) {
-  for (let i = 0; i < bases.length; i++) {
-    let componentPath = path.join(bases[i], id)
-    if (yield exists(componentPath)) {
-      return componentPath
-    }
-  }
-}
-
-
-/**
  * Factory
  *
- * @param {Object}        opts
- * @param {string}       [opts.root=process.cwd()] Override current working directory
- * @param {string|Array} [opts.base=components]    Base directory name or path
- * @param {string}       [opts.dest=public]        Cache destination
- * @param {string|Array} [opts.cacheExcept=[]]     Cache exceptions
- * @param {boolean}      [opts.self=false]         Include host module itself
- * @param {boolean}      [opts.express=false]      Express middleware
+ * @param {Object}           opts
+ * @param {string}          [opts.root=process.cwd()] Override current working directory
+ * @param {string|string[]} [opts.base=components]    Base directory name or path
+ * @param {string}          [opts.dest=public]        Cache destination
+ * @param {string|string[]} [opts.cacheExcept=[]]     Cache exceptions
+ * @param {boolean}         [opts.self=false]         Include host module itself
+ * @param {boolean}         [opts.express=false]      Express middleware
+ * @param {boolean}         [opts.serveSource]        Serve sources for devtools
  *
  * @returns {Function|GeneratorFunction} A middleware for Koa or Express
  */
@@ -199,13 +128,22 @@ function oceanify(opts) {
   var root = opts.root || process.cwd()
   var dest = path.resolve(root, opts.dest || 'public')
   var cacheExceptions = opts.cacheExcept || []
+  var serveSource = opts.serveSource
   var bases = [].concat(opts.base || 'components').map(function(dir) {
     return path.resolve(root, dir)
+  })
+
+  var cache = new Cache({
+    dest: dest,
+    encoding: encoding
   })
 
   if (typeof cacheExceptions === 'string') {
     cacheExceptions = [cacheExceptions]
   }
+
+  if (cacheExceptions.length) debug('Cache exceptions %s', cacheExceptions)
+  if (serveSource) debug('Serving source files.')
 
   var dependenciesMap
   var system
@@ -217,55 +155,22 @@ function oceanify(opts) {
     pkg = JSON.parse(yield readFile(path.join(root, 'package.json'), 'utf-8'))
   })
 
-  var cacheModulePromise = Promise.resolve()
-  var cacheModuleList = []
-
-
-  function* cacheModule(mod) {
-    if (cacheModuleList.indexOf(mod.name + '/' + mod.version) >= 0 ||
-        mod.name === pkg.name ||
+  function mightCacheModule(mod) {
+    if (mod.name === pkg.name ||
         cacheExceptions[0] === '*' ||
         cacheExceptions.indexOf(mod.name) >= 0) {
       return
     }
 
-    var data = system.modules[mod.name][mod.version]
-    var main = data.main
-      ? data.main.replace(/^\.\//, '').replace(/\.js$/, '')
-      : 'index'
+    cache.precompile(mod, {
+      dependenciesMap: dependenciesMap,
+      system: system
+    })
+  }
 
-    if (main + '.js' === mod.entry) {
-      cacheModuleList.push(mod.name + '/' + mod.version)
-      var fpath = findModule(mod, dependenciesMap)
-
-      while (fpath && !/node_modules$/.test(fpath)) {
-        fpath = path.dirname(fpath)
-      }
-
-      if (!fpath) {
-        console.error('Failed to find module %s', mod.name)
-        return
-      }
-
-      var stats = yield lstat(path.join(fpath, mod.name))
-      if (stats.isSymbolicLink()) {
-        debug('Ignored symbolic linked module %s', mod.name)
-        return
-      }
-
-      try {
-        yield* oceanify.compileModule(path.join(mod.name, mod.version, main), {
-          base: fpath,
-          dest: dest,
-          sourceOptions: {
-            root: '/'
-          }
-        })
-      }
-      catch (err) {
-        console.error(err.stack)
-      }
-    }
+  function* preload() {
+    var result = yield* readModule('preload.js')
+    return result && result[0]
   }
 
   function* readModule(id, main) {
@@ -276,9 +181,7 @@ function oceanify(opts) {
 
     if (mod.name in system.modules) {
       fpath = findModule(mod, dependenciesMap)
-      cacheModulePromise = cacheModulePromise.then(function() {
-        return co(cacheModule(mod))
-      })
+      mightCacheModule(mod)
     }
     else {
       fpath = yield* findComponent(mod.name, bases)
@@ -299,18 +202,28 @@ function oceanify(opts) {
       content = [
         loader,
         define('system', [], 'module.exports = ' + JSON.stringify(system)),
-        content
+        yield* preload(),
+        content,
+        'oceanify(' + JSON.stringify(id.replace(RE_EXT, '')) + ')'
       ].join('\n')
     }
 
     return [content, {
-      'Cache-Control': 'must-revalidate',
+      'Cache-Control': 'max-age=0',
       'Content-Type': 'application/javascript',
       ETag: crypto.createHash('md5').update(content).digest('hex'),
       'Last-Modified': stats.mtime
     }]
   }
 
+  /**
+   * process components if opts.self is on
+   *
+   * @param  {string}   id           component id
+   * @param  {string[]} dependencies component dependencies
+   * @param  {string}   factory      component factory
+   * @return {string}                wrapped component declaration
+   */
   function defineComponent(id, dependencies, factory) {
     var base = bases[0]
 
@@ -334,42 +247,6 @@ function oceanify(opts) {
     return define(id, dependencies, factory)
   }
 
-  function* readCache(id, source) {
-    var checksum = crypto.createHash('md5').update(source).digest('hex')
-    var cacheName = id.replace(RE_EXT, '-' + checksum + '$1')
-    var fpath = path.join(root, 'tmp', cacheName)
-
-    if (yield exists(fpath)) {
-      return yield readFile(fpath, encoding)
-    }
-  }
-
-  function* writeCache(id, source, content) {
-    var md5 = crypto.createHash('md5')
-    md5.update(source)
-    var cacheId = id.replace(RE_EXT, '-' + md5.digest('hex') + '$1')
-    var fpath = path.join(root, 'tmp', cacheId)
-
-    yield mkdirpAsync(path.dirname(fpath))
-    yield writeFile(fpath, content)
-    co(clearCache(id, cacheId))
-  }
-
-  function* clearCache(id, cacheId) {
-    var fname = path.basename(id)
-    var cacheName = path.basename(cacheId)
-    var dir = path.join(root, 'tmp', path.dirname(id))
-    var entries = yield readdir(dir)
-
-    for (var i = 0, len = entries.length; i < len; i++) {
-      var entry = entries[i]
-      if (entry !== cacheName &&
-          entry.replace(/-[0-9a-f]{32}(\.(?:js|css))$/, '$1') === fname) {
-        fs.unlink(path.join(dir, entry))
-      }
-    }
-  }
-
 
   var postcssProcessor = postcss().use(autoprefixer())
 
@@ -383,23 +260,18 @@ function oceanify(opts) {
     }
 
     var source = yield readFile(fpath, encoding)
-    var cache = yield* readCache(id, source)
     var stats = yield lstat(fpath)
-    var content
+    var content = yield* cache.read(id, source)
 
-    if (cache) {
-      content = cache
-    }
-    else {
+    if (!content) {
       let result = yield postcssProcessor.process(source, {
         from: path.relative(root, fpath),
         to: path.relative(root, destPath),
         map: { inline: false }
       })
 
-      yield* writeCache(id, source, result.css)
-      yield mkdirpAsync(path.dirname(destPath))
-      yield writeFile(destPath + '.map', result.map)
+      yield* cache.write(id, source, result.css)
+      yield* cache.writeFile(id + '.map', result.map)
 
       content = result.css
     }
@@ -407,6 +279,28 @@ function oceanify(opts) {
     return [content, {
       'Last-Modified': stats.mtime
     }]
+  }
+
+
+  function isSource(id) {
+    var fpath = path.join(root, id)
+    return id.indexOf('node_modules') === 0 || bases.some(function(base) {
+      return fpath.indexOf(base) === 0
+    })
+  }
+
+
+  function* readSource(id) {
+    var fpath = path.join(root, id)
+
+    if (yield exists(fpath)) {
+      var content = yield readFile(fpath, encoding)
+      var stats = lstat(fpath)
+
+      return [content, {
+        'Last-Modified': stats.mtime
+      }]
+    }
   }
 
 
@@ -419,6 +313,9 @@ function oceanify(opts) {
       result = [loader, {
         'Last-Modified': loaderStats.mtime
       }]
+    }
+    else if (serveSource && isSource(id)) {
+      result = yield* readSource(id)
     }
     else if (ext === '.js') {
       result = yield* readModule(id, isMain)

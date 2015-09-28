@@ -8,12 +8,13 @@ var oceanify = require('../..')
 
 
 var app = koa()
-app.use(serve('views'))
+app.use(serve(__dirname))
 app.use(serve('public'))
 app.use(oceanify({
   root: __dirname,
   dest: path.join(__dirname, 'public'),
-  serveSource: true
+  base: path.join(__dirname, 'test'),
+  self: true
 }))
 
 

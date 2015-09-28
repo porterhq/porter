@@ -10,11 +10,8 @@ var compileStyleSheets = require('../lib/compileStyleSheets')
 
 
 describe('oceanify.compileStyleSheets', function() {
-  before(function() {
-    process.chdir(path.join(__dirname, 'example'))
-  })
-
   before(function () {
+    process.chdir(path.join(__dirname, 'example'))
     exec('rm -rf ' + path.join(__dirname, 'example', 'public'))
   })
 

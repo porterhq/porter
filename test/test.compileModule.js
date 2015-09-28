@@ -10,9 +10,8 @@ var compileModule = require('..').compileModule
 
 
 describe('oceanify.compileModule', function () {
-
   before(function () {
-    exec('rm -rf ' + path.join(__dirname, 'example', 'tmp'))
+    exec('rm -rf ' + path.join(__dirname, 'example', 'public'))
   })
 
   it('should compile specified module', function* () {
@@ -23,10 +22,10 @@ describe('oceanify.compileModule', function () {
 
     yield* compileModule(id, {
       root: root,
-      dest: 'tmp'
+      dest: 'public'
     })
 
-    var fpath = path.join(root, 'tmp', id + '.js')
+    var fpath = path.join(root, 'public', id + '.js')
     expect(exists(fpath)).to.be(true)
   })
 })

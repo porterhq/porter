@@ -1,4 +1,4 @@
 'use strict'
 
-var foo = require('oceanify-example-fe')
+var foo = require('../index')
 console.log(foo)

@@ -5,11 +5,9 @@ docs
 
 test/example/node_modules
 test/example/public
-test/example/tmp
 
 test/example-fe/node_modules
 test/example-fe/public
-test/example-fe/tmp
 
 .DS_Store
 *~

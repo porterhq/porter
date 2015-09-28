@@ -345,13 +345,6 @@
   }
 
 
-  Module.import = function(id, fn) {
-    var mod = registry[id] || new Module(id)
-    mod.on('resolved', fn)
-    mod.fetch()
-  }
-
-
   Module.resolve = function(id, context) {
     var map = system.modules
 
@@ -383,6 +376,37 @@
   }
 
 
+  function oceanify(main) {
+    var scripts = doc.scripts || doc.getElementsByTagName('script')
+    var currentScript = scripts[scripts.length - 1]
+    var src = currentScript.src.split('?')[0].replace(/\.js$/, '')
+    var rmain = new RegExp(main + '$', '')
+
+    system.base = src && rmain.test(src)
+      ? src.replace(rmain, '')
+      : location.protocol + '//' + location.host
+    system.main = main
+
+    if (registry.preload) oceanify.import('preload')
+    oceanify.import(main)
+  }
+
+  Object.assign(oceanify, system, {
+    import: function(id) {
+      var mod = registry[id] || new Module(id)
+      mod.on('resolved', function() {
+        mod.execute()
+      })
+      mod.resolve()
+    },
+
+    require: function(id) {
+      var mod = registry[id]
+      return mod.exports
+    }
+  })
+
+
   global.define = function define(id, deps, factory) {
     if (!factory) {
       factory = deps
@@ -402,51 +426,5 @@
     }
   }
 
-  global.oceanify = system
-
-
-  function grub() {
-    var cwd = location.href.split('/').slice(0, 3).join('/')
-    var scripts = doc.scripts || doc.getElementsByTagName('script')
-    var currentScript = scripts[scripts.length - 1]
-    var main = currentScript.getAttribute('data-main')
-    var base = currentScript.getAttribute('data-base') || cwd
-    var src = currentScript.getAttribute('src')
-
-    if (!main && src) {
-      main = src.split(/[?#]/)[0].replace(/\.js$/, '')
-
-      if (/^(?:https?:)?\/\//.test(main)) {
-        if (main.indexOf(base) === 0) {
-          main = main.replace(base, '')
-        } else {
-          throw new Error('Please specify data-base')
-        }
-      }
-    }
-
-    system.cwd = cwd
-    system.base = base
-    system.main = main.replace(/^\//, '')
-
-    if (src) {
-      onload(currentScript, bootstrap)
-    } else {
-      setTimeout(bootstrap, 0)
-    }
-  }
-
-  function bootstrap() {
-    var id = Module.resolve(system.main)
-    var mod = registry[id]
-
-    mod.on('resolved', function() {
-      mod.execute()
-    })
-    mod.resolve()
-  }
-
-
-  grub()
-
+  global.oceanify = oceanify
 })(this)
