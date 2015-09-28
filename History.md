@@ -1,4 +1,12 @@
 
+4.2.2 / 2015-09-28
+==================
+
+  * Fix: separate compilation of dependencies into independent process
+  * New: components/preload.js
+  * New: opts.serveSource for debugging with source map
+
+
 4.2.1 / 2015-09-21
 ==================
 
