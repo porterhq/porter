@@ -32,7 +32,7 @@
   },
   "scripts": {
     "test": "rm -rf test/example/public ; DEBUG=oceanify mocha --harmony --timeout 15000 test/test.*.js",
-    "cover": "istanbul cover _mocha test/test.*.js -- --harmony --timeout 15000"
+    "cover": "node --harmony ./node_modules/.bin/istanbul cover ./node_modules/.bin/_mocha test/test.*.js -- --timeout 15000"
   },
   "engines": {
     "node": ">= 0.12"
