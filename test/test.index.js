@@ -88,7 +88,7 @@ describe('oceanify', function() {
     yield requestPath('/yen/1.2.4/index.js')
   })
 
-  it('should handle dependencies recursively', function* () {
+  it('should handle rescursive dependencies', function* () {
     var fpath = path.join(__dirname, 'example/node_modules/ez-editor/node_modules/inherits/package.json')
     var pkg = JSON.parse(yield readFile(fpath, 'utf8'))
     var id = [
@@ -158,7 +158,7 @@ describe('oceanify Cache', function() {
 
   it('should precompile dependencies', function* () {
     yield requestPath('/yen/1.2.4/index.js')
-    yield sleep(1)
+    yield sleep(2)
 
     var fpath = path.join(__dirname, 'example/public/yen/1.2.4/index.js')
     expect(yield exists(fpath)).to.be(true)
@@ -169,7 +169,7 @@ describe('oceanify Cache', function() {
     var stats = yield lstat(fpath)
 
     yield requestPath('/yen/1.2.4/events.js')
-    yield sleep(1)
+    yield sleep(2)
     expect((yield lstat(fpath)).mtime).to.eql(stats.mtime)
   })
 
@@ -178,7 +178,7 @@ describe('oceanify Cache', function() {
     var stats = yield lstat(fpath)
 
     yield requestPath('/yen/1.2.4/index.js')
-    yield sleep(1)
+    yield sleep(2)
     expect((yield lstat(fpath)).mtime).to.eql(stats.mtime)
   })
 })
