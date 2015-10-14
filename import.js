@@ -5,7 +5,7 @@
   // do not override
   if (global.oceanify) return
 
-  var system = { base: '', registry: {} }
+  var system = { registry: {} }
   var registry = system.registry
 
 
@@ -79,7 +79,7 @@
    * resolve paths
    */
   var RE_DIRNAME = /([^?#]*)\//
-  var RE_DUPLICATED_SLASH = /([^:])\/\/+/g
+  var RE_DUPLICATED_SLASH = /(^|[^:])\/\/+/g
 
   function dirname(fpath) {
     var m = fpath.match(RE_DIRNAME)
@@ -142,63 +142,34 @@
   }
 
 
-  /*
-   * EventEmitter from seajs
-   */
-  var EventEmitter = {
-    // Bind event
-    on: function(name, callback) {
-      var events = this.events
-      var list = events[name] || (events[name] = [])
-      list.push(callback)
-      return this
-    },
+  function parseMap(uri) {
+    var map = system.map
+    var ret = uri
 
-    // Remove event. If `callback` is undefined, remove all callbacks for the
-    // event. If `event` and `callback` are both undefined, remove all callbacks
-    // for all events
-    off: function(name, callback) {
-      // Remove *all* events
-      if (!(name || callback)) {
-        this.events = {}
-        return this
+    if (map) {
+      for (var i = 0, len = map.length; i < len; i++) {
+        var rule = map[i]
+
+        ret = uri.replace(new RegExp(rule[0]), rule[1])
+
+        // Only apply the first matched rule
+        if (ret !== uri) break
       }
-
-      var events = this.events
-      var list = events[name]
-      if (list) {
-        if (callback) {
-          for (var i = list.length - 1; i >= 0; i--) {
-            if (list[i] === callback) {
-              list.splice(i, 1)
-            }
-          }
-        }
-        else {
-          delete events[name]
-        }
-      }
-
-      return this
-    },
-
-    // Emit event, firing all bound callbacks. Callbacks receive the same
-    // arguments as `emit` does, apart from the event name
-    emit: function(name, data) {
-      var list = this.events[name]
-
-      if (list) {
-        // Copy callback lists to prevent modification
-        list = list.slice()
-
-        // Execute event callbacks, use index because it's the faster.
-        for(var i = 0, len = list.length; i < len; i++) {
-          list[i](data)
-        }
-      }
-
-      return this
     }
+
+    return ret
+  }
+
+
+  function parseBase(main) {
+    var scripts = doc.scripts || doc.getElementsByTagName('script')
+    var script = scripts[scripts.length - 1]
+    var src = script.src.split('?')[0].replace(/\.js$/, '')
+    var rmain = new RegExp(main + '$', '')
+
+    system.base = script.getAttribute('data-base') ||
+      (src && rmain.test(src) && src.replace(rmain, '')) ||
+      '/'
   }
 
 
@@ -210,28 +181,54 @@
   var MODULE_ERROR = 5
 
 
+  function importFactory(context) {
+    context = context || ''
+    var entryId = 'import-' + (+new Date()).toString(36)
+
+    return function(ids, fn) {
+      if (!system.base) parseBase(ids[ids.length - 1])
+      if (typeof ids === 'string') ids = [ids]
+      var mod = new Module(resolve(context, entryId))
+
+      mod.dependencies = ids
+      mod.factory = function(require) {
+        var mods = ids.map(function(id) { return require(id) })
+        if (fn) fn.apply(null, mods)
+      }
+      mod.status = MODULE_FETCHED
+      mod.resolve()
+    }
+  }
+
+
   function Module(id, opts) {
     opts = opts || {}
     this.id = id
     this.dependencies = opts.dependencies
     this.dependents = []
-    this.events = {}
     this.factory = opts.factory
     this.status = MODULE_INIT
     registry[id] = this
   }
-
-  Object.assign(Module.prototype, EventEmitter)
 
   Module.prototype.fetch = function() {
     var mod = this
 
     if (mod.status < MODULE_FETCHING) {
       mod.status = MODULE_FETCHING
-      request(resolve(system.base, mod.id + '.js'), function(err) {
+      var id = parseMap(mod.id)
+      var uri = /^https?:\/\//.test(id) || id.charAt(0) === '/'
+        ? id
+        : resolve(system.base, mod.id + '.js')
+
+      request(uri, function(err) {
         mod.status = err ? MODULE_ERROR : MODULE_FETCHED
+        mod.uri = uri
         mod.resolve()
       })
+    }
+    else if (mod.status === MODULE_FETCHED) {
+      mod.resolve()
     }
   }
 
@@ -245,17 +242,8 @@
     })
 
     deps.forEach(function(dep) {
-      dep.fetch()
       dep.dependents.push(mod)
-
-      /*
-       * If the dependencies were bundled with current module, then when current
-       * module kicks off the resolve process, the dependencies will be fetched.
-       * Let's just continue the resolve process.
-       */
-      if (dep.status === MODULE_FETCHED) {
-        dep.resolve()
-      }
+      dep.fetch()
     })
 
     /*
@@ -276,8 +264,6 @@
       mod.status = MODULE_RESOLVED
     }
 
-    mod.emit('resolved')
-
     for (var i = 0, len = dependents.length; i < len; i++) {
       var parent = dependents[i]
       var allset = true
@@ -293,6 +279,10 @@
       }
 
       if (allset) parent.resolved()
+    }
+
+    if (!dependents.length) {
+      mod.execute()
     }
   }
 
@@ -316,20 +306,7 @@
       return dep.exports
     }
 
-    require.async = function(ids, fn) {
-      if (typeof ids === 'string') ids = [ids]
-      var entry = new Module(resolve(dirname(mod.id), Date.now().toString(36)))
-
-      entry.dependencies = ids
-      entry.factory = function(_require) {
-        var mods = ids.map(function(id) { return _require(id) })
-        fn.apply(null, mods)
-      }
-      entry.status = MODULE_FETCHED
-
-      entry.on('resolved', function() { entry.execute() })
-      entry.resolve()
-    }
+    require.async = importFactory(dirname(mod.id))
 
     mod.exports = {}
 
@@ -376,33 +353,11 @@
   }
 
 
-  function oceanify(main) {
-    var scripts = doc.scripts || doc.getElementsByTagName('script')
-    var currentScript = scripts[scripts.length - 1]
-    var src = currentScript.src.split('?')[0].replace(/\.js$/, '')
-    var rmain = new RegExp(main + '$', '')
+  Object.assign(system, {
+    import: importFactory(),
 
-    system.base = src && rmain.test(src)
-      ? src.replace(rmain, '')
-      : location.protocol + '//' + location.host
-    system.main = main
-
-    if (registry.preload) oceanify.import('preload')
-    oceanify.import(main)
-  }
-
-  Object.assign(oceanify, system, {
-    import: function(id) {
-      var mod = registry[id] || new Module(id)
-      mod.on('resolved', function() {
-        mod.execute()
-      })
-      mod.resolve()
-    },
-
-    require: function(id) {
-      var mod = registry[id]
-      return mod.exports
+    config: function(opts) {
+      return Object.assign(system, opts)
     }
   })
 
@@ -418,13 +373,7 @@
     mod.dependencies = deps
     mod.factory = factory
     mod.status = MODULE_FETCHED
-
-    if (id === 'system') {
-      mod.resolve()
-      mod.execute()
-      Object.assign(system, mod.exports)
-    }
   }
 
-  global.oceanify = oceanify
+  global.oceanify = system
 })(this)

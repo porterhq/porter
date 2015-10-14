@@ -13,7 +13,12 @@ app.use(serve('public'))
 app.use(oceanify({
   root: __dirname,
   dest: path.join(__dirname, 'public'),
-  serveSource: true
+  serveSource: true,
+  importConfig: {
+    map: [
+      ['templates/(\\d+)', '/ma/templates/$1.js']
+    ]
+  }
 }))
 
 
