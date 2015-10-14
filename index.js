@@ -344,7 +344,7 @@ function oceanify(opts) {
     if (result) {
       objectAssign(result[1], {
         'Cache-Control': 'max-age=0',
-        'Content-Type': mime.lookup(ext) + '; charset=utf8',
+        'Content-Type': mime.lookup(ext),
         ETag: crypto.createHash('md5').update(result[0]).digest('hex')
       })
     }

@@ -176,9 +176,10 @@
   var MODULE_INIT = 0
   var MODULE_FETCHING = 1
   var MODULE_FETCHED = 2
-  var MODULE_RESOLVED = 3
-  var MODULE_EXECUTED = 4
-  var MODULE_ERROR = 5
+  var MODULE_RESOLVING = 3
+  var MODULE_RESOLVED = 4
+  var MODULE_EXECUTED = 5
+  var MODULE_ERROR = 6
 
 
   function importFactory(context) {
@@ -235,6 +236,8 @@
   Module.prototype.resolve = function() {
     var mod = this
     var deps = mod.dependencies
+
+    mod.status = MODULE_RESOLVING
 
     deps = (mod.dependencies || []).map(function(depName) {
       var depId = Module.resolve(depName, mod.id)
