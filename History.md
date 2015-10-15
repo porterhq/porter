@@ -1,4 +1,14 @@
 
+4.3.0 / 2015-10-15
+==================
+
+  * New: add opts.cachePersist
+  * Fix: leave charset empty in Content-Type
+  * New: support components/preload.js and oceanify.config
+  * Fix: sleep a little longer to wait for bin/compileModule.js
+  * Fix: pass --harmony to istanbul command
+
+
 4.2.3 / 2015-09-28
 ==================
 
