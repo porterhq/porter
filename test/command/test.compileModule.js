@@ -4,6 +4,7 @@ require('co-mocha')
 var _spawn = require('child_process').spawn
 var fs = require('fs')
 var path = require('path')
+var expect = require('expect.js')
 
 var exists = fs.existsSync
 
@@ -21,21 +22,23 @@ function spawn(command, args, opts) {
 
 
 describe('bin/compileModule.js', function() {
-  var root = path.join(__dirname, '../..')
+  var root = path.join(__dirname, '../example')
 
   before(function* () {
     yield spawn('rm', [
-      '-rf', path.join(root, 'test/example/public')
+      '-rf', path.join(root, 'public')
     ])
   })
 
   it('compiles module', function* () {
-    yield spawn(path.join(root, 'bin/compileModule.js'), [
+    yield spawn(process.argv[0], [
+      '--harmony',
+      path.join(root, '../../bin/compileModule.js'),
       '--id', 'yen/1.2.4/index',
-      '--base', path.join('test/example/node_modules'),
-      '--dets', path.join('test/example/public')
+      '--base', path.join(root, 'node_modules'),
+      '--dest', path.join(root, 'public')
     ])
 
-    exists(path.join(root, 'test/example/public/yen/1.2.4/index.js'))
+    expect(exists(path.join(root, 'public/yen/1.2.4/index.js'))).to.be(true)
   })
 })

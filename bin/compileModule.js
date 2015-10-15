@@ -16,9 +16,7 @@ console.log('Compiling %s from %s into %s', argv.id, argv.base, argv.dest)
 co(compileAll.compileModule(argv.id, {
   base: argv.base,
   dest: argv.dest,
-  sourceOptions: argv['source-options']
-    ? JSON.parse(argv['source-options'])
-    : { root: '/' }
+  sourceRoot: argv['source-root'] || '/'
 }))
   .then(function() {
     process.exit()

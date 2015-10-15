@@ -27,12 +27,13 @@ var findModule = require('./lib/findModule')
 var Cache = require('./lib/Cache')
 
 var loaderPath = path.join(__dirname, 'import.js')
-var loader = fs.readFileSync(loaderPath, 'utf-8')
+var loader = fs.readFileSync(loaderPath, 'utf8')
 var loaderStats = fs.statSync(loaderPath)
 
 var RE_EXT = /(\.(?:css|js))$/i
 var RE_MAIN = /\/(?:main|runner)\.js$/
-var RE_ASSET_EXT = /\.(?:gif|jpg|jpeg|png|svg|swf)$/i
+var RE_ASSET_EXT = /\.(?:gif|jpg|jpeg|png|svg|swf|ico)$/i
+var RE_RAW = /^raw\//
 
 
 function exists(fpath) {
@@ -116,19 +117,21 @@ function parseId(id, system) {
  * @param {string|string[]} [opts.base=components]    Base directory name or path
  * @param {string}          [opts.dest=public]        Cache destination
  * @param {string|string[]} [opts.cacheExcept=[]]     Cache exceptions
+ * @param {boolean}         [opts.cachePersist=false] Don't clear cache every time
  * @param {boolean}         [opts.self=false]         Include host module itself
  * @param {boolean}         [opts.express=false]      Express middleware
- * @param {boolean}         [opts.serveSource]        Serve sources for devtools
+ * @param {boolean}         [opts.serveSource=false]  Serve sources for devtools
  *
  * @returns {Function|GeneratorFunction} A middleware for Koa or Express
  */
 function oceanify(opts) {
   opts = opts || {}
-  var encoding = 'utf-8'
+  var encoding = 'utf8'
   var root = opts.root || process.cwd()
   var dest = path.resolve(root, opts.dest || 'public')
   var cacheExceptions = opts.cacheExcept || []
   var serveSource = opts.serveSource
+  var importConfig = opts.importConfig || {}
   var bases = [].concat(opts.base || 'components').map(function(dir) {
     return path.resolve(root, dir)
   })
@@ -137,6 +140,12 @@ function oceanify(opts) {
     dest: dest,
     encoding: encoding
   })
+
+  if (!opts.cachePersist) {
+    co(cache.removeAll()).then(function() {
+      debug('Cache %s cleared', dest)
+    })
+  }
 
   if (typeof cacheExceptions === 'string') {
     cacheExceptions = [cacheExceptions]
@@ -152,7 +161,8 @@ function oceanify(opts) {
   var parseSystemPromise = co(function* () {
     dependenciesMap = yield* parseMap(opts)
     system = parseSystem(dependenciesMap)
-    pkg = JSON.parse(yield readFile(path.join(root, 'package.json'), 'utf-8'))
+    pkg = JSON.parse(yield readFile(path.join(root, 'package.json'), 'utf8'))
+    objectAssign(importConfig, system)
   })
 
   function mightCacheModule(mod) {
@@ -168,12 +178,22 @@ function oceanify(opts) {
     })
   }
 
-  function* preload() {
-    var result = yield* readModule('preload.js')
-    return result && result[0]
+  function* formatMain(id, content) {
+    var entries = [id.replace(RE_EXT, '')]
+
+    if (yield findComponent('preload.js', bases)) {
+      entries.unshift('preload')
+    }
+
+    return [
+      loader,
+      'oceanify.config(' + JSON.stringify(importConfig) + ')',
+      content,
+      'oceanify.import(' + JSON.stringify(entries) + ')'
+    ].join('\n')
   }
 
-  function* readModule(id, main) {
+  function* readModule(id, isMain) {
     if (!system) yield parseSystemPromise
 
     var mod = parseId(id, system)
@@ -189,23 +209,19 @@ function oceanify(opts) {
 
     if (!fpath) return
 
-    var factory = yield readFile(fpath, encoding)
+    var content = yield readFile(fpath, encoding)
     var stats = yield lstat(fpath)
-    var dependencies = matchRequire.findAll(factory)
 
-    var content = (opts.self && !(mod.name in system.modules)
-      ? defineComponent
-      : define
-    )(id.replace(RE_EXT, ''), dependencies, factory)
+    if (!RE_RAW.test(id)) {
+      let dependencies = matchRequire.findAll(content)
+      content = (opts.self && !(mod.name in system.modules)
+        ? defineComponent
+        : define
+      )(id.replace(RE_EXT, ''), dependencies, content)
+    }
 
-    if (main) {
-      content = [
-        loader,
-        define('system', [], 'module.exports = ' + JSON.stringify(system)),
-        yield* preload(),
-        content,
-        'oceanify(' + JSON.stringify(id.replace(RE_EXT, '')) + ')'
-      ].join('\n')
+    if (isMain) {
+      content = yield* formatMain(id, content)
     }
 
     return [content, {
@@ -324,7 +340,7 @@ function oceanify(opts) {
       result = yield* readStyle(id, isMain)
     }
     else if (RE_ASSET_EXT.test(ext) && fpath) {
-      let content = yield readFile(fpath, encoding)
+      let content = yield readFile(fpath)
       let stats = yield lstat(fpath)
 
       result = [content, {
@@ -335,7 +351,7 @@ function oceanify(opts) {
     if (result) {
       objectAssign(result[1], {
         'Cache-Control': 'max-age=0',
-        'Content-Type': mime.lookup(ext) + '; charset=utf-8',
+        'Content-Type': mime.lookup(ext),
         ETag: crypto.createHash('md5').update(result[0]).digest('hex')
       })
     }

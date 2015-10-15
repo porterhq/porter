@@ -9,7 +9,6 @@ var Chart = require('chart.js')
 
 console.log(manga)
 console.log(edit)
-
 console.log(Chart)
 
 /*
@@ -27,3 +26,8 @@ require.async('yen', function(yen) {
   // amd style
   console.log(yen)
 })
+
+
+// test map
+var t = require('templates/1')
+console.log(t)
