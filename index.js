@@ -117,9 +117,10 @@ function parseId(id, system) {
  * @param {string|string[]} [opts.base=components]    Base directory name or path
  * @param {string}          [opts.dest=public]        Cache destination
  * @param {string|string[]} [opts.cacheExcept=[]]     Cache exceptions
+ * @param {boolean}         [opts.cachePersist=false] Don't clear cache every time
  * @param {boolean}         [opts.self=false]         Include host module itself
  * @param {boolean}         [opts.express=false]      Express middleware
- * @param {boolean}         [opts.serveSource]        Serve sources for devtools
+ * @param {boolean}         [opts.serveSource=false]  Serve sources for devtools
  *
  * @returns {Function|GeneratorFunction} A middleware for Koa or Express
  */
@@ -139,6 +140,12 @@ function oceanify(opts) {
     dest: dest,
     encoding: encoding
   })
+
+  if (!opts.cachePersist) {
+    co(cache.removeAll()).then(function() {
+      debug('Cache %s cleared', dest)
+    })
+  }
 
   if (typeof cacheExceptions === 'string') {
     cacheExceptions = [cacheExceptions]

@@ -147,11 +147,8 @@
     var ret = uri
 
     if (map) {
-      for (var i = 0, len = map.length; i < len; i++) {
-        var rule = map[i]
-
-        ret = uri.replace(new RegExp(rule[0]), rule[1])
-
+      for (var pattern in map) {
+        ret = uri.replace(new RegExp(pattern), map[pattern])
         // Only apply the first matched rule
         if (ret !== uri) break
       }
