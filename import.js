@@ -89,7 +89,8 @@
 
   function resolve() {
     var args = ArrayFn.slice.call(arguments)
-    var levels = args.shift().split('/')
+    var base = args.shift()
+    var levels = base ? base.split('/') : []
 
     while (args.length) {
       var parts = args.shift().split('/')
