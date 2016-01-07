@@ -121,6 +121,7 @@ function parseId(id, system) {
  * @param {boolean}         [opts.self=false]         Include host module itself
  * @param {boolean}         [opts.express=false]      Express middleware
  * @param {boolean}         [opts.serveSource=false]  Serve sources for devtools
+ * @param {boolean}         [opts.preload=true]       Append preload module
  *
  * @returns {Function|GeneratorFunction} A middleware for Koa or Express
  */
@@ -131,6 +132,7 @@ function oceanify(opts) {
   var dest = path.resolve(root, opts.dest || 'public')
   var cacheExceptions = opts.cacheExcept || []
   var serveSource = opts.serveSource
+  var preload = typeof opts.preload === 'boolean' ? opts.preload : true
   var importConfig = opts.importConfig || {}
   var bases = [].concat(opts.base || 'components').map(function(dir) {
     return path.resolve(root, dir)
@@ -181,7 +183,7 @@ function oceanify(opts) {
   function* formatMain(id, content) {
     var entries = [id.replace(RE_EXT, '')]
 
-    if (yield findComponent('preload.js', bases)) {
+    if (preload && (yield findComponent('preload.js', bases))) {
       entries.unshift('preload')
     }
 
@@ -189,7 +191,7 @@ function oceanify(opts) {
       loader,
       'oceanify.config(' + JSON.stringify(importConfig) + ')',
       content,
-      'oceanify.import(' + JSON.stringify(entries) + ')'
+      'oceanify["import"](' + JSON.stringify(entries) + ')'
     ].join('\n')
   }
 
