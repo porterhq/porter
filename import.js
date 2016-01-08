@@ -37,7 +37,7 @@
 
   var doc = document
   var head = doc.head || doc.getElementsByTagName('head')[0] || doc.documentElement
-  var baseElement = head.getElementsByTagName('base')[0]
+  var baseElement = head.getElementsByTagName('base')[0] || null
 
   function request(url, callback) {
     var el = doc.createElement('script')
@@ -51,6 +51,7 @@
     el.async = true
     el.src = url
 
+    // baseElement cannot be undefined in IE8-.
     head.insertBefore(el, baseElement)
   }
 
@@ -64,11 +65,11 @@
       }
     }
     else {
+      // get called multiple times
+      // https://msdn.microsoft.com/en-us/library/ms534359(v=vs.85).aspx
       el.onreadystatechange = function() {
         if (/loaded|complete/.test(el.readyState)) {
           callback()
-        } else {
-          callback(new Error('Failed with wrong state ' + el.readyState))
         }
       }
     }
@@ -88,7 +89,8 @@
 
   function resolve() {
     var args = ArrayFn.slice.call(arguments)
-    var levels = args.shift().split('/')
+    var base = args.shift()
+    var levels = base ? base.split('/') : []
 
     while (args.length) {
       var parts = args.shift().split('/')
@@ -354,7 +356,7 @@
 
 
   Object.assign(system, {
-    import: importFactory(),
+    'import': importFactory(),
 
     config: function(opts) {
       return Object.assign(system, opts)
