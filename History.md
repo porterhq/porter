@@ -1,4 +1,13 @@
 
+4.3.1 / 2016-01-08
+==================
+
+  * Fix: duplicated dependency declaration of istanbul
+  * Fix: ez-editor@0.2.6 & oceanify["import"]
+  * Fix: don't append leading slash if base is empty
+  * Fix: ie8 issues
+
+
 4.3.0 / 2015-10-15
 ==================
 
