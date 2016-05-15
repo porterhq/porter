@@ -1,38 +1,25 @@
 'use strict'
 
 require('co-mocha')
-var request = require('supertest')
-var expect = require('expect.js')
-var fs = require('fs')
-var path = require('path')
-var glob = require('glob')
-var heredoc = require('heredoc').strip
+const request = require('supertest')
+const expect = require('expect.js')
+const path = require('path')
+const glob = require('glob')
+const heredoc = require('heredoc').strip
 
-var app = require('./example/app')
+const app = require('./example/app')
+const fs = require('../lib/fs')
 
+const readFile = fs.readFile
+const writeFile = fs.writeFile
+const exists = fs.exists
+const lstat = fs.lstat
 
-function readFile(fpath, encoding) {
-  return new Promise(function(resolve, reject) {
-    fs.readFile(fpath, encoding, function(err, content) {
-      if (err) reject(err)
-      else resolve(content)
-    })
-  })
-}
-
-function writeFile(fpath, content) {
-  return new Promise(function(resolve, reject) {
-    fs.writeFile(fpath, content, function(err) {
-      if (err) reject(err)
-      else resolve()
-    })
-  })
-}
 
 function globAsync(dir, opts) {
   return new Promise(function(resolve, reject) {
     glob(dir, opts || {}, function(err, entries) {
-      if (err) reject(err)
+      if (err) reject(new Error(err))
       else resolve(entries)
     })
   })
@@ -44,7 +31,7 @@ function requestPath(apath) {
       .get(apath)
       .expect(200)
       .end(function(err, res) {
-        if (err) reject(err)
+        if (err) reject(new Error(err))
         else resolve(res)
       })
   })
@@ -53,21 +40,6 @@ function requestPath(apath) {
 function sleep(seconds) {
   return new Promise(function(resolve) {
     setTimeout(resolve, seconds * 1000)
-  })
-}
-
-function exists(fpath) {
-  return new Promise(function(resolve) {
-    fs.exists(fpath, resolve)
-  })
-}
-
-function lstat(fpath) {
-  return new Promise(function(resolve, reject) {
-    fs.lstat(fpath, function(err, stats) {
-      if (err) reject(err)
-      else resolve(stats)
-    })
   })
 }
 
@@ -87,10 +59,21 @@ describe('oceanify', function() {
     yield requestPath('/yen/1.2.4/index.js')
   })
 
-  it('should handle rescursive dependencies', function* () {
-    var fpath = path.join(__dirname, 'example/node_modules/ez-editor/node_modules/inherits/package.json')
-    var pkg = JSON.parse(yield readFile(fpath, 'utf8'))
-    var id = [
+  /**
+   * inherits is a dependency of ez-editor. In npm@2, inherits will be put in
+   * the node_modules directory of ez-editor. But since npm@3 fattens the
+   * node_modules tree. This is no longer a guarantee. So let's just try both
+   * places. The original purpose of this test is no longer valid in npm@3 though.
+   */
+  it('should handle recursive dependencies', function* () {
+    const root = path.join(__dirname, 'example/node_modules')
+    let fpath = path.join(root, 'ez-editor/node_modules/inherits/package.json')
+
+    if (!(yield exists(fpath))) {
+      fpath = path.join(root, 'inherits/package.json')
+    }
+    const pkg = JSON.parse(yield readFile(fpath, 'utf8'))
+    const id = [
       pkg.name,
       pkg.version,
       pkg.browser.replace(/^\.\//, '')
