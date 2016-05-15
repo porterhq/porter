@@ -4,36 +4,37 @@
  * @module
  */
 
-var path = require('path')
-var fs = require('fs')
-var co = require('co')
-var crypto = require('crypto')
-var semver = require('semver')
-var matchRequire = require('match-require')
-var objectAssign = require('object-assign')
-var mime = require('mime')
-var debug = require('debug')('oceanify')
+const path = require('path')
+const fs = require('fs')
+const co = require('co')
+const crypto = require('crypto')
+const semver = require('semver')
+const matchRequire = require('match-require')
+const objectAssign = require('object-assign')
+const mime = require('mime')
+const debug = require('debug')('oceanify')
 
-var postcss = require('postcss')
-var autoprefixer = require('autoprefixer')
+const postcss = require('postcss')
+const atImport = require('postcss-import')
+const autoprefixer = require('autoprefixer')
 
-var parseMap = require('./lib/parseMap')
-var parseSystem = require('./lib/parseSystem')
-var define = require('./lib/define')
-var compileAll = require('./lib/compileAll')
-var compileStyleSheets = require('./lib/compileStyleSheets')
-var findComponent = require('./lib/findComponent')
-var findModule = require('./lib/findModule')
-var Cache = require('./lib/Cache')
+const parseMap = require('./lib/parseMap')
+const parseSystem = require('./lib/parseSystem')
+const define = require('./lib/define')
+const compileAll = require('./lib/compileAll')
+const compileStyleSheets = require('./lib/compileStyleSheets')
+const findComponent = require('./lib/findComponent')
+const findModule = require('./lib/findModule')
+const Cache = require('./lib/Cache')
 
-var loaderPath = path.join(__dirname, 'import.js')
-var loader = fs.readFileSync(loaderPath, 'utf8')
-var loaderStats = fs.statSync(loaderPath)
+const loaderPath = path.join(__dirname, 'import.js')
+const loader = fs.readFileSync(loaderPath, 'utf8')
+const loaderStats = fs.statSync(loaderPath)
 
-var RE_EXT = /(\.(?:css|js))$/i
-var RE_MAIN = /\/(?:main|runner)\.js$/
-var RE_ASSET_EXT = /\.(?:gif|jpg|jpeg|png|svg|swf|ico)$/i
-var RE_RAW = /^raw\//
+const RE_EXT = /(\.(?:css|js))$/i
+const RE_MAIN = /\/(?:main|runner)\.js$/
+const RE_ASSET_EXT = /\.(?:gif|jpg|jpeg|png|svg|swf|ico)$/i
+const RE_RAW = /^raw\//
 
 
 function exists(fpath) {
@@ -266,32 +267,54 @@ function oceanify(opts) {
   }
 
 
-  var postcssProcessor = postcss().use(autoprefixer())
+  /**
+   * parse possible import bases from the entry point of the require
+   *
+   * @param   {string} fpath
+   * @returns {Array}
+   */
+  function parseImportBases(fpath) {
+    const importBases = [ path.join(root, 'node_modules') ]
+    let dir = path.dirname(fpath)
+
+    while (dir.includes('node_modules')) {
+      const parentFolder = path.basename(path.dirname(dir))
+      if (parentFolder === 'node_modules' || parentFolder.charAt(0) === '@') {
+        importBases.unshift(path.join(dir, 'node_modules'))
+      }
+      dir = path.resolve(dir, '..')
+    }
+
+    return importBases
+  }
 
   function* readStyle(id) {
-    var fpath = yield* findComponent(id, bases)
-    var destPath = path.join(dest, id)
+    const destPath = path.join(dest, id)
+    let fpath = yield* findComponent(id, bases)
 
     if (!fpath) {
       fpath = path.join(root, 'node_modules', id)
       if (!(yield exists(fpath))) return
     }
 
-    var source = yield readFile(fpath, encoding)
-    var stats = yield lstat(fpath)
-    var content = yield* cache.read(id, source)
+    const source = yield readFile(fpath, encoding)
+    const stats = yield lstat(fpath)
+    let content = yield* cache.read(id, source)
 
     if (!content) {
-      let result = yield postcssProcessor.process(source, {
-        from: path.relative(root, fpath),
-        to: path.relative(root, destPath),
-        map: { inline: false }
-      })
+      const { css, map } = yield postcss()
+        .use(atImport({ path: parseImportBases(fpath) }))
+        .use(autoprefixer())
+        .process(source, {
+          from: path.relative(root, fpath),
+          to: path.relative(root, destPath),
+          map: { inline: false }
+        })
 
-      yield* cache.write(id, source, result.css)
-      yield* cache.writeFile(id + '.map', result.map)
+      yield* cache.write(id, source, css)
+      yield* cache.writeFile(id + '.map', map)
 
-      content = result.css
+      content = css
     }
 
     return [content, {
