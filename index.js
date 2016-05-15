@@ -302,7 +302,7 @@ function oceanify(opts) {
     let content = yield* cache.read(id, source)
 
     if (!content) {
-      const { css, map } = yield postcss()
+      const result = yield postcss()
         .use(atImport({ path: parseImportBases(fpath) }))
         .use(autoprefixer())
         .process(source, {
@@ -311,10 +311,10 @@ function oceanify(opts) {
           map: { inline: false }
         })
 
-      yield* cache.write(id, source, css)
-      yield* cache.writeFile(id + '.map', map)
+      yield* cache.write(id, source, result.css)
+      yield* cache.writeFile(id + '.map', result.map)
 
-      content = css
+      content = result.css
     }
 
     return [content, {
