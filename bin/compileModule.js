@@ -2,13 +2,13 @@
 
 'use strict'
 
-var minimist = require('minimist')
-var co = require('co')
+const minimist = require('minimist')
+const co = require('co')
 
-var compileAll = require('../lib/compileAll')
+const compileAll = require('../lib/compileAll')
 
 
-var argv = minimist(process.argv.slice(2))
+const argv = minimist(process.argv.slice(2))
 
 
 console.log('Compiling %s from %s into %s', argv.id, argv.base, argv.dest)
