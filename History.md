@@ -1,4 +1,13 @@
 
+4.3.2 / 2016-05-16
+==================
+
+  * Fix: prefer const
+  * Fix: revert usage of destructuring
+  * Build: drop support of Node.js below 4
+  * Fix: @import at server side for proper import logic
+
+
 4.3.1 / 2016-01-08
 ==================
 
