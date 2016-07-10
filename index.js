@@ -9,7 +9,6 @@ const co = require('co')
 const crypto = require('crypto')
 const semver = require('semver')
 const matchRequire = require('match-require')
-const objectAssign = require('object-assign')
 const mime = require('mime')
 const debug = require('debug')('oceanify')
 
@@ -142,7 +141,7 @@ function oceanify(opts) {
     dependenciesMap = yield* parseMap(opts)
     system = parseSystem(dependenciesMap)
     pkg = JSON.parse(yield readFile(path.join(root, 'package.json'), 'utf8'))
-    objectAssign(importConfig, system)
+    Object.assign(importConfig, system)
   })
 
   function mightCacheModule(mod) {
@@ -165,29 +164,23 @@ function oceanify(opts) {
       entries.unshift('preload')
     }
 
-    return [
-      loader,
-      'oceanify.config(' + JSON.stringify(importConfig) + ')',
-      content,
-      'oceanify["import"](' + JSON.stringify(entries) + ')'
-    ].join('\n')
+    return `${loader}
+      oceanify.config(${JSON.stringify(importConfig)})
+      ${content}
+      oceanify["import"](${JSON.stringify(entries)})
+    `
   }
 
   function* readModule(id, isMain) {
     if (!system) yield parseSystemPromise
 
     const mod = parseId(id, system)
-    let fpath
-
-    if (mod.name in system.modules) {
-      fpath = findModule(mod, dependenciesMap)
-      mightCacheModule(mod)
-    }
-    else {
-      fpath = yield* findComponent(mod.name, bases)
-    }
+    const fpath = mod.name in system.modules
+      ? findModule(mod, dependenciesMap)
+      : yield* findComponent(mod.name, bases)
 
     if (!fpath) return
+    if (mod.name in system.modules) mightCacheModule(mod)
 
     let content = yield readFile(fpath, encoding)
     const stats = yield lstat(fpath)
@@ -244,58 +237,38 @@ function oceanify(opts) {
   }
 
 
-  /**
-   * parse possible import bases from the entry point of the require
-   *
-   * @param   {string} fpath
-   * @returns {Array}
-   */
-  function parseImportBases(fpath) {
-    const importBases = [ path.join(root, 'node_modules') ]
-    let dir = path.dirname(fpath)
-
-    while (dir.includes('node_modules')) {
-      const parentFolder = path.basename(path.dirname(dir))
-      if (parentFolder === 'node_modules' || parentFolder.charAt(0) === '@') {
-        importBases.unshift(path.join(dir, 'node_modules'))
-      }
-      dir = path.resolve(dir, '..')
-    }
-
-    return importBases
-  }
+  const importer = postcss().use(atImport({ path: [root] }))
+  const prefixer = postcss().use(autoprefixer())
 
   function* readStyle(id) {
     const destPath = path.join(dest, id)
-    let fpath = yield* findComponent(id, bases)
+    const fpath = (yield* findComponent(id, bases)) ||
+      path.join(root, 'node_modules', id)
 
-    if (!fpath) {
-      fpath = path.join(root, 'node_modules', id)
-      if (!(yield exists(fpath))) return
-    }
+    if (!(yield exists(fpath))) return
 
     const source = yield readFile(fpath, encoding)
-    const stats = yield lstat(fpath)
-    let content = yield* cache.read(id, source)
+    const processOpts = {
+      from: path.relative(root, fpath),
+      to: path.relative(root, destPath),
+      map: { inline: false }
+    }
+    const result = yield importer.process(source, processOpts)
+    let content = yield* cache.read(id, result.css)
 
     if (!content) {
-      const result = yield postcss()
-        .use(atImport({ path: parseImportBases(fpath) }))
-        .use(autoprefixer())
-        .process(source, {
-          from: path.relative(root, fpath),
-          to: path.relative(root, destPath),
-          map: { inline: false }
-        })
+      processOpts.map.prev = result.map
+      const resultWithPrefix = yield prefixer.process(result.css, processOpts)
 
-      yield* cache.write(id, source, result.css)
-      yield* cache.writeFile(id + '.map', result.map)
-
-      content = result.css
+      yield [
+        cache.write(id, result.css, resultWithPrefix.css),
+        cache.writeFile(id + '.map', resultWithPrefix.map)
+      ]
+      content = resultWithPrefix.css
     }
 
     return [content, {
-      'Last-Modified': stats.mtime
+      'Last-Modified': (yield lstat(fpath)).mtime
     }]
   }
 
@@ -351,7 +324,7 @@ function oceanify(opts) {
     }
 
     if (result) {
-      objectAssign(result[1], {
+      Object.assign(result[1], {
         'Cache-Control': 'max-age=0',
         'Content-Type': mime.lookup(ext),
         ETag: crypto.createHash('md5').update(result[0]).digest('hex')
