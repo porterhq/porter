@@ -26,14 +26,13 @@ const findComponent = require('./lib/findComponent')
 const findModule = require('./lib/findModule')
 const Cache = require('./lib/Cache')
 
-const loaderPath = path.join(__dirname, 'import.js')
+const loaderPath = path.join(__dirname, 'loader.js')
 const loader = fs.readFileSync(loaderPath, 'utf8')
 const loaderStats = fs.statSync(loaderPath)
 
 const RE_EXT = /(\.(?:css|js))$/i
 const RE_MAIN = /\/(?:main|runner)\.js$/
 const RE_ASSET_EXT = /\.(?:gif|jpg|jpeg|png|svg|swf|ico)$/i
-const RE_RAW = /^raw\//
 
 const exists = fs.exists
 const readFile = fs.readFile
@@ -104,8 +103,7 @@ function parseId(id, system) {
  *
  * @returns {Function|GeneratorFunction} A middleware for Koa or Express
  */
-function oceanify(opts) {
-  opts = opts || {}
+function oceanify(opts = {}) {
   const encoding = 'utf8'
   const root = opts.root || process.cwd()
   const dest = path.resolve(root, opts.dest || 'public')
@@ -114,7 +112,7 @@ function oceanify(opts) {
     : opts.cacheExcept || []
   const serveSource = opts.serveSource
   const preload = typeof opts.preload === 'boolean' ? opts.preload : true
-  const importConfig = opts.importConfig || {}
+  const loaderConfig = opts.loaderConfig || {}
   const bases = [].concat(opts.base || 'components').map(function(dir) {
     return path.resolve(root, dir)
   })
@@ -138,10 +136,10 @@ function oceanify(opts) {
   let pkg
 
   let parseSystemPromise = co(function* () {
-    dependenciesMap = yield* parseMap(opts)
+    dependenciesMap = opts.dependenciesMap || (yield* parseMap(opts))
     system = parseSystem(dependenciesMap)
     pkg = JSON.parse(yield readFile(path.join(root, 'package.json'), 'utf8'))
-    Object.assign(importConfig, system)
+    Object.assign(loaderConfig, system)
   })
 
   function mightCacheModule(mod) {
@@ -165,10 +163,10 @@ function oceanify(opts) {
     }
 
     return `${loader}
-      oceanify.config(${JSON.stringify(importConfig)})
-      ${content}
-      oceanify["import"](${JSON.stringify(entries)})
-    `
+oceanify.config(${JSON.stringify(loaderConfig)})
+${content}
+oceanify['import'](${JSON.stringify(entries)})
+`
   }
 
   function* readModule(id, isMain) {
@@ -185,13 +183,11 @@ function oceanify(opts) {
     let content = yield readFile(fpath, encoding)
     const stats = yield lstat(fpath)
 
-    if (!RE_RAW.test(id)) {
-      const dependencies = matchRequire.findAll(content)
-      content = (opts.self && !(mod.name in system.modules)
-        ? defineComponent
-        : define
-      )(id.replace(RE_EXT, ''), dependencies, content)
-    }
+    const dependencies = matchRequire.findAll(content)
+    content = (opts.self && !(mod.name in system.modules)
+      ? defineComponent
+      : define
+    )(id.replace(RE_EXT, ''), dependencies, content)
 
     if (isMain) {
       content = yield* formatMain(id, content)
@@ -300,8 +296,16 @@ function oceanify(opts) {
     const fpath = yield* findComponent(id, bases)
     let result = null
 
-    if (id === 'import.js') {
+    if (id === 'loader.js') {
       result = [loader, {
+        'Last-Modified': loaderStats.mtime
+      }]
+    }
+    else if (id === 'dependenciesMap.json') {
+      yield parseSystemPromise
+      result = [JSON.stringify(dependenciesMap, function(key, value) {
+        return key === 'dir' ? undefined : value
+      }), {
         'Last-Modified': loaderStats.mtime
       }]
     }
