@@ -13,8 +13,8 @@ app.use(serve('public'))
 app.use(oceanify({
   root: __dirname,
   dest: path.join(__dirname, 'public'),
-  base: path.join(__dirname, 'test'),
-  self: true
+  paths: path.join(__dirname, 'test'),
+  serveSelf: true
 }))
 
 

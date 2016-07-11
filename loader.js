@@ -5,7 +5,10 @@
   // do not override
   if (global.oceanify) return
 
-  var system = { registry: {} }
+  var system = { 
+    preload: [],
+    registry: {} 
+  }
   var registry = system.registry
 
 
@@ -357,8 +360,12 @@
   }
 
 
+  var globalImport = importFactory()
+
   Object.assign(system, {
-    'import': importFactory(),
+    'import': function(ids, fn) {
+      globalImport([].concat(system.preload, ids), fn)
+    },
 
     config: function(opts) {
       return Object.assign(system, opts)

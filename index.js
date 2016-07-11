@@ -27,7 +27,7 @@ const findModule = require('./lib/findModule')
 const Cache = require('./lib/Cache')
 
 const loaderPath = path.join(__dirname, 'loader.js')
-const loader = fs.readFileSync(loaderPath, 'utf8')
+const loaderSource = fs.readFileSync(loaderPath, 'utf8')
 const loaderStats = fs.statSync(loaderPath)
 
 const RE_EXT = /(\.(?:css|js))$/i
@@ -91,15 +91,16 @@ function parseId(id, system) {
  * Factory
  *
  * @param {Object}           opts
- * @param {string}          [opts.root=process.cwd()] Override current working directory
- * @param {string|string[]} [opts.base=components]    Base directory name or path
- * @param {string}          [opts.dest=public]        Cache destination
- * @param {string|string[]} [opts.cacheExcept=[]]     Cache exceptions
- * @param {boolean}         [opts.cachePersist=false] Don't clear cache every time
- * @param {boolean}         [opts.self=false]         Include host module itself
- * @param {boolean}         [opts.express=false]      Express middleware
- * @param {boolean}         [opts.serveSource=false]  Serve sources for devtools
- * @param {boolean}         [opts.preload=true]       Append preload module
+ * @param {string|string[]} [opts.cacheExcept=[]]         Cache exceptions
+ * @param {boolean}         [opts.cachePersist=false]     Don't clear cache every time
+ * @param {DependenciesMap} [opts.dependenciesMap=null]   Dependencies map
+ * @param {string}          [opts.dest=public]            Cache destination
+ * @param {boolean}         [opts.express=false]          Express middleware
+ * @param {Object}          [opts.loaderConfig={}]        Loader config     
+ * @param {string|string[]} [opts.paths=components]       Base directory name or path
+ * @param {string}          [opts.root=process.cwd()]     Override current working directory
+ * @param {boolean}         [opts.serveSelf=false]        Include host module itself
+ * @param {boolean}         [opts.serveSource=false]      Serve sources for devtools
  *
  * @returns {Function|GeneratorFunction} A middleware for Koa or Express
  */
@@ -111,9 +112,8 @@ function oceanify(opts = {}) {
     ? [opts.cacheExcept]
     : opts.cacheExcept || []
   const serveSource = opts.serveSource
-  const preload = typeof opts.preload === 'boolean' ? opts.preload : true
   const loaderConfig = opts.loaderConfig || {}
-  const bases = [].concat(opts.base || 'components').map(function(dir) {
+  const paths = [].concat(opts.paths || 'components').map(function(dir) {
     return path.resolve(root, dir)
   })
 
@@ -156,16 +156,10 @@ function oceanify(opts = {}) {
   }
 
   function* formatMain(id, content) {
-    const entries = [id.replace(RE_EXT, '')]
-
-    if (preload && (yield findComponent('preload.js', bases))) {
-      entries.unshift('preload')
-    }
-
-    return `${loader}
+    return `${loaderSource}
 oceanify.config(${JSON.stringify(loaderConfig)})
 ${content}
-oceanify["import"](${JSON.stringify(entries)})
+oceanify["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
 `
   }
 
@@ -175,7 +169,7 @@ oceanify["import"](${JSON.stringify(entries)})
     const mod = parseId(id, system)
     const fpath = mod.name in system.modules
       ? findModule(mod, dependenciesMap)
-      : yield* findComponent(mod.name, bases)
+      : yield* findComponent(mod.name, paths)
 
     if (!fpath) return
     if (mod.name in system.modules) mightCacheModule(mod)
@@ -184,7 +178,7 @@ oceanify["import"](${JSON.stringify(entries)})
     const stats = yield lstat(fpath)
 
     const dependencies = matchRequire.findAll(content)
-    content = (opts.self && !(mod.name in system.modules)
+    content = (opts.serveSelf && !(mod.name in system.modules)
       ? defineComponent
       : define
     )(id.replace(RE_EXT, ''), dependencies, content)
@@ -202,7 +196,7 @@ oceanify["import"](${JSON.stringify(entries)})
   }
 
   /**
-   * process components if opts.self is on
+   * process components if opts.serveSelf is on
    *
    * @param  {string}   id           component id
    * @param  {string[]} dependencies component dependencies
@@ -210,7 +204,7 @@ oceanify["import"](${JSON.stringify(entries)})
    * @return {string}                wrapped component declaration
    */
   function defineComponent(id, dependencies, factory) {
-    const base = bases[0]
+    const base = paths[0]
 
     for (let i = 0; i < dependencies.length; i++) {
       const dep = dependencies[i]
@@ -238,7 +232,7 @@ oceanify["import"](${JSON.stringify(entries)})
 
   function* readStyle(id) {
     const destPath = path.join(dest, id)
-    const fpath = (yield* findComponent(id, bases)) ||
+    const fpath = (yield* findComponent(id, paths)) ||
       path.join(root, 'node_modules', id)
 
     if (!(yield exists(fpath))) return
@@ -271,7 +265,7 @@ oceanify["import"](${JSON.stringify(entries)})
 
   function isSource(id) {
     const fpath = path.join(root, id)
-    return id.indexOf('node_modules') === 0 || bases.some(function(base) {
+    return id.indexOf('node_modules') === 0 || paths.some(function(base) {
       return fpath.indexOf(base) === 0
     })
   }
@@ -293,11 +287,11 @@ oceanify["import"](${JSON.stringify(entries)})
 
   function* readAsset(id, isMain) {
     const ext = path.extname(id)
-    const fpath = yield* findComponent(id, bases)
+    const fpath = yield* findComponent(id, paths)
     let result = null
 
     if (id === 'loader.js') {
-      result = [loader, {
+      result = [loaderSource, {
         'Last-Modified': loaderStats.mtime
       }]
     }

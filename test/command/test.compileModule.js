@@ -33,9 +33,9 @@ describe('bin/compileModule.js', function() {
   it('compiles module', function* () {
     yield spawn(process.argv[0], [
       '--harmony',
-      path.join(root, '../../bin/compileModule.js'),
+      path.resolve(root, '../../bin/compileModule.js'),
       '--id', 'yen/1.2.4/index',
-      '--base', path.join(root, 'node_modules'),
+      '--paths', path.join(root, 'node_modules'),
       '--dest', path.join(root, 'public')
     ])
 

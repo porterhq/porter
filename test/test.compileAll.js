@@ -19,7 +19,7 @@ describe('oceanify.compileAll', function() {
   it('should compile all components and their dependencies', function* () {
     yield compileAll({
       root: root,
-      base: 'components',
+      paths: 'components',
       dest: 'public',
       sourceOptions: { root: '/' }
     })
@@ -38,10 +38,10 @@ describe('oceanify.compileAll', function() {
     expect(entries).to.contain('public/crox/1.3.1/build/crox-all.js.map')
   })
 
-  it('should compile components in muitiple bases', function* () {
+  it('should compile components in muitiple paths', function* () {
     yield compileAll({
       root: root,
-      base: ['components', 'browser_modules'],
+      paths: ['components', 'browser_modules'],
       dest: 'public',
       sourceOptions: { root: '/' }
     })

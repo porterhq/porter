@@ -11,11 +11,11 @@ const compileAll = require('../lib/compileAll')
 const argv = minimist(process.argv.slice(2))
 
 
-console.log('Compiling %s from %s into %s', argv.id, argv.base, argv.dest)
+console.log('Compiling %s from %s into %s', argv.id, argv.paths, argv.dest)
 
 co(compileAll.compileModule(argv.id, {
-  base: argv.base,
   dest: argv.dest,
+  paths: argv.paths,
   sourceRoot: argv['source-root'] || '/'
 }))
   .then(function() {
