@@ -14,9 +14,9 @@ app.use(oceanify({
   root: __dirname,
   dest: path.join(__dirname, 'public'),
   serveSource: true,
-  importConfig: {
+  loaderConfig: {
     map: {
-      'templates/(\\d+)': '/templates/$1.js'
+      'templates': '/templates'
     }
   }
 }))

@@ -165,7 +165,7 @@ function oceanify(opts = {}) {
     return `${loader}
 oceanify.config(${JSON.stringify(loaderConfig)})
 ${content}
-oceanify['import'](${JSON.stringify(entries)})
+oceanify["import"](${JSON.stringify(entries)})
 `
   }
 
