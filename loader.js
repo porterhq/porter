@@ -5,9 +5,9 @@
   // do not override
   if (global.oceanify) return
 
-  var system = { 
+  var system = {
     preload: [],
-    registry: {} 
+    registry: {}
   }
   var registry = system.registry
 
@@ -23,11 +23,15 @@
         var source = args.shift()
 
         for (var p in source) {
-          if (source.hasOwnProperty(p)) {
-            target[p] = source[p]
+          if (source != null) {
+            if (source.hasOwnProperty(p)) {
+              target[p] = source[p]
+            }
           }
         }
       }
+
+      return target
     }
   }
 
@@ -223,7 +227,7 @@
       var uri = /^https?:\/\//.test(id) || id.charAt(0) === '/'
         ? id
         : resolve(system.base, mod.id)
-        
+
       uri = uri.replace(/\.js$/, '') + '.js'
 
       request(uri, function(err) {
