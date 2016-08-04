@@ -96,7 +96,7 @@ function parseId(id, system) {
  * @param {DependenciesMap} [opts.dependenciesMap=null]   Dependencies map
  * @param {string}          [opts.dest=public]            Cache destination
  * @param {boolean}         [opts.express=false]          Express middleware
- * @param {Object}          [opts.loaderConfig={}]        Loader config     
+ * @param {Object}          [opts.loaderConfig={}]        Loader config
  * @param {string|string[]} [opts.paths=components]       Base directory name or path
  * @param {string}          [opts.root=process.cwd()]     Override current working directory
  * @param {boolean}         [opts.serveSelf=false]        Include host module itself
@@ -191,7 +191,7 @@ oceanify["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
       'Cache-Control': 'max-age=0',
       'Content-Type': 'application/javascript',
       ETag: crypto.createHash('md5').update(content).digest('hex'),
-      'Last-Modified': stats.mtime
+      'Last-Modified': stats.mtime.toJSON()
     }]
   }
 
@@ -258,7 +258,7 @@ oceanify["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
     }
 
     return [content, {
-      'Last-Modified': (yield lstat(fpath)).mtime
+      'Last-Modified': (yield lstat(fpath)).mtime.toJSON()
     }]
   }
 
@@ -275,11 +275,12 @@ oceanify["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
     const fpath = path.join(root, id)
 
     if (yield exists(fpath)) {
-      const content = yield readFile(fpath, encoding)
-      const stats = lstat(fpath)
+      const [ content, stats ] = yield [
+        readFile(fpath, encoding), lstat(fpath)
+      ]
 
       return [content, {
-        'Last-Modified': stats.mtime
+        'Last-Modified': stats.mtime.toJSON()
       }]
     }
   }
@@ -292,7 +293,7 @@ oceanify["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
 
     if (id === 'loader.js') {
       result = [loaderSource, {
-        'Last-Modified': loaderStats.mtime
+        'Last-Modified': loaderStats.mtime.toJSON()
       }]
     }
     else if (id === 'dependenciesMap.json') {
@@ -300,7 +301,7 @@ oceanify["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
       result = [JSON.stringify(dependenciesMap, function(key, value) {
         return key === 'dir' ? undefined : value
       }), {
-        'Last-Modified': loaderStats.mtime
+        'Last-Modified': loaderStats.mtime.toJSON()
       }]
     }
     else if (serveSource && isSource(id)) {
@@ -317,7 +318,7 @@ oceanify["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
       const stats = yield lstat(fpath)
 
       result = [content, {
-        'Last-Modified': stats.mtime
+        'Last-Modified': stats.mtime.toJSON()
       }]
     }
 
