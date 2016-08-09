@@ -108,9 +108,7 @@ function oceanify(opts = {}) {
   const encoding = 'utf8'
   const root = opts.root || process.cwd()
   const dest = path.resolve(root, opts.dest || 'public')
-  const cacheExceptions = typeof opts.cacheExcept === 'string'
-    ? [opts.cacheExcept]
-    : opts.cacheExcept || []
+  const cacheExceptions = [].concat(opts.cacheExcept)
   const serveSource = opts.serveSource
   const loaderConfig = opts.loaderConfig || {}
   const paths = [].concat(opts.paths || 'components').map(function(dir) {
