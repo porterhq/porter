@@ -18,20 +18,23 @@ const app = koa()
 app.use(oceanify())
 ```
 
-配置完毕之后，就可以开始在视图中引入前端模块了。假设有 `views/index.jade` 文件，添加首页 JS
+配置完毕之后，就可以开始在视图中引入前端模块了。假设有 `views/index.html` 文件，添加首页 JS
 和 CSS 模块方式如下：
 
-```jade
-// views/index.jade
-doctype html
-html
-  head
-    link(rel='stylesheet', href='/index.css')
-  body
-    script(src='/index.js?main')
+```html
+<!-- views/index.jade -->
+<!doctype html>
+<html>
+  <head>
+    <link rel="stylesheet" href="/index.css">
+  </head>
+  <body>
+    <script src="/index.js?main"></script>
+  </body>
+</html>
 ```
 
-`/index.js` 路径将对应 `components/index.js` 文件，`?main` 参数则用来告诉 Oceanify，
+`/index.js` 路径对应 `components/index.js` 文件，`?main` 参数则用来告诉 Oceanify，
 这个模块是页面入口。Oceanify 在响应这个模块的时候，将会把模块加载器、依赖信息等一并返回。
 在 `components/index.js` 中，可以使用相对路径或者绝对路径引用依赖，也可以引用
 node_modules 目录下的模块：
@@ -53,7 +56,7 @@ var aside = require('lib/aside')
 var search = require('./lib/search')
 ```
 
-`/index.css` 路径将对应 `components/index.css` 文件。因为 CSS 模块加载全部在后端处理，
+`/index.css` 路径对应 `components/index.css` 文件。因为 CSS 模块加载全部在后端处理，
 不涉及前端模块加载器，因此入口模块不需要配置 `?main` 参数。在 `components/index.css` 中，
 可以使用相对路径或者绝对路径引用依赖，也可以引用 node_modules 目录下的模块的 CSS：
 
@@ -184,27 +187,102 @@ app.use(oceanify({ express: true }))
 
 ### opts.loaderConfig
 
-可以使用 opts.loaderConfig 来配置 Oceanify 的模块加载器，例如：
+通过 `?main` 指定入口模块之后，Oceanify 会返回模块加载器及其配置，因此默认情况下模块加载器的
+配置入口是隐藏的，在入口模块的响应内容中就指定了：
+
+```js
+// http://example.com/index.js?main
+(function(global) {
+  // loader code
+  global.oceanify = { ... }
+})(this)
+
+oceanify.config({
+  base: '',
+  map: '',
+  modules: {},
+  dependencies: {}
+})
+```
+
+其中 modules 和 dependencies 是 Oceanify 在初始化的时候通过分析 components 和
+node_modules 目录结构生成的；base 和 map，则开发用户配置。
+
+可以使用 opts.loaderConfig 来配置这两个配置项：
+
+```js
+loaderConfig: {
+  base: 'http://cdn.example.com',
+  map: { ... }
+}
+```
+
+详细 opts.loaderConfig 配置解析见下文。
+
+
+#### opts.loaderConfig.base
+
+可以使用 opts.loaderConfig.base 配置模块记载器的根路径，例如：
+
+```js
+app.use(oceanify({
+  loaderConfig: {
+    base: 'http://cdn.example.com'
+  }
+}))
+```
+
+在默认情况下，Oceanify 的模块加载器将以 location.origin 为 base，对应关系如下：
+
+| module id | module.uri { base: '' }     | module.uri { base: 'http://cdn.example.com' } |
+|-----------|-----------------------------|-----------------------------------------------|
+| index.js  | http://example.com/index.js | http://cdn.example.com/index.js               |
+
+
+#### opts.loaderConfig.map
+
+可以使用 opts.loaderConfig.map 配置模块映射，从而修改某些模块的下载地址（module.uri）：
+
+```js
+app.use(oceanify({
+  loaderConfig: {
+    map: {
+      jquery: 'https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js'
+    }
+  }
+}))
+```
+
+也可以写正则：
 
 ```js
 app.use(oceanify({
   loaderConfig: {
     base: 'http://cdn.example.com',
-    map: { users: '/users' }
+    map: {
+      '(templates|creatives)/(\\d+)': '/$1/$2.js'
+    }
   }
 }))
 ```
 
-上述配置告诉模块加载器去 http://cdn.example.com 下载模块，users 模块仍然从 `/` 下载。
+上述例子将所有 templates/${id} 和 creations/${id} 的模块地址映射到本地，而不是 base
+里配置的 <http://cdn.example.com>。因此 Oceanify 会去 <http://${loaction.origin}/templates/${id}.js>
+下载模块代码，而非 <http://cdn.example.com/templates/${id}.js>。
 
-默认值：`{}`。
+当然，因为 map 中的 pattern 默认从 module id 行首开始匹配，上述例子不写正则也可以实现：
 
-
-#### opts.loaderConfig.base
-
-#### opts.loaderConfig.dependenciesMap
-
-#### opts.loaderConfig.map
+```js
+app.use(oceanify({
+  loaderConfig: {
+    base: 'http://cdn.example.com',
+    map: {
+      creatives: '/creatives',
+      templates: '/templates'
+    }
+  }
+}))
+```
 
 
 ### opts.paths
@@ -258,8 +336,8 @@ GET /components/lib/aside.js
 GET /node_modules/cropper/dist/cropper.js
 ```
 
-不建议线上环境开启这项功能，会造成源码泄漏。有关 Source Map，在 oceanify.compileAll 章节
-我们将深入讨论。
+不建议线上环境开启这项功能，会造成源码泄漏。我们将在 oceanify.compileAll 章节深入讨论
+Source Map 以及 Oceanify 的支持方式。
 
 默认值：`false`。
 
