@@ -31,7 +31,6 @@ const loaderSource = fs.readFileSync(loaderPath, 'utf8')
 const loaderStats = fs.statSync(loaderPath)
 
 const RE_EXT = /(\.(?:css|js))$/i
-const RE_MAIN = /\/(?:main|runner)\.js$/
 const RE_ASSET_EXT = /\.(?:gif|jpg|jpeg|png|svg|swf|ico)$/i
 
 const exists = fs.exists
@@ -337,7 +336,7 @@ oceanify["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
       if (res.headerSent) return next()
 
       const id = req.path.slice(1)
-      const isMain = RE_MAIN.test(req.path) || 'main' in req.query
+      const isMain = 'main' in req.query
 
       co(readAsset(id, isMain)).then(function(result) {
         if (result) {
@@ -361,7 +360,7 @@ oceanify["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
       if (this.headerSent) return yield next
 
       const id = this.path.slice(1)
-      const isMain = RE_MAIN.test(this.path) || 'main' in this.query
+      const isMain = 'main' in this.query
       const result = yield* readAsset(id, isMain)
 
       if (result) {
