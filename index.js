@@ -223,8 +223,7 @@ oceanify["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
     return define(id, dependencies, factory)
   }
 
-
-  const importer = postcss().use(atImport({ path: [root] }))
+  const importer = postcss().use(atImport({ path: paths }))
   const prefixer = postcss().use(autoprefixer())
 
   function* readStyle(id) {

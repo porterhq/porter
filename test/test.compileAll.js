@@ -18,9 +18,10 @@ describe('oceanify.compileAll', function() {
 
   it('should compile all components and their dependencies', function* () {
     yield compileAll({
-      root: root,
-      paths: 'components',
       dest: 'public',
+      match: 'main.js',
+      paths: 'components',
+      root: root,
       sourceOptions: { root: '/' }
     })
 
@@ -40,9 +41,10 @@ describe('oceanify.compileAll', function() {
 
   it('should compile components in muitiple paths', function* () {
     yield compileAll({
-      root: root,
-      paths: ['components', 'browser_modules'],
       dest: 'public',
+      match: 'v2/main.js',
+      paths: ['components', 'browser_modules'],
+      root: root,
       sourceOptions: { root: '/' }
     })
 

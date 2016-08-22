@@ -46,7 +46,7 @@ function sleep(seconds) {
 
 describe('oceanify', function() {
   it('should start from main', function* () {
-    var res = yield requestPath('/main.js')
+    var res = yield requestPath('/main.js?main')
     expect(res.text).to.contain('\ndefine("main"')
     expect(res.text).to.contain('\noceanify["import"]("main")')
   })
