@@ -21,8 +21,8 @@ function requestPath(apath) {
 
 
 describe('oceanify serveSource', function() {
-  it('should serve import.js', function* () {
-    yield requestPath('/import.js')
+  it('should serve loader.js', function* () {
+    yield requestPath('/loader.js')
   })
 
   it('should serve components source', function* () {

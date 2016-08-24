@@ -10,9 +10,9 @@ var parseMap = require('../lib/parseMap')
 describe('oceanify.parseMap', function() {
   it('parse frontend module', function* () {
     var map = yield* parseMap({
-      base: 'test',
+      paths: 'test',
       root: path.join(__dirname, 'example-fe'),
-      self: true
+      serveSelf: true
     })
 
     expect(map).to.be.an(Object)

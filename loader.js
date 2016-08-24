@@ -5,7 +5,10 @@
   // do not override
   if (global.oceanify) return
 
-  var system = { registry: {} }
+  var system = {
+    preload: [],
+    registry: {}
+  }
   var registry = system.registry
 
 
@@ -20,11 +23,15 @@
         var source = args.shift()
 
         for (var p in source) {
-          if (source.hasOwnProperty(p)) {
-            target[p] = source[p]
+          if (source != null) {
+            if (source.hasOwnProperty(p)) {
+              target[p] = source[p]
+            }
           }
         }
       }
+
+      return target
     }
   }
 
@@ -150,7 +157,7 @@
 
     if (map) {
       for (var pattern in map) {
-        ret = uri.replace(new RegExp(pattern), map[pattern])
+        ret = uri.replace(new RegExp('^' + pattern), map[pattern])
         // Only apply the first matched rule
         if (ret !== uri) break
       }
@@ -219,7 +226,9 @@
       var id = parseMap(mod.id)
       var uri = /^https?:\/\//.test(id) || id.charAt(0) === '/'
         ? id
-        : resolve(system.base, mod.id + '.js')
+        : resolve(system.base, mod.id)
+
+      uri = uri.replace(/\.js$/, '') + '.js'
 
       request(uri, function(err) {
         mod.status = err ? MODULE_ERROR : MODULE_FETCHED
@@ -355,8 +364,12 @@
   }
 
 
+  var globalImport = importFactory()
+
   Object.assign(system, {
-    'import': importFactory(),
+    'import': function(ids, fn) {
+      globalImport([].concat(system.preload, ids), fn)
+    },
 
     config: function(opts) {
       return Object.assign(system, opts)

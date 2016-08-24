@@ -1,11 +1,11 @@
 'use strict'
 
 require('co-mocha')
-var request = require('supertest')
-var matchRequire = require('match-require')
-var expect = require('expect.js')
+const request = require('supertest')
+const matchRequire = require('match-require')
+const expect = require('expect.js')
 
-var app = require('./example-fe/app')
+const app = require('./example-fe/app')
 
 
 function requestPath(apath) {
@@ -21,7 +21,7 @@ function requestPath(apath) {
 }
 
 
-describe('oceanify self', function() {
+describe('oceanify opts.serveSelf', function() {
   it('should serve self', function* () {
     yield requestPath('/oceanify-example-fe/0.0.1/index.js')
   })

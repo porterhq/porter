@@ -9,7 +9,6 @@ const co = require('co')
 const crypto = require('crypto')
 const semver = require('semver')
 const matchRequire = require('match-require')
-const objectAssign = require('object-assign')
 const mime = require('mime')
 const debug = require('debug')('oceanify')
 
@@ -27,14 +26,12 @@ const findComponent = require('./lib/findComponent')
 const findModule = require('./lib/findModule')
 const Cache = require('./lib/Cache')
 
-const loaderPath = path.join(__dirname, 'import.js')
-const loader = fs.readFileSync(loaderPath, 'utf8')
+const loaderPath = path.join(__dirname, 'loader.js')
+const loaderSource = fs.readFileSync(loaderPath, 'utf8')
 const loaderStats = fs.statSync(loaderPath)
 
 const RE_EXT = /(\.(?:css|js))$/i
-const RE_MAIN = /\/(?:main|runner)\.js$/
 const RE_ASSET_EXT = /\.(?:gif|jpg|jpeg|png|svg|swf|ico)$/i
-const RE_RAW = /^raw\//
 
 const exists = fs.exists
 const readFile = fs.readFile
@@ -93,30 +90,27 @@ function parseId(id, system) {
  * Factory
  *
  * @param {Object}           opts
- * @param {string}          [opts.root=process.cwd()] Override current working directory
- * @param {string|string[]} [opts.base=components]    Base directory name or path
- * @param {string}          [opts.dest=public]        Cache destination
- * @param {string|string[]} [opts.cacheExcept=[]]     Cache exceptions
- * @param {boolean}         [opts.cachePersist=false] Don't clear cache every time
- * @param {boolean}         [opts.self=false]         Include host module itself
- * @param {boolean}         [opts.express=false]      Express middleware
- * @param {boolean}         [opts.serveSource=false]  Serve sources for devtools
- * @param {boolean}         [opts.preload=true]       Append preload module
+ * @param {string|string[]} [opts.cacheExcept=[]]         Cache exceptions
+ * @param {boolean}         [opts.cachePersist=false]     Don't clear cache every time
+ * @param {DependenciesMap} [opts.dependenciesMap=null]   Dependencies map
+ * @param {string}          [opts.dest=public]            Cache destination
+ * @param {boolean}         [opts.express=false]          Express middleware
+ * @param {Object}          [opts.loaderConfig={}]        Loader config
+ * @param {string|string[]} [opts.paths=components]       Base directory name or path
+ * @param {string}          [opts.root=process.cwd()]     Override current working directory
+ * @param {boolean}         [opts.serveSelf=false]        Include host module itself
+ * @param {boolean}         [opts.serveSource=false]      Serve sources for devtools
  *
  * @returns {Function|GeneratorFunction} A middleware for Koa or Express
  */
-function oceanify(opts) {
-  opts = opts || {}
+function oceanify(opts = {}) {
   const encoding = 'utf8'
   const root = opts.root || process.cwd()
   const dest = path.resolve(root, opts.dest || 'public')
-  const cacheExceptions = typeof opts.cacheExcept === 'string'
-    ? [opts.cacheExcept]
-    : opts.cacheExcept || []
+  const cacheExceptions = [].concat(opts.cacheExcept)
   const serveSource = opts.serveSource
-  const preload = typeof opts.preload === 'boolean' ? opts.preload : true
-  const importConfig = opts.importConfig || {}
-  const bases = [].concat(opts.base || 'components').map(function(dir) {
+  const loaderConfig = opts.loaderConfig || {}
+  const paths = [].concat(opts.paths || 'components').map(function(dir) {
     return path.resolve(root, dir)
   })
 
@@ -139,10 +133,10 @@ function oceanify(opts) {
   let pkg
 
   let parseSystemPromise = co(function* () {
-    dependenciesMap = yield* parseMap(opts)
+    dependenciesMap = opts.dependenciesMap || (yield* parseMap(opts))
     system = parseSystem(dependenciesMap)
     pkg = JSON.parse(yield readFile(path.join(root, 'package.json'), 'utf8'))
-    objectAssign(importConfig, system)
+    Object.assign(loaderConfig, system)
   })
 
   function mightCacheModule(mod) {
@@ -159,46 +153,32 @@ function oceanify(opts) {
   }
 
   function* formatMain(id, content) {
-    const entries = [id.replace(RE_EXT, '')]
-
-    if (preload && (yield findComponent('preload.js', bases))) {
-      entries.unshift('preload')
-    }
-
-    return [
-      loader,
-      'oceanify.config(' + JSON.stringify(importConfig) + ')',
-      content,
-      'oceanify["import"](' + JSON.stringify(entries) + ')'
-    ].join('\n')
+    return `${loaderSource}
+oceanify.config(${JSON.stringify(loaderConfig)})
+${content}
+oceanify["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
+`
   }
 
   function* readModule(id, isMain) {
     if (!system) yield parseSystemPromise
 
     const mod = parseId(id, system)
-    let fpath
-
-    if (mod.name in system.modules) {
-      fpath = findModule(mod, dependenciesMap)
-      mightCacheModule(mod)
-    }
-    else {
-      fpath = yield* findComponent(mod.name, bases)
-    }
+    const fpath = mod.name in system.modules
+      ? findModule(mod, dependenciesMap)
+      : yield* findComponent(mod.name, paths)
 
     if (!fpath) return
+    if (mod.name in system.modules) mightCacheModule(mod)
 
     let content = yield readFile(fpath, encoding)
     const stats = yield lstat(fpath)
 
-    if (!RE_RAW.test(id)) {
-      const dependencies = matchRequire.findAll(content)
-      content = (opts.self && !(mod.name in system.modules)
-        ? defineComponent
-        : define
-      )(id.replace(RE_EXT, ''), dependencies, content)
-    }
+    const dependencies = matchRequire.findAll(content)
+    content = (opts.serveSelf && !(mod.name in system.modules)
+      ? defineComponent
+      : define
+    )(id.replace(RE_EXT, ''), dependencies, content)
 
     if (isMain) {
       content = yield* formatMain(id, content)
@@ -208,12 +188,12 @@ function oceanify(opts) {
       'Cache-Control': 'max-age=0',
       'Content-Type': 'application/javascript',
       ETag: crypto.createHash('md5').update(content).digest('hex'),
-      'Last-Modified': stats.mtime
+      'Last-Modified': stats.mtime.toJSON()
     }]
   }
 
   /**
-   * process components if opts.self is on
+   * process components if opts.serveSelf is on
    *
    * @param  {string}   id           component id
    * @param  {string[]} dependencies component dependencies
@@ -221,7 +201,7 @@ function oceanify(opts) {
    * @return {string}                wrapped component declaration
    */
   function defineComponent(id, dependencies, factory) {
-    const base = bases[0]
+    const base = paths[0]
 
     for (let i = 0; i < dependencies.length; i++) {
       const dep = dependencies[i]
@@ -243,66 +223,45 @@ function oceanify(opts) {
     return define(id, dependencies, factory)
   }
 
-
-  /**
-   * parse possible import bases from the entry point of the require
-   *
-   * @param   {string} fpath
-   * @returns {Array}
-   */
-  function parseImportBases(fpath) {
-    const importBases = [ path.join(root, 'node_modules') ]
-    let dir = path.dirname(fpath)
-
-    while (dir.includes('node_modules')) {
-      const parentFolder = path.basename(path.dirname(dir))
-      if (parentFolder === 'node_modules' || parentFolder.charAt(0) === '@') {
-        importBases.unshift(path.join(dir, 'node_modules'))
-      }
-      dir = path.resolve(dir, '..')
-    }
-
-    return importBases
-  }
+  const importer = postcss().use(atImport({ path: paths }))
+  const prefixer = postcss().use(autoprefixer())
 
   function* readStyle(id) {
     const destPath = path.join(dest, id)
-    let fpath = yield* findComponent(id, bases)
+    const fpath = (yield* findComponent(id, paths)) ||
+      path.join(root, 'node_modules', id)
 
-    if (!fpath) {
-      fpath = path.join(root, 'node_modules', id)
-      if (!(yield exists(fpath))) return
-    }
+    if (!(yield exists(fpath))) return
 
     const source = yield readFile(fpath, encoding)
-    const stats = yield lstat(fpath)
-    let content = yield* cache.read(id, source)
+    const processOpts = {
+      from: path.relative(root, fpath),
+      to: path.relative(root, destPath),
+      map: { inline: false }
+    }
+    const result = yield importer.process(source, processOpts)
+    let content = yield* cache.read(id, result.css)
 
     if (!content) {
-      const result = yield postcss()
-        .use(atImport({ path: parseImportBases(fpath) }))
-        .use(autoprefixer())
-        .process(source, {
-          from: path.relative(root, fpath),
-          to: path.relative(root, destPath),
-          map: { inline: false }
-        })
+      processOpts.map.prev = result.map
+      const resultWithPrefix = yield prefixer.process(result.css, processOpts)
 
-      yield* cache.write(id, source, result.css)
-      yield* cache.writeFile(id + '.map', result.map)
-
-      content = result.css
+      yield [
+        cache.write(id, result.css, resultWithPrefix.css),
+        cache.writeFile(id + '.map', resultWithPrefix.map)
+      ]
+      content = resultWithPrefix.css
     }
 
     return [content, {
-      'Last-Modified': stats.mtime
+      'Last-Modified': (yield lstat(fpath)).mtime.toJSON()
     }]
   }
 
 
   function isSource(id) {
     const fpath = path.join(root, id)
-    return id.indexOf('node_modules') === 0 || bases.some(function(base) {
+    return id.indexOf('node_modules') === 0 || paths.some(function(base) {
       return fpath.indexOf(base) === 0
     })
   }
@@ -312,11 +271,12 @@ function oceanify(opts) {
     const fpath = path.join(root, id)
 
     if (yield exists(fpath)) {
-      const content = yield readFile(fpath, encoding)
-      const stats = lstat(fpath)
+      const [ content, stats ] = yield [
+        readFile(fpath, encoding), lstat(fpath)
+      ]
 
       return [content, {
-        'Last-Modified': stats.mtime
+        'Last-Modified': stats.mtime.toJSON()
       }]
     }
   }
@@ -324,12 +284,20 @@ function oceanify(opts) {
 
   function* readAsset(id, isMain) {
     const ext = path.extname(id)
-    const fpath = yield* findComponent(id, bases)
+    const fpath = yield* findComponent(id, paths)
     let result = null
 
-    if (id === 'import.js') {
-      result = [loader, {
-        'Last-Modified': loaderStats.mtime
+    if (id === 'loader.js') {
+      result = [loaderSource, {
+        'Last-Modified': loaderStats.mtime.toJSON()
+      }]
+    }
+    else if (id === 'dependenciesMap.json') {
+      yield parseSystemPromise
+      result = [JSON.stringify(dependenciesMap, function(key, value) {
+        return key === 'dir' ? undefined : value
+      }), {
+        'Last-Modified': loaderStats.mtime.toJSON()
       }]
     }
     else if (serveSource && isSource(id)) {
@@ -346,12 +314,12 @@ function oceanify(opts) {
       const stats = yield lstat(fpath)
 
       result = [content, {
-        'Last-Modified': stats.mtime
+        'Last-Modified': stats.mtime.toJSON()
       }]
     }
 
     if (result) {
-      objectAssign(result[1], {
+      Object.assign(result[1], {
         'Cache-Control': 'max-age=0',
         'Content-Type': mime.lookup(ext),
         ETag: crypto.createHash('md5').update(result[0]).digest('hex')
@@ -367,7 +335,7 @@ function oceanify(opts) {
       if (res.headerSent) return next()
 
       const id = req.path.slice(1)
-      const isMain = RE_MAIN.test(req.path) || 'main' in req.query
+      const isMain = 'main' in req.query
 
       co(readAsset(id, isMain)).then(function(result) {
         if (result) {
@@ -391,7 +359,7 @@ function oceanify(opts) {
       if (this.headerSent) return yield next
 
       const id = this.path.slice(1)
-      const isMain = RE_MAIN.test(this.path) || 'main' in this.query
+      const isMain = 'main' in this.query
       const result = yield* readAsset(id, isMain)
 
       if (result) {

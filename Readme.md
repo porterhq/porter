@@ -1,29 +1,33 @@
 # Oceanify
 
-Oceanify is yet another solution for browser modularization. It features
-module transformation on the fly and a swift setup.
+Yet another solution for JS and CSS modularization. Oceanify features module
+transformation on the fly and a swift setup.
+
+[中文文档](./Readme.zh.md)
+
 
 ## tl;dr
 
-With Oceanify, you can write web pages and applications in old style but can
-also take advantage of the modular pattern:
+With Oceanify, you can write JS and CSS in an old fashioned manner, whilst be
+able to do both in modular way. Take following HTML for example, the entries
+of JS and CSS is just like the way it was.
 
 ```html
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Oceanify Rocks!</title>
+  <title>An Oceanify Example</title>
   <link rel="stylesheet" type="text/css" href="/main.css">
 </head>
 <body>
-  <h1>Oceanify Rocks!</h1>
+  <h1>An Oceanify Example</h1>
   <script src="/main.js"></script>
 </body>
 </html>
 ```
 
-In `main.js`, you can `require` dependencies:
+Yet in `main.js`, you can `require` dependencies:
 
 ```js
 var $ = require('jquery')
@@ -34,14 +38,14 @@ var nav = require('./nav')
 // setup page with those required components and modules
 ```
 
-And you can do the same in `main.css`:
+And as in `main.css`, you can `@import` dependencies too:
 
 ```css
-@import '/cropper/dist/cropper.css';  /* stylesheets in node_modules */
+@import 'cropper/dist/cropper.css';   /* stylesheets in node_modules */
 @import './nav.css';                  /* stylesheets in components */
 ```
 
-When you want your web pages and application be production ready, simply run:
+When it's time to be production ready, simply run:
 
 ```js
 var co = require('co')
@@ -81,7 +85,7 @@ Oceanify introduces a code organization pattern like below:
         └── support.js
 ```
 
-All the dependencies are at `node_modules` directory. All of project's browser
+External dependencies are at `node_modules` directory. All of project's browser
 code, js and css, are put at `components` folder. In `components`, you can
 `require` and `@import` dependencies from `components` and `node_modules`.
 
@@ -90,7 +94,6 @@ Here's `main.js` would look like:
 ```js
 var $ = require('yen')              // require a module from node_modules
 var Upload = require('arale/upload')  // require other modules in components
-
 
 var upload = new Upload('#btn-upload', { ... })
 
