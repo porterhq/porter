@@ -1,15 +1,15 @@
 {
   "name": "oceanify",
   "description": "A koa and express middleware for browser side javascript module authoring.",
-  "version": "5.0.0-beta.9",
+  "version": "5.0.0-beta.11",
   "repository": {
     "type": "git",
     "url": "git@github.com:erzu/oceanify.git"
   },
   "dependencies": {
     "autoprefixer": "~6.3.0",
-    "co": "~4.6.0",
-    "debug": "~1.0.4",
+    "co": "^4.6.0",
+    "debug": "^1.0.4",
     "glob": "^7.0.5",
     "heredoc": "~1.3.1",
     "match-require": "~1.1.1",
@@ -17,17 +17,17 @@
     "minimatch": "~3.0.0",
     "minimist": "~1.2.0",
     "mkdirp": "~0.3.5",
-    "postcss": "~5.0.4",
+    "postcss": "~5.2.0",
     "postcss-import": "~8.0.2",
     "semver": "~4.0.0",
     "uglify-js": "~2.4.23"
   },
   "devDependencies": {
-    "co-mocha": "~1.1.2",
-    "expect.js": "~0.3.1",
-    "istanbul": "~0.3.17",
-    "mocha": "~2.2.5",
-    "supertest": "~1.0.1"
+    "co-mocha": "^1.1.3",
+    "expect.js": "^0.3.1",
+    "istanbul": "^0.3.17",
+    "mocha": "^3.0.2",
+    "supertest": "^1.0.1"
   },
   "scripts": {
     "test": "rm -rf test/example/public ; DEBUG=oceanify mocha --harmony --timeout 15000 test/{,command}/test.*.js",
@@ -35,5 +35,6 @@
   },
   "engines": {
     "node": ">= 6"
-  }
+  },
+  "license": "ISC"
 }
