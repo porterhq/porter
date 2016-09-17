@@ -326,17 +326,6 @@ app.use(oceanify({ root: __dirname }))
 默认值：`process.cwd()`
 
 
-### opts.serveSelf
-
-使用 Oceanify 开发前端模块的时候，需要响应项目目录下的内容。以 yen 为例，在 yen 项目目录下
-运行 Oceanify，开启 opts.serveSelf 之后就会对应 `/yen/1.4.0/index.js` 到
-`./index.js`。
-
-一般 Web 应用中不需要使用到这一功能，**切勿开启**。
-
-默认值：`false`。
-
-
 ### opts.serveSource
 
 可以通过 opts.serveSource 告诉 Oceanify 响应源码请求，从而让 devtools 正常展现

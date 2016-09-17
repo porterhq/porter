@@ -8,7 +8,7 @@ var app = require('./example/app-express')
 describe('oceanify/express', function() {
   it('should handle components', function(done) {
     request(app)
-      .get('/ma/nga.js')
+      .get('/oceanify-example/0.0.1/ma/nga.js')
       .expect('Content-Type', /javascript/)
       .expect(200)
       .end(done)

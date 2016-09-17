@@ -29,8 +29,8 @@ describe('oceanify.compileAll', function() {
       return path.relative(root, entry)
     })
 
-    expect(entries).to.contain('public/main.js')
-    expect(entries).to.contain('public/main.js.map')
+    expect(entries).to.contain('public/oceanify-example/0.0.1/main.js')
+    expect(entries).to.contain('public/oceanify-example/0.0.1/main.js.map')
 
     expect(entries).to.contain('public/yen/1.2.4/index.js')
     expect(entries).to.contain('public/yen/1.2.4/index.js.map')
@@ -52,7 +52,7 @@ describe('oceanify.compileAll', function() {
       return path.relative(root, entry)
     })
 
-    expect(entries).to.contain('public/v2/main.js')
-    expect(entries).to.contain('public/v2/main.js.map')
+    expect(entries).to.contain('public/oceanify-example/0.0.1/v2/main.js')
+    expect(entries).to.contain('public/oceanify-example/0.0.1/v2/main.js.map')
   })
 })

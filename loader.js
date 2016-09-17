@@ -218,13 +218,22 @@
     registry[id] = this
   }
 
+  /**
+   * To match against following uris:
+   * - https://example.com/foo.js
+   * - http://example.com/bar.js
+   * - //example.com/ham.js
+   * - /egg.js
+   */
+  var RE_URI = /^(?:https?:)?\//
+
   Module.prototype.fetch = function() {
     var mod = this
 
     if (mod.status < MODULE_FETCHING) {
       mod.status = MODULE_FETCHING
       var id = parseMap(mod.id)
-      var uri = /^https?:\/\//.test(id) || id.charAt(0) === '/'
+      var uri = RE_URI.test(id)
         ? id
         : resolve(system.base, mod.id)
 
@@ -342,12 +351,10 @@
       return resolve(dirname(context), id)
     }
 
-    var deps = system.dependencies
     var parent = parseId(context)
-
-    if (parent.name in map) {
-      deps = map[parent.name][parent.version].dependencies
-    }
+    var deps = parent.name in map
+      ? map[parent.name][parent.version].dependencies
+      : map[system.name][system.version].dependencies
 
     var relative = parseId(id)
 
@@ -358,8 +365,14 @@
 
       return resolve(name, version, entry.replace(/\.js$/, ''))
     }
-    else {
+    else if (relative.name === system.name) {
+      return resolve(system.name, system.version, relative.entry || system.main)
+    }
+    else if (RE_URI.test(id)) {
       return id
+    }
+    else {
+      return resolve(system.name, system.version, id)
     }
   }
 

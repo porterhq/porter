@@ -25,7 +25,7 @@ describe('oceanify.compileComponent', function() {
 
   it('should compile component', function* () {
     yield compileComponent('ma/nga', { root: root, dest: dest })
-    expect(exists(path.join(dest, 'ma/nga.js'))).to.be(true)
+    expect(exists(path.join(dest, 'oceanify-example/0.0.1/ma/nga.js'))).to.be(true)
   })
 
   it('should compile shadow component', function* () {
@@ -43,7 +43,7 @@ describe('oceanify.compileComponent', function() {
       dependenciesMap: map
     })
 
-    var content = readFile(path.join(dest, 'shadow/9527.js'), 'utf-8')
+    var content = readFile(path.join(dest, 'oceanify-example/0.0.1/shadow/9527.js'), 'utf-8')
 
     expect(content).to.contain('shadow/9527')
     expect(content).to.contain('yen/1.2.4/index')

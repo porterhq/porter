@@ -4,26 +4,16 @@ require('co-mocha')
 const request = require('supertest')
 const expect = require('expect.js')
 const path = require('path')
-const glob = require('glob')
 const heredoc = require('heredoc').strip
 
 const app = require('./example/app')
 const fs = require('../lib/fs')
+const glob = require('../lib/glob')
 
 const readFile = fs.readFile
 const writeFile = fs.writeFile
 const exists = fs.exists
 const lstat = fs.lstat
-
-
-function globAsync(dir, opts) {
-  return new Promise(function(resolve, reject) {
-    glob(dir, opts || {}, function(err, entries) {
-      if (err) reject(new Error(err))
-      else resolve(entries)
-    })
-  })
-}
 
 function requestPath(apath) {
   return new Promise(function(resolve, reject) {
@@ -46,13 +36,13 @@ function sleep(seconds) {
 
 describe('oceanify', function() {
   it('should start from main', function* () {
-    var res = yield requestPath('/main.js?main')
-    expect(res.text).to.contain('\ndefine("main"')
-    expect(res.text).to.contain('\noceanify["import"]("main")')
+    var res = yield requestPath('/oceanify-example/0.0.1/main.js?main')
+    expect(res.text).to.contain('\ndefine("oceanify-example/0.0.1/main"')
+    expect(res.text).to.contain('\noceanify["import"]("oceanify-example/0.0.1/main")')
   })
 
   it('should handle components', function *() {
-    yield requestPath('/ma/nga.js')
+    yield requestPath('/oceanify-example/0.0.1/ma/nga.js')
   })
 
   it('should handle dependencies', function* () {
@@ -83,11 +73,7 @@ describe('oceanify', function() {
   })
 
   it('should handle stylesheets', function* () {
-    yield requestPath('/stylesheets/app.css')
-  })
-
-  it('should handle stylesheets in dependencies', function* () {
-    yield requestPath('/ez-editor/assets/ez-editor.css')
+    yield requestPath('/oceanify-example/0.0.1/stylesheets/app.css')
   })
 
   it('should serve raw assets too', function* () {
@@ -100,10 +86,10 @@ describe('oceanify Cache', function() {
   var root = path.join(__dirname, 'example')
 
   it('should cache generated style', function* () {
-    yield requestPath('/stylesheets/app.css')
+    yield requestPath('/oceanify-example/0.0.1/stylesheets/app.css')
 
-    var dir = path.join(root, 'public/stylesheets')
-    var entries = yield globAsync(path.join(dir, 'app-*.css'))
+    var dir = path.join(root, 'public/oceanify-example/0.0.1/stylesheets')
+    var entries = yield glob(path.join(dir, 'app-*.css'))
 
     entries = entries.map(function(entry) {
       return path.relative(dir, entry).replace(/-[0-9a-f]{32}\.css$/, '.css')
@@ -123,10 +109,10 @@ describe('oceanify Cache', function() {
       }
     */}))
 
-    yield requestPath('/stylesheets/app.css')
+    yield requestPath('/oceanify-example/0.0.1/stylesheets/app.css')
 
-    var dir = path.join(root, 'public/stylesheets')
-    var entries = yield globAsync(path.join(dir, 'app-*.css'))
+    var dir = path.join(root, 'public/oceanify-example/0.0.1/stylesheets')
+    var entries = yield glob(path.join(dir, 'app-*.css'))
     entries = entries.map(function(entry) {
       return path.relative(dir, entry).replace(/-[0-9a-f]{32}\.css$/, '.css')
     })

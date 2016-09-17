@@ -98,7 +98,6 @@ function parseId(id, system) {
  * @param {Object}          [opts.loaderConfig={}]        Loader config
  * @param {string|string[]} [opts.paths=components]       Base directory name or path
  * @param {string}          [opts.root=process.cwd()]     Override current working directory
- * @param {boolean}         [opts.serveSelf=false]        Include host module itself
  * @param {boolean}         [opts.serveSource=false]      Serve sources for devtools
  *
  * @returns {Function|GeneratorFunction} A middleware for Koa or Express
@@ -110,9 +109,10 @@ function oceanify(opts = {}) {
   const cacheExceptions = [].concat(opts.cacheExcept)
   const serveSource = opts.serveSource
   const loaderConfig = opts.loaderConfig || {}
-  const paths = [].concat(opts.paths || 'components').map(function(dir) {
-    return path.resolve(root, dir)
-  })
+  const paths = [].concat(opts.paths || 'components')
+    .map(function(dir) {
+      return path.resolve(root, dir)
+    })
 
   const cache = new Cache({
     dest: dest,
@@ -133,9 +133,9 @@ function oceanify(opts = {}) {
   let pkg
 
   let parseSystemPromise = co(function* () {
+    pkg = require(path.join(root, 'package.json'))
     dependenciesMap = opts.dependenciesMap || (yield* parseMap(opts))
-    system = parseSystem(dependenciesMap)
-    pkg = JSON.parse(yield readFile(path.join(root, 'package.json'), 'utf8'))
+    system = parseSystem(pkg, dependenciesMap)
     Object.assign(loaderConfig, system)
   })
 
@@ -164,9 +164,9 @@ oceanify["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
     if (!system) yield parseSystemPromise
 
     const mod = parseId(id, system)
-    const fpath = mod.name in system.modules
-      ? findModule(mod, dependenciesMap)
-      : yield* findComponent(mod.name, paths)
+    const fpath = mod.name === pkg.name
+      ? yield* findComponent(mod.entry, paths)
+      : findModule(mod, dependenciesMap)
 
     if (!fpath) return
     if (mod.name in system.modules) mightCacheModule(mod)
@@ -175,10 +175,7 @@ oceanify["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
     const stats = yield lstat(fpath)
 
     const dependencies = matchRequire.findAll(content)
-    content = (opts.serveSelf && !(mod.name in system.modules)
-      ? defineComponent
-      : define
-    )(id.replace(RE_EXT, ''), dependencies, content)
+    content = define(id.replace(RE_EXT, ''), dependencies, content)
 
     if (isMain) {
       content = yield* formatMain(id, content)
@@ -192,46 +189,15 @@ oceanify["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
     }]
   }
 
-  /**
-   * process components if opts.serveSelf is on
-   *
-   * @param  {string}   id           component id
-   * @param  {string[]} dependencies component dependencies
-   * @param  {string}   factory      component factory
-   * @return {string}                wrapped component declaration
-   */
-  function defineComponent(id, dependencies, factory) {
-    const base = paths[0]
-
-    for (let i = 0; i < dependencies.length; i++) {
-      const dep = dependencies[i]
-      const fpath = path.resolve(base, dep)
-
-      if (dep.indexOf('..') === 0 &&
-          fpath.indexOf(base) < 0 &&
-          fpath.indexOf(root) === 0) {
-        const depAlias = fpath.replace(root, pkg.name)
-        dependencies[i] = depAlias
-        factory = matchRequire.replaceAll(factory, function(match, quote, name) {
-          return name === dep
-            ? ['require(', depAlias, ')'].join(quote)
-            : match
-        })
-      }
-    }
-
-    return define(id, dependencies, factory)
-  }
-
   const importer = postcss().use(atImport({ path: paths }))
   const prefixer = postcss().use(autoprefixer())
 
   function* readStyle(id) {
+    const mod = parseId(id, system)
     const destPath = path.join(dest, id)
-    const fpath = (yield* findComponent(id, paths)) ||
-      path.join(root, 'node_modules', id)
+    const fpath = yield* findComponent(mod.entry, paths)
 
-    if (!(yield exists(fpath))) return
+    if (!fpath) return
 
     const source = yield readFile(fpath, encoding)
     const processOpts = {
