@@ -92,7 +92,6 @@ function parseId(id, system) {
  * @param {Object}           opts
  * @param {string|string[]} [opts.cacheExcept=[]]         Cache exceptions
  * @param {boolean}         [opts.cachePersist=false]     Don't clear cache every time
- * @param {DependenciesMap} [opts.dependenciesMap=null]   Dependencies map
  * @param {string}          [opts.dest=public]            Cache destination
  * @param {boolean}         [opts.express=false]          Express middleware
  * @param {Object}          [opts.loaderConfig={}]        Loader config
@@ -128,21 +127,29 @@ function oceanify(opts = {}) {
   if (cacheExceptions.length) debug('Cache exceptions %s', cacheExceptions)
   if (serveSource) debug('Serving source files.')
 
-  let dependenciesMap
-  let system
-  let pkg
+  let dependenciesMap = null
+  let system = null
+  let pkg = null
+  let parseSystemPromise = null
 
-  let parseSystemPromise = co(function* () {
-    pkg = require(path.join(root, 'package.json'))
-    dependenciesMap = opts.dependenciesMap || (yield* parseMap(opts))
-    system = parseSystem(pkg, dependenciesMap)
-    Object.assign(loaderConfig, system)
-  })
+  if (['name', 'version', 'main', 'modules'].every(name => !!loaderConfig[name])) {
+    parseSystemPromise = new Promise(function(resolve) {
+      pkg = system = loaderConfig
+    })
+  } else {
+    parseSystemPromise = co(function* () {
+      pkg = require(path.join(root, 'package.json'))
+      dependenciesMap = yield* parseMap(opts)
+      system = parseSystem(pkg, dependenciesMap)
+      Object.assign(loaderConfig, system)
+    })
+  }
 
   function mightCacheModule(mod) {
     if (mod.name === pkg.name ||
         cacheExceptions[0] === '*' ||
-        cacheExceptions.indexOf(mod.name) >= 0) {
+        cacheExceptions.indexOf(mod.name) >= 0 ||
+        !dependenciesMap) {
       return
     }
 
@@ -258,11 +265,9 @@ oceanify["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
         'Last-Modified': loaderStats.mtime.toJSON()
       }]
     }
-    else if (id === 'dependenciesMap.json') {
+    else if (id === 'loaderConfig.json') {
       yield parseSystemPromise
-      result = [JSON.stringify(dependenciesMap, function(key, value) {
-        return key === 'dir' ? undefined : value
-      }), {
+      result = [JSON.stringify(system), {
         'Last-Modified': loaderStats.mtime.toJSON()
       }]
     }

@@ -1,7 +1,7 @@
 {
   "name": "oceanify",
   "description": "A koa and express middleware for browser side javascript module authoring.",
-  "version": "5.0.0-beta.12",
+  "version": "5.0.0-beta.13",
   "repository": {
     "type": "git",
     "url": "git@github.com:erzu/oceanify.git"
@@ -31,7 +31,7 @@
   },
   "scripts": {
     "test": "rm -rf test/example/public ; DEBUG=oceanify mocha --timeout 15000 test/{,command}/test.*.js",
-    "cover": "node --harmony ./node_modules/.bin/istanbul cover ./node_modules/.bin/_mocha test/{,command}/test.*.js -- --timeout 15000"
+    "cover": "node ./node_modules/.bin/istanbul cover ./node_modules/.bin/_mocha test/{,command}/test.*.js -- --timeout 15000"
   },
   "engines": {
     "node": ">= 6"

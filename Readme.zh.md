@@ -241,19 +241,6 @@ app.use(oceanify({ cachePersist: true }))
 默认值：`false`。
 
 
-### opts.dependenciesMap
-
-中间件内部使用 dependenciesMap 来维护模块的依赖关系，在一些特殊情况下，我们需要传入其他
-项目的 dependenciesMap：
-
-```js
-const dependenciessMap = yield fetch('http://example.com/dependenciesMap.json')
-app.use(oceanify({ dependenciesMap }))
-```
-
-默认值：`null`。
-
-
 ### opts.dest
 
 中间件默认会将模块缓存到 public 目录，可以使用 opts.dest 配置它：
