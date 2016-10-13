@@ -241,19 +241,6 @@ app.use(oceanify({ cachePersist: true }))
 默认值：`false`。
 
 
-### opts.dependenciesMap
-
-中间件内部使用 dependenciesMap 来维护模块的依赖关系，在一些特殊情况下，我们需要传入其他
-项目的 dependenciesMap：
-
-```js
-const dependenciessMap = yield fetch('http://example.com/dependenciesMap.json')
-app.use(oceanify({ dependenciesMap }))
-```
-
-默认值：`null`。
-
-
 ### opts.dest
 
 中间件默认会将模块缓存到 public 目录，可以使用 opts.dest 配置它：
@@ -324,17 +311,6 @@ app.use(oceanify({ root: __dirname }))
 ```
 
 默认值：`process.cwd()`
-
-
-### opts.serveSelf
-
-使用 Oceanify 开发前端模块的时候，需要响应项目目录下的内容。以 yen 为例，在 yen 项目目录下
-运行 Oceanify，开启 opts.serveSelf 之后就会对应 `/yen/1.4.0/index.js` 到
-`./index.js`。
-
-一般 Web 应用中不需要使用到这一功能，**切勿开启**。
-
-默认值：`false`。
 
 
 ### opts.serveSource

@@ -20,7 +20,7 @@ describe('oceanify.compileStyleSheets', function() {
       match: 'stylesheets/app.css'
     })
 
-    expect(exists(path.join(__dirname, 'example/public/stylesheets/app.css')))
+    expect(exists(path.join(__dirname, 'example/public/oceanify-example/0.0.1/stylesheets/app.css')))
       .to.be(true)
   })
 })
