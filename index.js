@@ -135,6 +135,7 @@ function oceanify(opts = {}) {
   if (['name', 'version', 'main', 'modules'].every(name => !!loaderConfig[name])) {
     parseSystemPromise = new Promise(function(resolve) {
       pkg = system = loaderConfig
+      resolve()
     })
   } else {
     parseSystemPromise = co(function* () {
@@ -171,6 +172,11 @@ oceanify["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
     if (!system) yield parseSystemPromise
 
     const mod = parseId(id, system)
+    if (!(mod.name in system.modules)) {
+      mod.name = system.name
+      mod.version = system.version
+      mod.entry = id
+    }
     const fpath = mod.name === pkg.name
       ? yield* findComponent(mod.entry, paths)
       : findModule(mod, dependenciesMap)
@@ -201,6 +207,11 @@ oceanify["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
 
   function* readStyle(id) {
     const mod = parseId(id, system)
+    if (!(mod.name in system.modules)) {
+      mod.name = system.name
+      mod.version = system.version
+      mod.entry = id
+    }
     const destPath = path.join(dest, id)
     const fpath = yield* findComponent(mod.entry, paths)
 
