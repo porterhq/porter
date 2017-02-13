@@ -237,7 +237,9 @@
         ? id
         : resolve(system.base, mod.id)
 
-      uri = uri.replace(/\.js$/, '') + '.js'
+      if (!(uri.indexOf('?') > 0 || /\.js$/.test(uri))) {
+        uri = uri + '.js'
+      }
 
       request(uri, function(err) {
         mod.status = err ? MODULE_ERROR : MODULE_FETCHED
