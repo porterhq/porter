@@ -3,8 +3,6 @@
 Yet another solution for JS and CSS modularization. Oceanify features module
 transformation on the fly and a swift setup.
 
-[中文文档](./Readme.zh.md)
-
 
 ## tl;dr
 
