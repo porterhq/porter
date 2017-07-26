@@ -95,6 +95,7 @@ function parseId(id, system) {
  * @param {string}          [opts.dest=public]            Cache destination
  * @param {boolean}         [opts.express=false]          Express middleware
  * @param {Object}          [opts.loaderConfig={}]        Loader config
+ * @param {boolean}         [opts.mangleExcept=[]]        Mangle exceptions
  * @param {string|string[]} [opts.paths=components]       Base directory name or path
  * @param {string}          [opts.root=process.cwd()]     Override current working directory
  * @param {boolean}         [opts.serveSource=false]      Serve sources for devtools
@@ -105,7 +106,8 @@ function oceanify(opts = {}) {
   const encoding = 'utf8'
   const root = opts.root || process.cwd()
   const dest = path.resolve(root, opts.dest || 'public')
-  const cacheExceptions = [].concat(opts.cacheExcept)
+  const cacheExceptions = opts.cacheExcept ? [].concat(opts.cacheExcept) : []
+  const mangleExceptions = opts.mangleExcept ? [].concat(opts.mangleExcept) : []
   const serveSource = opts.serveSource
   const loaderConfig = opts.loaderConfig || {}
   const paths = [].concat(opts.paths || 'components')
@@ -156,7 +158,8 @@ function oceanify(opts = {}) {
 
     cache.precompile(mod, {
       dependenciesMap: dependenciesMap,
-      system: system
+      system: system,
+      mangle: !mangleExceptions.includes(mod.name)
     })
   }
 

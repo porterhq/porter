@@ -15,6 +15,7 @@ console.log('Compiling %s from %s into %s', argv.id, argv.paths, argv.dest)
 
 co(compileAll.compileModule(argv.id, {
   dest: argv.dest,
+  mangle: argv.mangle,
   paths: argv.paths,
   sourceRoot: argv['source-root'] || '/'
 }))
