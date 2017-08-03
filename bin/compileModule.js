@@ -17,6 +17,7 @@ co(compileAll.compileModule(argv.id, {
   dest: argv.dest,
   mangle: argv.mangle,
   paths: argv.paths,
+  root: argv.root,
   sourceRoot: argv['source-root'] || '/'
 }))
   .then(function() {

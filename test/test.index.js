@@ -7,7 +7,7 @@ const path = require('path')
 const heredoc = require('heredoc').strip
 
 const app = require('./example/app')
-const fs = require('../lib/fs')
+const fs = require('mz/fs')
 const glob = require('../lib/glob')
 
 const readFile = fs.readFile

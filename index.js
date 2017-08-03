@@ -15,8 +15,8 @@ const debug = require('debug')('oceanify')
 const postcss = require('postcss')
 const atImport = require('postcss-import')
 const autoprefixer = require('autoprefixer')
+const fs = require('mz/fs')
 
-const fs = require('./lib/fs')
 const parseMap = require('./lib/parseMap')
 const parseSystem = require('./lib/parseSystem')
 const define = require('./lib/define')
@@ -116,8 +116,9 @@ function oceanify(opts = {}) {
     })
 
   const cache = new Cache({
-    dest: dest,
-    encoding: encoding
+    dest,
+    encoding,
+    paths
   })
 
   if (!opts.cachePersist) {
