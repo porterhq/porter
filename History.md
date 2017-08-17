@@ -1,3 +1,10 @@
+
+5.0.1 / 2017-08-17
+==================
+
+  * Fix: adding screw_ie8 option for UglifyJS.Compressor()
+
+
 5.0.0 / 2017-07-26
 ==================
 
@@ -17,7 +24,6 @@ Here's new features:
   * New: css `@import`s will be handled server side and processed in advance before requests.
 
 There's too much fixes and upgrades that I'd rather not list here. Besides, there will be even more fixes and upgrades for sure.
-
 
 
 4.3.2 / 2016-05-16
