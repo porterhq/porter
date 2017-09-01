@@ -7,7 +7,6 @@
 const path = require('path')
 const co = require('co')
 const crypto = require('crypto')
-const semver = require('semver')
 const matchRequire = require('match-require')
 const mime = require('mime')
 const debug = require('debug')('oceanify')
@@ -17,6 +16,7 @@ const atImport = require('postcss-import')
 const autoprefixer = require('autoprefixer')
 const fs = require('mz/fs')
 
+const parseId = require('./lib/parseId')
 const parseMap = require('./lib/parseMap')
 const parseSystem = require('./lib/parseSystem')
 const define = require('./lib/define')
@@ -56,34 +56,6 @@ const lstat = fs.lstat
  * @typedef  {uAST}
  * @type     {Object}
  */
-
-/**
- * @param  {string} id
- * @param  {Object} system
- *
- * @returns {Module}  mod
- */
-function parseId(id, system) {
-  const parts = id.split('/')
-  let name = parts.shift()
-
-  if (name.charAt(0) === '@') {
-    name += '/' + parts.shift()
-  }
-
-  if (name in system.modules) {
-    const version = semver.valid(parts[0]) ? parts.shift() : ''
-
-    return {
-      name: name,
-      version: version,
-      entry: parts.join('/')
-    }
-  }
-  else {
-    return { name: id }
-  }
-}
 
 
 /**
@@ -206,7 +178,30 @@ oceanify["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
     }]
   }
 
-  const importer = postcss().use(atImport({ path: paths }))
+  const importer = postcss().use(atImport({
+    path: paths,
+    resolve: function(id, baseDir, importOptions) {
+      switch (id[0]) {
+        case '.':
+          return path.join(baseDir, id)
+          break
+        case '/':
+        default:
+          const mod = parseId(id.slice(1), system)
+          if (mod.name in system.modules) {
+            return findModule(mod, dependenciesMap)
+          } else {
+            return co(function* () {
+              for (const loadpath of importOptions.path) {
+                const fpath = path.join(loadpath, id)
+                if (yield exists(fpath)) return fpath
+              }
+            })
+          }
+          break
+      }
+    }
+  }))
   const prefixer = postcss().use(autoprefixer())
 
   function* readStyle(id) {
