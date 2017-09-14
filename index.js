@@ -16,6 +16,7 @@ const atImport = require('postcss-import')
 const autoprefixer = require('autoprefixer')
 const fs = require('mz/fs')
 
+const babel = require('./lib/babel')
 const parseId = require('./lib/parseId')
 const parseMap = require('./lib/parseMap')
 const parseSystem = require('./lib/parseSystem')
@@ -27,15 +28,19 @@ const findModule = require('./lib/findModule')
 const Cache = require('./lib/Cache')
 
 const loaderPath = path.join(__dirname, 'loader.js')
-const loaderSource = fs.readFileSync(loaderPath, 'utf8')
+const loaderSource = fs.readFileSync(loaderPath, 'utf8').replace(/\$\{(\w+)\}/g, function(m, key) {
+  if (key == 'NODE_ENV') {
+    return process.env.NODE_ENV || 'development'
+  } else {
+    return ''
+  }
+})
 const loaderStats = fs.statSync(loaderPath)
 
 const RE_EXT = /(\.(?:css|js))$/i
 const RE_ASSET_EXT = /\.(?:gif|jpg|jpeg|png|svg|swf|ico)$/i
 
-const exists = fs.exists
-const readFile = fs.readFile
-const lstat = fs.lstat
+const { exists, lstat, readFile } = fs
 
 
 /**
@@ -108,10 +113,8 @@ function oceanify(opts = {}) {
   let parseSystemPromise = null
 
   if (['name', 'version', 'main', 'modules'].every(name => !!loaderConfig[name])) {
-    parseSystemPromise = new Promise(function(resolve) {
-      pkg = system = loaderConfig
-      resolve()
-    })
+    parseSystemPromise = Promise.resolve()
+    pkg = system = loaderConfig
   } else {
     parseSystemPromise = co(function* () {
       pkg = require(path.join(root, 'package.json'))
@@ -130,8 +133,8 @@ function oceanify(opts = {}) {
     }
 
     cache.precompile(mod, {
-      dependenciesMap: dependenciesMap,
-      system: system,
+      dependenciesMap,
+      system,
       mangle: !mangleExceptions.includes(mod.name)
     })
   }
@@ -144,64 +147,79 @@ oceanify["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
 `
   }
 
-  function* readModule(id, isMain) {
-    if (!system) yield parseSystemPromise
-
+  function* readScript(id, isMain) {
     const mod = parseId(id, system)
+
+    if (mod.name == pkg.name || !(mod.name in system.modules)) {
+      return yield* readComponent(id, isMain)
+    } else {
+      return yield* readModule(id)
+    }
+  }
+
+  function* readComponent(id, isMain) {
+    const mod = parseId(id, system)
+
     if (!(mod.name in system.modules)) {
       mod.name = system.name
       mod.version = system.version
       mod.entry = id
     }
-    const fpath = mod.name === pkg.name
-      ? yield* findComponent(mod.entry, paths)
-      : findModule(mod, dependenciesMap)
+
+    const fpath = yield* findComponent(mod.entry, paths)
+    if (!fpath) return
+    const stats = yield lstat(fpath)
+    const source = yield readFile(fpath, encoding)
+    let content = babel ? (yield* cache.read(id, source)) : source
+
+    if (babel && !content) {
+      const result = babel.transform(source, {
+        filename: id,
+        filenameRelative: path.relative(root, fpath),
+        sourceFileName: path.relative(root, fpath),
+        sourceMaps: true,
+        sourceRoot: '/',
+        ast: false,
+      })
+      yield [
+        cache.write(id, source, result.code),
+        cache.writeFile(`${id}.map`, JSON.stringify(result.map, function(k, v) {
+          if (k != 'sourcesContent') return v
+        }))
+      ]
+      content = result.code
+    }
+
+    const dependencies = matchRequire.findAll(content)
+    content = define(id.replace(RE_EXT, ''), dependencies, content)
+    content = isMain
+      ? yield* formatMain(id, content)
+      : `${content}
+//# sourceMappingURL=./${path.basename(id)}.map`
+
+    return [content, {
+      'Last-Modified': stats.mtime.toJSON()
+    }]
+  }
+
+  function* readModule(id, isMain) {
+    const mod = parseId(id, system)
+    const fpath = findModule(mod, dependenciesMap)
 
     if (!fpath) return
     if (mod.name in system.modules) mightCacheModule(mod)
 
     let content = yield readFile(fpath, encoding)
     const stats = yield lstat(fpath)
-
     const dependencies = matchRequire.findAll(content)
     content = define(id.replace(RE_EXT, ''), dependencies, content)
 
-    if (isMain) {
-      content = yield* formatMain(id, content)
-    }
-
     return [content, {
-      'Cache-Control': 'max-age=0',
-      'Content-Type': 'application/javascript',
-      ETag: crypto.createHash('md5').update(content).digest('hex'),
       'Last-Modified': stats.mtime.toJSON()
     }]
   }
 
-  const importer = postcss().use(atImport({
-    path: paths,
-    resolve: function(id, baseDir, importOptions) {
-      switch (id[0]) {
-        case '.':
-          return path.join(baseDir, id)
-          break
-        case '/':
-        default:
-          const mod = parseId(id.slice(1), system)
-          if (mod.name in system.modules) {
-            return findModule(mod, dependenciesMap)
-          } else {
-            return co(function* () {
-              for (const loadpath of importOptions.path) {
-                const fpath = path.join(loadpath, id)
-                if (yield exists(fpath)) return fpath
-              }
-            })
-          }
-          break
-      }
-    }
-  }))
+  const importer = postcss().use(atImport({ paths, dependenciesMap, system }))
   const prefixer = postcss().use(autoprefixer())
 
   function* readStyle(id) {
@@ -241,14 +259,12 @@ oceanify["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
     }]
   }
 
-
   function isSource(id) {
     const fpath = path.join(root, id)
     return id.indexOf('node_modules') === 0 || paths.some(function(base) {
       return fpath.indexOf(base) === 0
     })
   }
-
 
   function* readSource(id) {
     const fpath = path.join(root, id)
@@ -264,19 +280,20 @@ oceanify["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
     }
   }
 
-
   function* readAsset(id, isMain) {
+    // Both js and css requires dependenciesMap and system to be ready
+    yield parseSystemPromise
+
     const ext = path.extname(id)
     const fpath = yield* findComponent(id, paths)
     let result = null
 
     if (id === 'loader.js') {
-      result = [loaderSource, {
+      result = [`${loaderSource};oceanify.config(${JSON.stringify(loaderConfig)})`, {
         'Last-Modified': loaderStats.mtime.toJSON()
       }]
     }
     else if (id === 'loaderConfig.json') {
-      yield parseSystemPromise
       result = [JSON.stringify(system), {
         'Last-Modified': loaderStats.mtime.toJSON()
       }]
@@ -285,7 +302,7 @@ oceanify["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
       result = yield* readSource(id)
     }
     else if (ext === '.js') {
-      result = yield* readModule(id, isMain)
+      result = yield* readScript(id, isMain)
     }
     else if (ext === '.css') {
       result = yield* readStyle(id, isMain)
@@ -309,7 +326,6 @@ oceanify["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
 
     return result
   }
-
 
   if (opts.express) {
     return function(req, res, next) {

@@ -345,35 +345,35 @@
 
 
   Module.resolve = function(id, context) {
+    if (!system.modules || !context || RE_URI.test(id)) return id
+
     var map = system.modules
+    var parent = parseId(context)
+    var opts = parent.name in map
+      ? map[parent.name][parent.version]
+      : map[system.name][system.version]
 
-    if (!map || !context) return id
-
-    if (id.charAt(0) === '.') {
-      return resolve(dirname(context), id)
+    if (opts.alias && (id in opts.alias)) {
+      id = opts.alias[id]
     }
 
-    var parent = parseId(context)
-    var deps = parent.name in map
-      ? map[parent.name][parent.version].dependencies
-      : map[system.name][system.version].dependencies
+    if (id.charAt(0) === '.') return resolve(dirname(context), id)
 
-    var relative = parseId(id)
+    var deps = opts.dependencies
+    var mod = parseId(id)
+    var name = mod.name
 
-    if (relative.name in deps) {
-      var name = relative.name
-      var version = deps[name]
-      var entry = relative.entry || map[name][version].main || 'index'
+    if (name in deps || name in map) {
+      // if module doesn't present in current dependencies, try system dependencies
+      var version = mod.version || deps[name] || map[system.name][system.version].dependencies[name]
+      var entry = mod.entry || map[name][version].main || 'index'
 
       return resolve(name, version, entry.replace(/\.js$/, ''))
     }
-    else if (relative.name === system.name) {
-      return resolve(system.name, system.version, relative.entry || system.main)
-    }
-    else if (RE_URI.test(id)) {
-      return id
-    }
-    else {
+
+    if (name == system.name) {
+      return resolve(system.name, system.version, mod.entry || system.main)
+    } else {
       return resolve(system.name, system.version, id)
     }
   }
@@ -406,4 +406,10 @@
   }
 
   global.oceanify = system
+
+  global.process = {
+    env: {
+      NODE_ENV: '${NODE_ENV}'
+    }
+  }
 })(this)
