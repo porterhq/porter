@@ -363,19 +363,22 @@
     var mod = parseId(id)
     var name = mod.name
 
-    if (name in deps || name in map) {
-      // if module doesn't present in current dependencies, try system dependencies
-      var version = mod.version || deps[name] || map[system.name][system.version].dependencies[name]
+    if (mod.version) return id
+    if (name == system.name) {
+      return resolve(name, system.version, mod.entry || system.main)
+    }
+
+    // if module doesn't present in current dependencies, try system dependencies
+    if (!(name in deps)) deps = map[system.name][system.version].dependencies
+    if (name in deps) {
+      var version = deps[name]
       var entry = mod.entry || map[name][version].main || 'index'
 
       return resolve(name, version, entry.replace(/\.js$/, ''))
     }
 
-    if (name == system.name) {
-      return resolve(system.name, system.version, mod.entry || system.main)
-    } else {
-      return resolve(system.name, system.version, id)
-    }
+    // must be system component if none of previous conditions met.
+    return resolve(system.name, system.version, id)
   }
 
 

@@ -215,26 +215,6 @@ app.use(require('oceanify')({ express: true }))
 ```
 
 
-### `self`
-
-Normally we won't be needing this option. This option is for Oceanifier mostly.
-However, when developing a browser module, we might need to require js files
-outside of the components folder.
-
-Take heredoc for example, the test codes are shared between Node and browser.
-In `test/test.heredoc.js`, it requires `../index`. When `self` option is turned
-on, the wrapped result of `test/test.heredoc.js` will be something like:
-
-```js
-define('test/test.heredoc', ['should', 'heredoc/index'], function(require, exports, module) {
-  var heredoc = require('heredoc/index')
-  // ...
-})
-```
-
-Otherwise Oceanifier will fail to serve `../index` from `test/test.heredoc`.
-
-
 ## How Does It Work
 
 ### CMD on the Fly

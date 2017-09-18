@@ -1,0 +1,17 @@
+{
+  "name": "yen-reveal",
+  "description": "An example frontend module managed by oceanifier",
+  "version": "0.0.1",
+  "dependencies": {
+    "yen": "1.2.4"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "expect.js": "^0.3.1",
+    "mocha": "^3.5.3",
+    "oceanifier": "*"
+  },
+  "scripts": {
+    "start": "ocean serve"
+  }
+}

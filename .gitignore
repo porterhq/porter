@@ -3,11 +3,8 @@ tmp
 coverage
 docs
 
-test/example/node_modules
-test/example/public
-
-test/example-fe/node_modules
-test/example-fe/public
+examples/*/node_modules
+examples/*/public
 
 .DS_Store
 *~
