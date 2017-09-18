@@ -12,10 +12,10 @@ const mime = require('mime')
 const debug = require('debug')('oceanify')
 
 const postcss = require('postcss')
-const atImport = require('postcss-import')
 const autoprefixer = require('autoprefixer')
 const fs = require('mz/fs')
 
+const atImport = require('./lib/atImport')
 const babel = require('./lib/babel')
 const parseId = require('./lib/parseId')
 const parseMap = require('./lib/parseMap')
@@ -219,10 +219,11 @@ oceanify["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
     }]
   }
 
-  const importer = postcss().use(atImport({ paths, dependenciesMap, system }))
+  let importer
   const prefixer = postcss().use(autoprefixer())
 
   function* readStyle(id) {
+    if (!importer) importer = postcss().use(atImport({ paths, dependenciesMap, system }))
     const mod = parseId(id, system)
     if (!(mod.name in system.modules)) {
       mod.name = system.name

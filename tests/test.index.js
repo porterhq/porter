@@ -18,7 +18,7 @@ function requestPath(apath) {
       .get(apath)
       .expect(200)
       .end(function(err, res) {
-        if (err) reject(new Error(err))
+        if (err) reject(err)
         else resolve(res)
       })
   })
