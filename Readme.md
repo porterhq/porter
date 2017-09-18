@@ -1,5 +1,9 @@
 # Oceanify
 
+[![NPM Downloads](https://img.shields.io/npm/dm/oceanify.svg?style=flat)](https://www.npmjs.com/package/oceanify)
+[![NPM Version](http://img.shields.io/npm/v/oceanify.svg?style=flat)](https://www.npmjs.com/package/oceanify)
+[![Build Status](https://travis-ci.org/erzu/oceanify.svg)](https://travis-ci.org/erzu/oceanify)
+
 Yet another solution for JS and CSS modularization. Oceanify features module
 transformation on the fly and a swift setup.
 
