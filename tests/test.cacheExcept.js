@@ -4,7 +4,7 @@ require('co-mocha')
 const path = require('path')
 const request = require('supertest')
 const expect = require('expect.js')
-const { exists } = require('mz/fs')
+const { exists, unlink } = require('mz/fs')
 
 const root = path.resolve(__dirname, '../examples/default')
 const app = require(path.join(root, 'app.cacheExcept'))
@@ -18,6 +18,9 @@ function sleep(seconds) {
 
 describe('oceanify cacheExcept', function() {
   it('should skip compilation if within cache exceptions', function* () {
+    const fpath = path.join(root, 'public/yen/1.2.4/index.js')
+
+    try { yield unlink(fpath) } catch (e) {}
     yield new Promise(function(resolve, reject) {
       request(app.callback())
         .get('/yen/1.2.4/index.js')
@@ -29,8 +32,6 @@ describe('oceanify cacheExcept', function() {
     })
 
     yield sleep(1)
-
-    var fpath = path.join(root, 'public/yen/1.2.4/index.js')
     expect(yield exists(fpath)).to.be(false)
   })
 })
