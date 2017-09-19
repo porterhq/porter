@@ -7,7 +7,6 @@
 const path = require('path')
 const co = require('co')
 const crypto = require('crypto')
-const matchRequire = require('match-require')
 const mime = require('mime')
 const debug = require('debug')('oceanify')
 
@@ -26,6 +25,7 @@ const compileStyleSheets = require('./lib/compileStyleSheets')
 const findComponent = require('./lib/findComponent')
 const findModule = require('./lib/findModule')
 const Cache = require('./lib/Cache')
+const matchRequire = require('./lib/matchRequire')
 
 const loaderPath = path.join(__dirname, 'loader.js')
 const loaderSource = fs.readFileSync(loaderPath, 'utf8').replace(/\$\{(\w+)\}/g, function(m, key) {
@@ -98,18 +98,12 @@ function oceanify(opts = {}) {
     paths
   })
 
-  if (!opts.cachePersist) {
-    co(cache.removeAll()).then(function() {
-      debug('Cache %s cleared', dest)
-    })
-  }
-
   if (cacheExceptions.length) debug('Cache exceptions %s', cacheExceptions)
   if (serveSource) debug('Serving source files.')
 
   let dependenciesMap = null
   let system = null
-  let pkg = null
+  let pkg = require(path.join(root, 'package.json'))
   let parseSystemPromise = null
 
   if (['name', 'version', 'main', 'modules'].every(name => !!loaderConfig[name])) {
@@ -117,12 +111,16 @@ function oceanify(opts = {}) {
     pkg = system = loaderConfig
   } else {
     parseSystemPromise = co(function* () {
-      pkg = require(path.join(root, 'package.json'))
       dependenciesMap = yield* parseMap(opts)
       system = parseSystem(pkg, dependenciesMap)
       Object.assign(loaderConfig, system)
     })
   }
+
+  co(cache.removeAll(opts.cachePersist ? path.join(dest, pkg.name) : dest))
+    .then(function() {
+      debug('Cache %s cleared', dest)
+    })
 
   function mightCacheModule(mod) {
     if (mod.name === pkg.name ||

@@ -4,7 +4,7 @@ require('co-mocha')
 const request = require('supertest')
 
 
-function requestPath(apath, status = 200, app = require('../examples/default/app.serveSource')) {
+function requestPath(apath, status = 200, app = require('../examples/default/app')) {
   return new Promise(function(resolve, reject) {
     request(app.callback())
       .get(apath)
@@ -30,6 +30,6 @@ describe('oceanify serveSource', function() {
   })
 
   it('should not serve source by default', function* () {
-    yield requestPath('/components/home.js', 404, require('../examples/default/app'))
+    yield requestPath('/components/home.js', 404, require('../examples/default/app.serveSource'))
   })
 })

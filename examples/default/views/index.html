@@ -6,12 +6,36 @@
   <link rel="stylesheet" type="text/css" href="/stylesheets/app.css">
 </head>
 <body>
-  <h1>Oceanify Example</h1>
-  <h2>Usage</h2>
-  <p>In <code>app.js</code></p>
-  <pre><code id="example-node" class="language-js"></code></pre>
-  <p>In views</p>
-  <pre><code id="example-browser" class="language-html"></code></pre>
+  <section id="intro">
+    <h1>Oceanify Exmaple</h1>
+    <p>This is an example koa app with oceanify setup, with its source available at <a href="https://github.com/erzu/oceanify/tree/master/examples/default">github</a>.Oceanify is <em>a consolidated solution for browser module authoring</em>. It provides
+      <ul>
+        <li>a middleware for browser module transformation, </li>
+        <li>a loader for browser module loading, </li>
+        <li>and a compiler for browser module compilation to make the app production ready.</li>
+      </ul>
+      for brevity concern, we'll refer to browser module as component in the rest of this page.
+    </p>
+    <h2>Setup</h2>
+    <p>In <code>app.js</code>, setup the middleware.</p>
+    <pre><code id="example-node" class="language-js"></code></pre>
+    <p>In html, use the loader to import the entry component.</p>
+    <pre><code id="example-browser" class="language-html"></code></pre>
+    <p>In file <code>components/home.js</code>, require all the way.</p>
+    <pre><code id="example-component" class="language-js"></code></pre>
+    <p>In file <code>components/stylesheets/app.css</code>, there's <code>@import</code>.</p>
+    <pre><code id="example-stylesheet" class="language-css"></code></pre>
+  </section>
+  <section>
+    <h2>Popular Modules</h2>
+    <p>Here's a few popular browser modules us frontend engineer might use. This section works as a demonstration of them consumed by oceanify.</p>
+    <h3>Chart.js</h3>
+    <canvas id="example-chart"></canvas>
+    <h3>Cropper</h3>
+    <div id="example-cropper">
+      <img src="https://img.alicdn.com/tfscom/TB1aAiCSVXXXXaRXpXXXXXXXXXX.jpg_400x400.jpg">
+    </div>
+  </section>
   <script src="/loader.js"></script>
   <script>oceanify.import('home')</script>
 </body>

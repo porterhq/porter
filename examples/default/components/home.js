@@ -1,11 +1,10 @@
 'use strict'
 
-var heredoc = require('heredoc').strip
 require('yen')
-var Chart = require('chart.js')
-var $ = require('jquery')
+const Chart = require('chart.js')
+const $ = require('jquery')
 require('cropper')
-var Prism = require('prismjs')
+const Prism = require('prismjs')
 
 
 function htmlSafe(code) {
@@ -18,29 +17,93 @@ function htmlSafe(code) {
 }
 
 function intro() {
-  var node = heredoc(function() {/*
-    const oceanify = require('oceanify')
-    app.use(oceanify())
-  */})
+  var snippets = {
+    node: `
+const koa = require('koa')
+const oceanify = require('oceanify')
+const app = koa()
 
-  var browser = heredoc(function() {/*
-    <link rel="stylesheet" href="/stylesheets/app.css">
-    <script src="/loader.js"></script>
-    <script>oceanify.import('home.js')</script>
-  */})
+app.use(oceanify())
+`,
+    browser: `
+<link rel="stylesheet" href="/stylesheets/app.css">
+<script src="/loader.js"></script>
+<script>oceanify.import('home.js')</script>
+`,
+    component: `
+// Requiring modules installed at node_modules. The component itself will be transform by babel.
+const jquery = require('jquery')
+const Preact = require('preact')
 
-  $('#example-node').html(htmlSafe(node.trim()))
-  $('#example-browser').html(htmlSafe(browser.trim()))
+// Requiring modules by absolute uri. Though whether you can get the exports or not depends.
+require('https://a1.alicdn.com/assets/qrcode.js')
 
-  Prism.highlightAll()
+// asynchronous require is supported too.
+require.async('prismjs', function(Prism) {
+  // use Prism
+})
+`,
+    stylesheet: `
+@import "./common/base.css";
+@import "cropper/dist/cropper.css";
+
+body { color: navy; }
+`
+  }
+
+  for (var key in snippets) {
+    $('#example-' + key).html(htmlSafe(snippets[key]).trim())
+  }
 }
 
 function demoChart() {
-  console.log(Chart)
+  // http://www.chartjs.org/docs/latest/
+  const ctx = document.getElementById('example-chart').getContext('2d');
+  new Chart(ctx, {
+      type: 'bar',
+      data: {
+          labels: ['Red', 'Blue', 'Yellow', 'Green', 'Purple', 'Orange'],
+          datasets: [{
+              label: '# of Votes',
+              data: [12, 19, 3, 5, 2, 3],
+              backgroundColor: [
+                  'rgba(255, 99, 132, 0.2)',
+                  'rgba(54, 162, 235, 0.2)',
+                  'rgba(255, 206, 86, 0.2)',
+                  'rgba(75, 192, 192, 0.2)',
+                  'rgba(153, 102, 255, 0.2)',
+                  'rgba(255, 159, 64, 0.2)'
+              ],
+              borderColor: [
+                  'rgba(255,99,132,1)',
+                  'rgba(54, 162, 235, 1)',
+                  'rgba(255, 206, 86, 1)',
+                  'rgba(75, 192, 192, 1)',
+                  'rgba(153, 102, 255, 1)',
+                  'rgba(255, 159, 64, 1)'
+              ],
+              borderWidth: 1
+          }]
+      },
+      options: {
+          scales: {
+              yAxes: [{
+                  ticks: {
+                      beginAtZero:true
+                  }
+              }]
+          }
+      }
+  })
 }
 
 function demoCropper() {
-
+  $('#example-cropper img').cropper({
+    aspectRatio: 16 / 9,
+    crop: function(e) {
+      console.log(e)
+    }
+  })
 }
 
 function demoRequireAsync() {
@@ -52,10 +115,9 @@ function demoRequireAsync() {
 
 function demoMap() {
   // test map
-  var t = require('templates/1')
+  const t = require('templates/1')
   console.log(t)
 }
-
 
 function main() {
   intro()
@@ -63,6 +125,7 @@ function main() {
   demoCropper()
   demoRequireAsync()
   demoMap()
+  Prism.highlightAll()
 }
 
 main()

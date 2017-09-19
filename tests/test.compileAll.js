@@ -13,6 +13,7 @@ const root = path.join(__dirname, '../examples/default')
 
 describe('oceanify.compileAll', function() {
   beforeEach(function () {
+    process.chdir(root)
     exec('rm -rf ' + path.join(root, 'public'))
   })
 
@@ -33,8 +34,8 @@ describe('oceanify.compileAll', function() {
     expect(entries).to.contain('public/yen/1.2.4/index.js')
     expect(entries).to.contain('public/yen/1.2.4/index.js.map')
 
-    expect(entries).to.contain('public/chart.js/1.0.2/Chart.js')
-    expect(entries).to.contain('public/chart.js/1.0.2/Chart.js.map')
+    expect(entries).to.contain('public/chart.js/2.7.0/src/chart.js')
+    expect(entries).to.contain('public/chart.js/2.7.0/src/chart.js.map')
   })
 
   it('should compile components in muitiple paths', function* () {

@@ -13,6 +13,8 @@ app.use(serve('public'))
 app.use(oceanify({
   root: __dirname,
   dest: path.join(__dirname, 'public'),
+  cachePersist: true,
+  serveSource: true,
   loaderConfig: {
     map: {
       'templates': '/templates'
