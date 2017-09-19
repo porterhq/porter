@@ -204,7 +204,8 @@ oceanify["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
 
   function* readModule(id, isMain) {
     const mod = parseId(id, system)
-    const fpath = findModule(mod, dependenciesMap)
+    const { dir } = findModule(mod, dependenciesMap)
+    const fpath = path.join(dir, mod.entry)
 
     if (!fpath) return
     if (mod.name in system.modules) mightCacheModule(mod)
