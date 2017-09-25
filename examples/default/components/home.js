@@ -5,7 +5,7 @@ const Chart = require('chart.js')
 const $ = require('jquery')
 require('cropper')
 const Prism = require('prismjs')
-
+const lib = require('./lib')
 
 function htmlSafe(code) {
   return code
@@ -100,6 +100,7 @@ function demoChart() {
 function demoCropper() {
   $('#example-cropper img').cropper({
     aspectRatio: 16 / 9,
+    zoomOnWheel: false,
     crop: function(e) {
       console.log(e)
     }
@@ -120,6 +121,7 @@ function demoMap() {
 }
 
 function main() {
+  console.log(lib.foo)
   intro()
   demoChart()
   demoCropper()

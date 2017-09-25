@@ -24,7 +24,7 @@ describe('oceanify.compileComponent', function() {
   })
 
   it('should compile shadow component', function* () {
-    var map = yield* parseMap({ root: root })
+    const dependenciesMap = yield* parseMap({ root: root })
 
     yield* compileComponent('shadow/9527', {
       root: root,
@@ -35,10 +35,11 @@ describe('oceanify.compileComponent', function() {
         var $ = require('yen')
         console.log($)
       */}),
-      dependenciesMap: map
+      dependenciesMap,
+      includeModules: true
     })
 
-    var content = readFile(path.join(dest, 'oceanify-example/0.0.1/shadow/9527.js'), 'utf-8')
+    const content = readFile(path.join(dest, 'oceanify-example/0.0.1/shadow/9527.js'), 'utf-8')
 
     expect(content).to.contain('shadow/9527')
     expect(content).to.contain('yen/1.2.4/index')

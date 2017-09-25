@@ -3,7 +3,8 @@
 ## Spin up server
 
 ```bash
-$ cd test/example
 $ npm install
 $ npm start
 ```
+
+Then visit <http://localhost:5000>.

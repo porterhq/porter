@@ -26,7 +26,7 @@ app.use(oceanify({
 module.exports = app
 
 if (!module.parent) {
-  var PORT = process.env.PORT || 4000
+  var PORT = process.env.PORT || 5000
 
   app.listen(PORT, function() {
     console.log('Server started at %s', PORT)

@@ -37,7 +37,7 @@ const loaderSource = fs.readFileSync(loaderPath, 'utf8').replace(/\$\{(\w+)\}/g,
 })
 const loaderStats = fs.statSync(loaderPath)
 
-const RE_EXT = /(\.(?:css|js))$/i
+const RE_EXT = /(\.\w+)$/i
 const RE_ASSET_EXT = /\.(?:gif|jpg|jpeg|png|svg|swf|ico)$/i
 
 const { exists, lstat, readFile } = fs
@@ -112,7 +112,7 @@ function oceanify(opts = {}) {
   } else {
     parseSystemPromise = co(function* () {
       dependenciesMap = yield* parseMap(opts)
-      system = parseSystem(pkg, dependenciesMap)
+      system = parseSystem(dependenciesMap)
       Object.assign(loaderConfig, system)
     })
   }
@@ -164,7 +164,7 @@ oceanify["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
       mod.entry = id
     }
 
-    const fpath = yield* findComponent(mod.entry, paths)
+    const [fpath] = yield* findComponent(mod.entry, paths)
     if (!fpath) return
     const stats = yield lstat(fpath)
     const source = yield readFile(fpath, encoding)
@@ -230,7 +230,7 @@ oceanify["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
       mod.entry = id
     }
     const destPath = path.join(dest, id)
-    const fpath = yield* findComponent(mod.entry, paths)
+    const [fpath] = yield* findComponent(mod.entry, paths)
 
     if (!fpath) return
 
@@ -285,7 +285,6 @@ oceanify["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
     yield parseSystemPromise
 
     const ext = path.extname(id)
-    const fpath = yield* findComponent(id, paths)
     let result = null
 
     if (id === 'loader.js') {
@@ -307,13 +306,16 @@ oceanify["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
     else if (ext === '.css') {
       result = yield* readStyle(id, isMain)
     }
-    else if (RE_ASSET_EXT.test(ext) && fpath) {
-      const content = yield readFile(fpath)
-      const stats = yield lstat(fpath)
+    else if (RE_ASSET_EXT.test(ext)) {
+      const [fpath] = yield* findComponent(id, paths)
+      if (fpath) {
+        const content = yield readFile(fpath)
+        const stats = yield lstat(fpath)
 
-      result = [content, {
-        'Last-Modified': stats.mtime.toJSON()
-      }]
+        result = [content, {
+          'Last-Modified': stats.mtime.toJSON()
+        }]
+      }
     }
 
     if (result) {

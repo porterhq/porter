@@ -13,7 +13,7 @@ describe('oceanify.parseSystem', function() {
   it('flatten the dependencies map', function* () {
     const map = yield parseMap({ root })
     const pkg = require(path.join(root, 'package.json'))
-    const system = parseSystem(pkg, map)
+    const system = parseSystem(map)
 
     expect(system.modules).to.be.an(Object)
     expect(Object.keys(system.modules.yen)).to.eql(['1.2.4'])

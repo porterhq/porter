@@ -20,16 +20,20 @@ of JS and CSS is just like the way it was.
 <head>
   <meta charset="utf-8">
   <title>An Oceanify Example</title>
-  <link rel="stylesheet" type="text/css" href="/main.css">
+  <link rel="stylesheet" type="text/css" href="/app.css">
 </head>
 <body>
   <h1>An Oceanify Example</h1>
-  <script src="/main.js"></script>
+  <script src="/app.js?main"></script>
+  <!--
+  <script src="/loader.js></script>
+  <script>oceanify.import('app')</script>
+  -->
 </body>
 </html>
 ```
 
-Yet in `main.js`, you can `require` dependencies:
+Yet in `app.js`, you can `require` dependencies:
 
 ```js
 var $ = require('jquery')
@@ -40,7 +44,7 @@ var nav = require('./nav')
 // setup page with those required components and modules
 ```
 
-And as in `main.css`, you can `@import` dependencies too:
+And as in `app.css`, you can `@import` dependencies too:
 
 ```css
 @import 'cropper/dist/cropper.css';   /* stylesheets in node_modules */
@@ -50,12 +54,12 @@ And as in `main.css`, you can `@import` dependencies too:
 When it's time to be production ready, simply run:
 
 ```js
-var co = require('co')
-var oceanify = require('oceanify')
+const co = require('co')
+const oceanify = require('oceanify')
 
 co([
-  oceanify.compileAll(),          // js components and modules
-  oceanify.compileStyleSheets()   // css files
+  oceanify.compileAll({ match: 'app.js' }),           // js components and modules
+  oceanify.compileStyleSheets({ match: 'app.css' })   // css files
 ])
   .then(function() {
     console.log('assets compiled.')
@@ -78,8 +82,8 @@ Oceanify introduces a code organization pattern like below:
 │   │   └── iconfont.css
 │   ├── arale
 │   │   └── upload.js
-│   ├── main.js
-│   └── main.css
+│   ├── app.js
+│   └── app.css
 └── node_modules        # dependencies
     └── yen
         ├── events.js
@@ -91,7 +95,7 @@ External dependencies are at `node_modules` directory. All of project's browser
 code, js and css, are put at `components` folder. In `components`, you can
 `require` and `@import` dependencies from `components` and `node_modules`.
 
-Here's `main.js` would look like:
+Here's `app.js` would look like:
 
 ```js
 var $ = require('yen')              // require a module from node_modules
@@ -104,7 +108,7 @@ $('form').on('submit', function() {
 })
 ```
 
-And here's `main.css`:
+And here's `app.css`:
 
 ```css
 @import './stylesheets/base.css';
@@ -114,36 +118,38 @@ And here's `main.css`:
 
 ## Usage
 
-To use Oceanify one must be aware that there are two versions of it. The one
-you're reading about is a middleware for Express and Koa. The other is a command
-line tool built upon Oceanify, called [Oceanifier][oceanifier].
+Oceanify consists of three parts,
 
-Anyway, to use Oceanify in your Koa instance, just `app.use` it.
+- a middleware for browser module transformation,
+- a loader for browser module loading, and
+- a compiler for browser module compilation to be production ready
+
+To use Oceanify in your Koa instance, just `app.use` it.
 
 ```js
-var koa = require('koa')
-var oceanify = require('oceanify')
+const koa = require('koa')
+const oceanify = require('oceanify')
 
-var app = koa()
+const app = koa()
 
 // that's it
 app.use(oceanify())
 ```
 
 If you'd prefer your browser modules in some other names rather than the
-default `components`, you can tell Oceanify that with the base option.
+default `components`, you can tell Oceanify that with the `paths` option.
 
 ```js
-app.use(oceanify({ base: 'browser_modules' }))
+app.use(oceanify({ paths: 'browser_modules' }))
 ```
 
 If Express is the framework you're using, you need to tell Oceanify about it:
 
 ```js
-var express = require('express')
-var oceanify = require('oceanify')
+const express = require('express')
+const oceanify = require('oceanify')
 
-var app = express()
+const app = express()
 
 // that's it
 app.use(oceanify({ express: true }))
@@ -152,7 +158,7 @@ app.use(oceanify({ express: true }))
 
 ## Options
 
-### `base`
+### `paths`
 
 The directory that your components are put in. The default is `components`.
 
@@ -412,11 +418,11 @@ Oceanfiy provides two static methods for assets precompilation. It's called
 generator object to make it function properly.
 
 ```js
-var co = require('co')
-var oceanify = require('oceanify')
+const co = require('co')
+const oceanify = require('oceanify')
 
 // Specify the entry modules
-co(oceanify.compileAll({ base: './components', dest: './public' }))
+co(oceanify.compileAll({ match: 'app.js' }))
   .then(function() {
     console.log('done')
   })
@@ -441,10 +447,10 @@ You can try the one in [Oceanify Example][oceanify-example]. Just execute
 returned generator object to make it function properly.
 
 ```js
-var co = require('co')
-var oceanify = require('oceanify')
+const co = require('co')
+const oceanify = require('oceanify')
 
-co(oceanify.compileStyleSheets({ base: './components', dest: './public' }))
+co(oceanify.compileStyleSheets({ match: 'app.css' }))
   .then(function() {
     console.log('done')
   })
@@ -453,7 +459,7 @@ co(oceanify.compileStyleSheets({ base: './components', dest: './public' }))
   })
 ```
 
-Currenty `.compileStyleSheets` just process the source code with autoprefixer
+Currently `.compileStyleSheets` just process the source code with autoprefixer
 and postcss-import. You gonna need some minification tools like
 [cssnano][cssnano].
 
