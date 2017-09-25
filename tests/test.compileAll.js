@@ -32,7 +32,9 @@ describe('oceanify.compileAll', function() {
     expect(entries).to.contain('public/oceanify-example/0.0.1/home.js.map')
 
     const fpath = path.join(root, 'public/oceanify-example/0.0.1/home.js')
-    expect(yield readFile(fpath, 'utf8')).to.match(/define\((['"])oceanify-example\/0.0.1\/lib\/index\1/)
+    const content = yield readFile(fpath, 'utf8')
+    expect(content).to.contain('define("oceanify-example/0.0.1/lib/index",')
+    expect(content).to.contain('oceanify.config(')
 
     expect(entries).to.contain('public/yen/1.2.4/index.js')
     expect(entries).to.contain('public/yen/1.2.4/index.js.map')
