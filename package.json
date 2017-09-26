@@ -1,7 +1,7 @@
 {
   "name": "oceanify",
   "description": "A koa and express middleware for browser side javascript module authoring.",
-  "version": "5.1.0-beta.4",
+  "version": "5.1.0-beta.6",
   "repository": {
     "type": "git",
     "url": "git@github.com:erzu/oceanify.git"
@@ -12,7 +12,7 @@
     "co": "^4.6.0",
     "debug": "^1.0.4",
     "glob": "^7.0.5",
-    "match-require": "^1.1.1",
+    "match-require": "^2.1.0",
     "mime": "^1.4.0",
     "minimatch": "^3.0.0",
     "minimist": "^1.2.0",

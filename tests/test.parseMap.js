@@ -5,10 +5,9 @@ const path = require('path')
 const expect = require('expect.js')
 
 const parseMap = require('../lib/parseMap')
-
+const root = path.join(__dirname, '../examples/default')
 
 describe('oceanify.parseMap', function() {
-  const root = path.join(__dirname, '../examples/default')
   let map
 
   before(function* () {
@@ -24,7 +23,7 @@ describe('oceanify.parseMap', function() {
   })
 
   it('handles components alias', function() {
-    expect(map['oceanify-example'].alias['lib']).to.equal('lib/index')
+    expect(map['oceanify-example'].alias['./lib']).to.equal('./lib/index')
   })
 
   it('handles node_modules alias too', function() {

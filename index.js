@@ -379,6 +379,7 @@ oceanify["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
 
 
 oceanify.parseMap = parseMap
+oceanify.parseSystem = parseSystem
 oceanify.compileAll = compileAll.compileAll
 oceanify.compileComponent = compileAll.compileComponent
 oceanify.compileModule = compileAll.compileModule
