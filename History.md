@@ -1,3 +1,9 @@
+5.1.0 / 2017-10-??
+==================
+
+  * New: integrate babel-core to support components and node_modules transformations;
+  * New: use opts.transformOnly to white list node_modules to transform, no node_modules will be transformed by default;
+
 
 5.0.1 / 2017-08-17
 ==================

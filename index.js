@@ -13,7 +13,6 @@ const debug = require('debug')('oceanify')
 const postcss = require('postcss')
 const autoprefixer = require('autoprefixer')
 const fs = require('mz/fs')
-const babel = require('babel-core')
 
 const atImport = require('./lib/atImport')
 const parseId = require('./lib/parseId')
@@ -26,6 +25,8 @@ const findComponent = require('./lib/findComponent')
 const findModule = require('./lib/findModule')
 const Cache = require('./lib/Cache')
 const matchRequire = require('./lib/matchRequire')
+const transform = require('./lib/transform')
+const findBabelrc = require('./lib/findBabelrc')
 
 const loaderPath = path.join(__dirname, 'loader.js')
 const loaderSource = fs.readFileSync(loaderPath, 'utf8').replace(/\$\{(\w+)\}/g, function(m, key) {
@@ -85,12 +86,12 @@ function oceanify(opts = {}) {
   const dest = path.resolve(root, opts.dest || 'public')
   const cacheExceptions = opts.cacheExcept ? [].concat(opts.cacheExcept) : []
   const mangleExceptions = opts.mangleExcept ? [].concat(opts.mangleExcept) : []
+  const transformModuleNames = opts.transformOnly ? [].concat(opts.transformOnly) : []
   const serveSource = opts.serveSource
   const loaderConfig = opts.loaderConfig || {}
-  const paths = [].concat(opts.paths || 'components')
-    .map(function(dir) {
-      return path.resolve(root, dir)
-    })
+  const paths = [].concat(opts.paths || 'components').map(function(dir) {
+    return path.resolve(root, dir)
+  })
 
   const cache = new Cache({
     dest,
@@ -117,9 +118,11 @@ function oceanify(opts = {}) {
     })
   }
 
-  co(cache.removeAll(opts.cachePersist ? path.join(dest, pkg.name) : dest))
+  co(cache.removeAll(opts.cachePersist ? [pkg.name, ...cacheExceptions] : null))
     .then(function() {
       debug('Cache %s cleared', dest)
+    }, function(err) {
+      console.error(err.stack)
     })
 
   function mightCacheModule(mod) {
@@ -168,16 +171,15 @@ oceanify["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
     if (!fpath) return
     const stats = yield lstat(fpath)
     const source = yield readFile(fpath, encoding)
-    let content = babel ? (yield* cache.read(id, source)) : source
+    const babelrcPath = yield findBabelrc(fpath, { root })
+    let content = babelrcPath ? (yield* cache.read(id, source)) : source
 
-    if (babel && !content) {
-      const result = babel.transform(source, {
+    if (!content) {
+      const result = transform(source, {
         filename: id,
         filenameRelative: path.relative(root, fpath),
         sourceFileName: path.relative(root, fpath),
-        sourceMaps: true,
-        sourceRoot: '/',
-        ast: false,
+        extends: babelrcPath
       })
       yield [
         cache.write(id, source, result.code),
@@ -208,7 +210,27 @@ oceanify["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
     if (!fpath) return
     if (mod.name in system.modules) mightCacheModule(mod)
 
-    let content = yield readFile(fpath, encoding)
+    const babelrcPath = yield findBabelrc(fpath, { root: dir })
+    let source = yield readFile(fpath, encoding)
+    let content = transformModuleNames.includes(mod.name) && babelrcPath
+      ? (yield* cache.read(id, source))
+      : source
+
+    if (!content) {
+      const result = transform(source, {
+        filename: id,
+        filenameRelative: path.relative(root, fpath),
+        sourceFileName: path.relative(root, fpath),
+        extends: babelrcPath,
+      })
+      yield [
+        cache.write(id, source, result.code),
+        cache.writeFile(`${id}.map`, JSON.stringify(result.map, function(k, v) {
+          if (k != 'sourcesContent') return v
+        }))
+      ]
+      content = result.code
+    }
     const stats = yield lstat(fpath)
     const dependencies = matchRequire.findAll(content)
     content = define(id.replace(RE_EXT, ''), dependencies, content)
