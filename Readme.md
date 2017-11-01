@@ -26,7 +26,7 @@ of JS and CSS is just like the way it was.
   <h1>An Oceanify Example</h1>
   <script src="/app.js?main"></script>
   <!--
-  <script src="/loader.js></script>
+  <script src="/loader.js"></script>
   <script>oceanify.import('app')</script>
   -->
 </body>

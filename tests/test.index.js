@@ -40,6 +40,7 @@ describe('oceanify', function() {
 
   it('should handle components', function *() {
     yield requestPath('/oceanify-example/0.0.1/lib/foo.js')
+    yield requestPath('/lib/foo.js')
   })
 
   it('should handle dependencies', function* () {
@@ -64,6 +65,7 @@ describe('oceanify', function() {
 
   it('should handle stylesheets', function* () {
     yield requestPath('/oceanify-example/0.0.1/stylesheets/app.css')
+    yield requestPath('/stylesheets/app.css')
   })
 
   it('should serve raw assets too', function* () {
