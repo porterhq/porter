@@ -401,7 +401,7 @@
       deps = []
     }
 
-    var mod = registry[id] || new Module(id)
+    var mod = registry[id] || registry[id + '.js'] || new Module(id)
 
     mod.dependencies = deps
     mod.factory = factory

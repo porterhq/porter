@@ -96,7 +96,7 @@ function oceanify(opts = {}) {
   const cache = new Cache({
     dest,
     encoding,
-    paths
+    root
   })
 
   if (cacheExceptions.length) debug('Cache exceptions %s', cacheExceptions)

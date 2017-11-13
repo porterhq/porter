@@ -4,15 +4,11 @@
 [![NPM Version](http://img.shields.io/npm/v/oceanify.svg?style=flat)](https://www.npmjs.com/package/oceanify)
 [![Build Status](https://travis-ci.org/erzu/oceanify.svg)](https://travis-ci.org/erzu/oceanify)
 
-Yet another solution for JS and CSS modularization. Oceanify features module
-transformation on the fly and a swift setup.
+Oceanify is a JS/CSS module loader featuring module transformation on the fly.
 
+## How to
 
-## tl;dr
-
-With Oceanify, you can write JS and CSS in an old fashioned manner, whilst be
-able to do both in modular way. Take following HTML for example, the entries
-of JS and CSS is just like the way it was.
+You need a main entry point for your app's JS and/or CSS.
 
 ```html
 <!DOCTYPE html>
@@ -20,35 +16,57 @@ of JS and CSS is just like the way it was.
 <head>
   <meta charset="utf-8">
   <title>An Oceanify Example</title>
+  <!-- CSS ENTRY -->
   <link rel="stylesheet" type="text/css" href="/app.css">
 </head>
 <body>
   <h1>An Oceanify Example</h1>
+  <!-- JAVASCRIPT ENTRY -->
   <script src="/app.js?main"></script>
-  <!--
-  <script src="/loader.js"></script>
-  <script>oceanify.import('app')</script>
-  -->
 </body>
 </html>
 ```
 
-Yet in `app.js`, you can `require` dependencies:
+In js files, you can use CMD `require` dependencies:
 
 ```js
-var $ = require('jquery')
-var cropper = require('cropper')
-
-var nav = require('./nav')
-
-// setup page with those required components and modules
+const $ = require('jquery')
+const cropper = require('cropper')
 ```
 
-And as in `app.css`, you can `@import` dependencies too:
+Or esModule:
+
+```js
+import * as React from 'react'
+```
+
+And in stylesheets, you can `@import` dependencies too:
 
 ```css
 @import 'cropper/dist/cropper.css';   /* stylesheets in node_modules */
 @import './nav.css';                  /* stylesheets in components */
+```
+
+To achieve this, just setup the middleware provided by Oceanify. For Koa:
+
+```js
+const koa = require('koa')
+const oceanify = require('oceanify')
+const app = koa()
+
+// The paths of JS/CSS components
+app.use(oceanify({ paths: 'components' }))
+```
+
+For Express:
+
+```js
+const express = require('express')
+const oceanify = require('oceanify')
+const app = express()
+
+// that's it
+app.use(oceanify({ express: true }))
 ```
 
 When it's time to be production ready, simply run:
@@ -57,365 +75,133 @@ When it's time to be production ready, simply run:
 const co = require('co')
 const oceanify = require('oceanify')
 
-co([
-  oceanify.compileAll({ match: 'app.js' }),           // js components and modules
-  oceanify.compileStyleSheets({ match: 'app.css' })   // css files
-])
-  .then(function() {
-    console.log('assets compiled.')
-  })
+co(function* () {
+  yield [
+    oceanify.compileAll({ match: 'app.js' }),           // js components and modules
+    oceanify.compileStyleSheets({ match: 'app.css' })   // css files
+  ])
+})
   .catch(function(err) {
     console.error(err.stack)
   })
 ```
 
-
-## Structure
-
-Oceanify introduces a code organization pattern like below:
-
-```bash
-.
-├── components          # browser modules
-│   ├── stylesheets
-│   │   ├── base.css
-│   │   └── iconfont.css
-│   ├── arale
-│   │   └── upload.js
-│   ├── app.js
-│   └── app.css
-└── node_modules        # dependencies
-    └── yen
-        ├── events.js
-        ├── index.js
-        └── support.js
-```
-
-External dependencies are at `node_modules` directory. All of project's browser
-code, js and css, are put at `components` folder. In `components`, you can
-`require` and `@import` dependencies from `components` and `node_modules`.
-
-Here's `app.js` would look like:
-
-```js
-var $ = require('yen')              // require a module from node_modules
-var Upload = require('arale/upload')  // require other modules in components
-
-var upload = new Upload('#btn-upload', { ... })
-
-$('form').on('submit', function() {
-  // ...
-})
-```
-
-And here's `app.css`:
-
-```css
-@import './stylesheets/base.css';
-@import './stylesheets/iconfont.css';
-```
-
-
-## Usage
-
-Oceanify consists of three parts,
-
-- a middleware for browser module transformation,
-- a loader for browser module loading, and
-- a compiler for browser module compilation to be production ready
-
-To use Oceanify in your Koa instance, just `app.use` it.
-
-```js
-const koa = require('koa')
-const oceanify = require('oceanify')
-
-const app = koa()
-
-// that's it
-app.use(oceanify())
-```
-
-If you'd prefer your browser modules in some other names rather than the
-default `components`, you can tell Oceanify that with the `paths` option.
-
-```js
-app.use(oceanify({ paths: 'browser_modules' }))
-```
-
-If Express is the framework you're using, you need to tell Oceanify about it:
-
-```js
-const express = require('express')
-const oceanify = require('oceanify')
-
-const app = express()
-
-// that's it
-app.use(oceanify({ express: true }))
-```
-
-
 ## Options
 
-### `paths`
+### `cacheExcept=[]`
 
-The directory that your components are put in. The default is `components`.
-
-
-### `cacheExcept`
-
-By default, Oceanify caches node modules transformations by compiling them once
-they are accessed. The compiled result will be put in the path specified by the
-`dest` option.
-
-If you want to fiddle with some of these modules, you can tell Oceanify to
-ignore them through `cacheExcept` option like:
+To accelerate loading in development mode, Oceanify will cache node_modules by compiling and bundling them on the fly. You can rule out some of them by passing an array of module names to `cacheExcept` option:
 
 ```js
-app.use(oceanify({ cacheExcept: 'heredoc' }))
-app.use(oceanify({ cacheExcept: ['heredoc', 'yen'] }))
+app.use(oceanify({ cacheExcept: 'mobx' }))
+app.use(oceanify({ cacheExcept: ['mobx', 'react'] }))
 ```
 
-To turn off the caching of js modules completely, pass `*` to `cacheExcept`:
+To turn off the node_modules caching completely, just set `cacheExcept` to `*`:
 
 ```js
 app.use(oceanify({ cacheExcept: '*' }))
 ```
 
+### `cachePersist=true`
 
-### `root`
-
-**This option shall not be used much. It is for test purposes.**
-
-By default, Oceanify uses `process.cwd()` as the `root`. In test cases like
-`test/test.index.js` in the source code, we need to change the `root` to
-`path.join(__dirname, 'test/example')`.
-
-You don't need this option.
-
-
-### `dest`
-
-The folder to store compiled caches. The cache feature requires middleware like
-`koa-static` to function properly:
+Oceanify will not clear the cache (except the ones specified in `cacheExcept` option) by default. Set `cachePersist` to false to make Oceanify clear cache every time it restarts:
 
 ```js
-// koa
-app.use(require('koa-static')(path.join(__dirname, 'public')))
-app.use(requrie('oceanify')({ dest: 'public' }))
-
-// express
-app.use(express.static(path.join(__dirname, 'public')))
-app.use(requrie('oceanify')())    // public is the default
+app.use(oceanify({ cachePersist: false }))
 ```
 
-The stylesheet feature uses the option too. When compiling CSS from
-`components`, Oceanify will generate the correspondent source map and put it
-into the folder specified by `dest` option.
+### `dest='public'`
 
+Oceanify caches node_modules compilations, js components transformations (if `.babelrc` exists), and stylesheets. Set `dset=other/directory` to store the cache somewhere else:
 
-### `express`
+```js
+app.use(oceanify({ dest: '.oceanify-cache' }))
+```
 
-By default, the middleware returned by `oceanify()` is in Koa format. To make
-Oceanify function properly in Express, we need to tell Oceanify about it:
+Some of the cache requires a static serving middleware to work:
+
+- node_modules compilation results,
+- components source maps generated after transformation.
+
+For Koa:
+
+```js
+app.use(require('koa-static')(path.join(__dirname, 'public')))
+app.use(requrie('oceanify')({ dest: 'public' }))
+```
+
+For Express:
+
+```js
+app.use(express.static(path.join(__dirname, 'public')))
+app.use(requrie('oceanify')())
+```
+
+### `express=false`
+
+`oceanify()` returns a koa middleware by default. Set `express=true` to get an express middleware instead:
 
 ```js
 app.use(require('oceanify')({ express: true }))
 ```
 
+### `loaderConfig={}`
 
-## How Does It Work
+There's a loader hidden in Oceanify which is the magic behind Oceanify that makes module loading possible. When js entries such as `app.js?main` is requested, Oceanify will prepend the loader and loader config to the content of the component. See the loader section for detailed information.
 
-### CMD on the Fly
+### `mangleExcept=[]`
 
-At first glance this seems a bit of black magic. How can browser know where to
-`require` when executing `main.js`? The secret is all of the js files in both
-`components` and `node_modules` will be wrapped into Common Module Declaration
-format on the fly:
+While Oceanify caches node_modules, the code will be bundled and minified with UglifyJS. In rare caces, UglifyJS' name mangling might generate false results, which can be bypassed with `mangleExcept`:
 
 ```js
-define(id, deps, function(require, exports, module) {
-  // actual main.js content
-})
+app.use(oceanify({ mangleExcept: ['react-router'] }))
 ```
 
-The `id` is deducted from the file path. The `dependencies` is extracted from
-the factory code thanks to the [match-require][match-require] module. The
-`factory` is left untouched for now.
+### `paths='components'`
 
-As of `main.js`, the wrapping does a little bit further. Oceanify will put two
-things before the wrapped `main.js`.
-
-1. Loader
-2. System data
-
-
-### Loader
-
-But where is the loader? you might ask.
-
-No matter CMD, AMD, or whatever MD, we gonna need a module loader. To support
-the dependencies tree in `node_modules`, we forked a CMD module loader called
-[sea.js][seajs], which is popular in China.
-
-The loader provided by Oceanify flattens the tree generated by NPM. If the tree
-were something like:
-
-```bash
-➜  heredoc git:(master) ✗ tree node_modules -I "mocha|standard"
-node_modules
-└── should
-    ├── index.js
-    ├── node_modules
-    │   ├── should-equal
-    │   │   ├── index.js
-    │   │   └── package.json
-    │   ├── should-format
-    │   │   ├── index.js
-    │   │   └── package.json
-    │   └── should-type
-    │       ├── index.js
-    │       └── package.json
-    └── package.json
-```
-
-It will be flattened into:
+The directory of your components. Multiple paths is allowd. For example, you need to import modules from both the `components` directory of your app and `node_modules/@corp/sharedComponents`:
 
 ```js
-{
-  "should": {
-    "6.0.3": {
-      "main": "./lib/should.js",
-      "dependencies": {
-        "should-type": "0.0.4",
-        "should-format": "0.0.7",
-        "should-equal": "0.3.1"
-      }
-    }
-  },
-  "should-type": {
-    "0.0.4": {}
-  },
-  "should-format": {
-    "0.0.7": {
-      "dependencies": {
-        "should-type": "0.0.4"
-      }
-    }
-  },
-  "should-equal": {
-    "0.3.1": {
-      "dependencies": {
-        "should-type": "0.0.4"
-      }
-    }
-  }
-}
+app.use(oceanify({
+  paths: [ 'components', 'node_modules/@corp/sharedComponents']
+}))
 ```
 
-The original dependency path `should/should-type` is now put into the same
-level. There are `dependencies` Object still, to store the actual version that
-is required by `should`.
+### `root=process.cwd()`
 
-Notice the structure supports multiple versions. So if your project uses jQuery
-1.x but a module you'd like to require uses jQuery 2.x, you can just lay back
-and be relaxed. But IMHO, requiring two or even more versions of libraries like
-jQuery is a little bit heavy.
+Normally this option should never be used. Options like `paths` and `dest` are all resolved against `root`. In test cases like `tests/test.index.js` in the source code, we need to change the `root` to `path.join(__dirname, 'test/example')`.
 
+### `serveSource=false`
 
-### System Data
-
-Except the `system.modules` metioned above, the system data contains other
-informations too. Take heredoc for example, the generated system data looks
-like below:
+Oceanify generates source maps while transforming components, caching node_modules, or compiling the final assets. For content security concerns, the `sourceContents` are removed in the generated source maps and a `sourceRoot` is set instead. In this way, Oceanify won't leak any source code by default. And if you do need source code being fetched by browser, you can simply turn on `serveSource`:
 
 ```js
-{
-  "base": "http://localhost:5000",
-  "cwd": "http://localhost:5000",
-  "main": "runner",
-  "modules": { ... },
-  "dependencies": {
-    "heredoc": "1.3.1",
-    "should": "6.0.3"
-  }
-}
+app.use(oceanify({ serveSource: true }))
+// or set it in a more recommended way
+app.use(oceanify({ serveSource: process.env.NODE_ENV == 'development' }))
 ```
 
-- `base` is the root path of components and node modules.
-- `cwd` is the host part of `location.href`. If there's no `base` specified,
-  `base` will be `cwd`.
-- `main` is the main entrance of the tree.
-- `modules` is the flattened dependencies tree.
-- `dependencies` is the map of all the dependencies required by components.
+### `transformOnly=[]`
 
+Besides components, Oceanify can also transform node_modules. Simply put the module names in `transformOnly`:
 
-### Wrap It Up
+```js
+app.use(oceanify({ transformOnly: ['some-es6-module'] }))
+```
 
-So here's the flow:
-
-1. Browser requests `/main.js`;
-2. Oceanify prepares the content of `/main.js` with 1) Loader, 2) System data,
-   and 3) the wrapped `main.js` module;
-3. Browser executes the returned `/main.js`, Loader kicks in;
-4. Loader resolves the dependencies of `main.js` module;
-5. Browser requests the dependencies per Loader's request;
-6. Loader executes the factory of `main.js` once all the dependencies are
-   resolved.
-
-
-## Why Oceanify
-
-### A Wrapper for SeaJS
-
-Oceanify starts as a wrapper for SeaJS. But SeaJS comes short when we need
-multiple versions coexist in the same page. In SeaJS the `require` has no
-context. In Node however, the `require` traverses up all the way.
-
-So we write our own Loader for Oceanify.
-
-
-### Why Not Webpack?
-
-That's a little bit difficult to answer. When the first version of Oceanify is
-developed, we weren't aware of Webpack yet. When Webpack got popular, Oceanify
-meets most of our requirements already.
-
-From the technical perspective, Oceanify is a bit like browserify. It's built
-upon the ecosystem of NPM. With Oceanify, you can require modules installed via
-NPM directly but there's nothing else. There isn't much of transformers to
-configure.
-
-
-### Why Not Browserify?
-
-In the projects from our work that use Oceanify, the wrap on the fly and
-`require.async` features are the two we liked a lot. With wrap on the fly, we
-don't need to setup a file watcher or something similar. With `require.async`,
-we can migrate history code with ease.
-
-
-### Wrap It Up
-
-I have to admit that the points made in why not webpack or browserify are pale.
-Webpack has a middleware to build on the fly too. With enough time spent on
-browserify and its ecosystem, we probably can setup something similar with
-Oceanify too.
-
-But it's really hard to give Oceanify up just yet.
-
+If the module being loaded is listed in `transformOnly`, and a `.babelrc` within the module directory is found, Oceanify will process the module source with babel too, like the way it handles components. Don't forget to install the presets and plugins listed in the module's `.babelrc` .
 
 ## Deployment
 
-Oceanfiy provides two static methods for assets precompilation. It's called
-`oceanify.compileAll()` and `oceanify.compileStyleSheets()`.
+Oceanfiy provides two static methods for assets precompilation:
 
+- `oceanify.compileAll()`
+- `oceanify.compileStyleSheets()`
 
 ### `.compileAll*([options])`
 
-`.compileAll([options])` is a generator function. You need to wrap the returned
-generator object to make it function properly.
+`.compileAll([options])` is a generator function. You need to wrap the returned generator object with co to make it function properly.
 
 ```js
 const co = require('co')
@@ -434,17 +220,14 @@ co(oceanify.compileAll({ match: 'app.js' }))
 co(oceanify.compileAll())
 ```
 
-Oceanify will compile all the modules within `components` directory, find their
-dependencies in `node_modules` directory and compile them too.
+Oceanify will compile all the components that matches `opts.match`, find their dependencies in `node_modules` directory and compile them too.
 
-You can try the one in [Oceanify Example][oceanify-example]. Just execute
+You can try the one in [Oceanify Example](https://github.com/erzu/oceanify/tree/master/examples/default). Just execute
 `npm run precompile`.
-
 
 ### `.compileStyleSheets*([options])`
 
-`.compileStyleSheets([options])` is a generator function. You need to wrap the
-returned generator object to make it function properly.
+`.compileStyleSheets([options])` is a generator function. You need to wrap the returned generator object to make it function properly.
 
 ```js
 const co = require('co')
@@ -459,17 +242,164 @@ co(oceanify.compileStyleSheets({ match: 'app.css' }))
   })
 ```
 
-Currently `.compileStyleSheets` just process the source code with autoprefixer
-and postcss-import. You gonna need some minification tools like
-[cssnano][cssnano].
+Currently `.compileStyleSheets` just process the source code with autoprefixer and postcss-import. You gonna need some minification tools like[cssnano](https://github.com/ben-eb/cssnano) to minify the compiled result.
 
 
+## Behind the Scene
 
-[loaders]: http://www.zhihu.com/question/22739468/answer/29949594
-[yen]: https://github.com/erzu/yen
-[ez-editor]: https://github.com/erzu/ez-editor
-[oceanify-example]: https://github.com/erzu/oceanify/tree/master/test/example
-[oceanifier]: https://github.com/erzu/oceanifier
-[cssnano]: https://github.com/ben-eb/cssnano
-[seajs]: https://github.com/seajs/seajs
-[match-require]: https://github.com/yiminghe/match-require
+Let's start with `app.js`, which might seems a bit of black magic at the first glance. It is added to the page directly:
+
+```html
+<script src="/app.js?main"></script>
+```
+
+And suddenly you can write `app.js` as CommonJS or ES Module right away:
+
+```js
+const React = require('react')
+import mobx from 'mobx'
+```
+
+How can browser know where to `require` when executing `main.js`?
+
+### Loader
+
+The secret is, entry components that ends with `?main` (e.g. `app.js?main`) will be prepended with two things before the the actual `app.js` when it's served with Oceanify:
+
+1. Loader
+2. Loader config
+
+You can import `app.js` explicitly if you prefer:
+
+```html
+<script src="/loader.js"></script>
+<script>oceanify.import('app')</script>
+```
+
+Both way works. To make `app.js` consumable by the Loader, it will be wrapped into Common Module Declaration format on the fly:
+
+```js
+define(id, deps, function(require, exports, module) {
+  // actual main.js content
+})
+```
+
+- `id` is deducted from the file path.
+- `dependencies` is parsed from the factory code thanks to the [match-require](https://github.com/yiminghe/match-require) module.
+- `factory` (the anonymouse function) body is left untouched or transformed with babel depending on whether `.babelrc` exists or not.
+
+If ES Module is preferred, you'll need two things:
+
+1. Put a `.babelrc` file under your components directory.
+2. Install the presets or plugins configured in said `.babelrc`.
+
+Back to the Loader, after the wrapped `app.js` is fetched, it won't execute right away. The dependencies need to be resolved first. For relative dependencies (e.g. other components), it's easy to just resolve them against `id`. For external dependencies (in this case, react and mobx), there's more work done by Oceanify under the hood:
+
+1. Generate a dependencies map by parsing components and node_modules when it initializes,
+2. Flatten the dependencies map into a list of modules required (directly or indirectly) by current entry,
+3. Config the loader with the list (among other loader config).
+
+Take heredoc's (simplified) node_modules for example:
+
+```bash
+➜  heredoc git:(master) ✗ tree node_modules -I "mocha|standard"
+node_modules
+└── should
+    ├── index.js
+    ├── node_modules
+    │   └── should-type
+    │       ├── index.js
+    │       └── package.json
+    └── package.json
+```
+
+It will be flattened into:
+
+```js
+{
+  "should": {
+    "6.0.3": {
+      "main": "./lib/should.js",
+      "dependencies": {
+        "should-type": "0.0.4"
+      }
+    }
+  },
+  "should-type": {
+    "0.0.4": {}
+  }
+}
+```
+
+The original dependency path `should/should-type` is now at the same level of `should`. There still are `dependencies`, to store the actual version of `should/should-type` required by `should`. Notice this structure supports multiple versions.
+
+### Loader Config
+
+The structure is then put among other options passed to Loader with `oceanify.config()`:
+
+```js
+oceanify.config({
+  "base": "http://localhost:5000",
+  "name": "heredoc",
+  "version": "1.3.1",
+  "main": "index",
+  "modules": { ... }
+})
+```
+
+- `base` is the root path of components and node modules.
+- `name`, `version`, and `main` are self-explanatory. They are all extracted from package.json of the app.
+- `modules` is the flattened dependencies map.
+
+### Wrap It Up
+
+So here is `app.js?main` expanded:
+
+```js
+// GET /loader.js returns both Loader and Loader Config.
+;(function() { /* Loader */ })
+oceanify.config({ /* Loader Config */})
+
+// The module definition and the import kick off.
+define(id, dependencies, function(require, exports, module) { /* app.js */ })
+oceanify.import('app')
+```
+
+Here's the actual interaction between browser and backend:
+
+1. Browser requests `/app.js?main`;
+2. Oceanify prepares the content of `/app.js?main` with Loader, Loader Config, and the wrapped `app.js`;
+3. Browser executes the returned `/app.js`, Loader kicks in, cache `app.js` module in registry;
+4. Loader resolves the dependencies of `app.js` module;
+5. Browser requests the dependencies per Loader's request;
+6. Loader executes the factory of `app.js` once all the dependencies are resolved.
+
+### StyleSheets
+
+The stylesheets part is much easier since Oceanify does not provide a CSS Loader for now. All of the `@import`s are handled at the backend. Take following `app.css` for example:
+
+```css
+@import "cropper/dist/cropper.css";
+@import "common.css"
+
+body {
+  padding: 50px;
+}
+```
+
+When browser requests `app.css`:
+
+1. `postcss-import` processes all of the `@import`s;
+2. `autoprefixer` transforms the bundle;
+
+Voila!
+
+## Comparation to other frameworks
+
+### Why Not Webpack?
+
+That's a little bit difficult to answer. When the first version of Oceanify is developed, we weren't aware of Webpack yet. When Webpack got popular, Oceanify meets most of our requirements already. From the technical perspective, Oceanify is more like browserify with `require.async`.
+
+### Why Not Browserify?
+
+In the projects from our work that use Oceanify, the wrap on the fly and `require.async` features are the two we liked a lot. With wrap on the fly, we don't need to setup a file watcher or something similar. With `require.async`, we can migrate history code with ease.
