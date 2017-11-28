@@ -4,6 +4,7 @@ coverage
 docs
 
 examples/*/node_modules
+examples/*/package-lock.json
 examples/*/public
 
 .DS_Store
