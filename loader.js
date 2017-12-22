@@ -372,7 +372,8 @@
     if (!(name in deps)) deps = map[system.name][system.version].dependencies
     if (name in deps) {
       var version = deps[name]
-      var entry = mod.entry || map[name][version].main || 'index'
+      var meta = map[name][version]
+      var entry = (meta.alias ? meta.alias[mod.entry] : mod.entry) || meta.main || 'index'
 
       return resolve(name, version, entry.replace(/\.js$/, ''))
     }
