@@ -1,10 +1,11 @@
-5.1.0 / 2017-12-??
+5.1.0 / 2018-01-16
 ==================
 
   * New: integrate babel-core to support components and node_modules transformations;
   * New: use opts.transformOnly to white list node_modules to transform, no node_modules will be transformed by default;
   * Fix: parse `require('dir')`s as alias `{ dir: 'dir/index'}` and store them in dependenciesMap;
   * Fix: dependencies in dependenciesMap should be re-visited rather than overriden;
+  * Fix: both `require('foo')` and `require('foo/entry')` can happen in components and node_modules.
 
 
 5.0.1 / 2017-08-17
