@@ -252,13 +252,18 @@
     }
   }
 
+  Module.prototype.isCyclic = function(dep) {
+    var dependents = this.dependents
+    for (var i = 0; i < dependents.length; i++) {
+      if (dependents[i] == dep) return true
+    }
+    return false
+  }
+
   Module.prototype.resolve = function() {
     var mod = this
-    var deps = mod.dependencies
-
     mod.status = MODULE_RESOLVING
-
-    deps = (mod.dependencies || []).map(function(depName) {
+    var deps = (mod.dependencies || []).map(function(depName) {
       var depId = Module.resolve(depName, mod.id)
       return registry[depId] || new Module(depId)
     })
@@ -294,13 +299,14 @@
         var depId = Module.resolve(parent.dependencies[j], parent.id)
         var dep = registry[depId]
 
+        if (parent.isCyclic(dep)) continue
         if (dep.status < MODULE_RESOLVED) {
           allset = false
           break
         }
       }
 
-      if (allset) parent.resolved()
+      if (allset && parent.status < MODULE_RESOLVED) parent.resolved()
     }
 
     if (!dependents.length) {
@@ -318,6 +324,8 @@
       id = Module.resolve(id, mod.id)
       var dep = registry[id]
 
+      if (mod.isCyclic(dep)) return (dep.exports = {})
+
       if (dep.status < MODULE_RESOLVED) {
         throw new Error('Module ' + id + ' should be resolved by now')
       }
@@ -329,8 +337,8 @@
     }
 
     require.async = importFactory(dirname(mod.id))
-
-    mod.exports = {}
+    mod.exports = mod.exports || {}
+    mod.status = MODULE_EXECUTED
 
     var exports = typeof factory === 'function'
       ? factory.call(null, require, mod.exports, mod)
@@ -339,8 +347,6 @@
     if (exports) {
       mod.exports = exports
     }
-
-    mod.status = MODULE_EXECUTED
   }
 
 

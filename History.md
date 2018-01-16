@@ -6,6 +6,7 @@
   * Fix: parse `require('dir')`s as alias `{ dir: 'dir/index'}` and store them in dependenciesMap;
   * Fix: dependencies in dependenciesMap should be re-visited rather than overriden;
   * Fix: both `require('foo')` and `require('foo/entry')` can happen in components and node_modules.
+  * Fix: cyclic depedencies workaround.
 
 
 5.0.1 / 2017-08-17
