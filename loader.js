@@ -372,8 +372,10 @@
     if (!(name in deps)) deps = map[system.name][system.version].dependencies
     if (name in deps) {
       var version = deps[name]
-      var meta = map[name][version]
-      var entry = (meta.alias ? meta.alias[mod.entry] : mod.entry) || meta.main || 'index'
+      var pkg = map[name][version]
+      var entry = mod.entry && pkg.alias && mod.entry in pkg.alias
+        ? pkg.alias[mod.entry]
+        : (mod.entry || pkg.main || 'index')
 
       return resolve(name, version, entry.replace(/\.js$/, ''))
     }
