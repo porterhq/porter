@@ -1,10 +1,10 @@
-# Oceanify
+# Porter
 
-[![NPM Downloads](https://img.shields.io/npm/dm/oceanify.svg?style=flat)](https://www.npmjs.com/package/oceanify)
-[![NPM Version](http://img.shields.io/npm/v/oceanify.svg?style=flat)](https://www.npmjs.com/package/oceanify)
-[![Build Status](https://travis-ci.org/erzu/oceanify.svg)](https://travis-ci.org/erzu/oceanify)
+[![NPM Downloads](https://img.shields.io/npm/dm/porter.svg?style=flat)](https://www.npmjs.com/package/porter)
+[![NPM Version](http://img.shields.io/npm/v/porter.svg?style=flat)](https://www.npmjs.com/package/porter)
+[![Build Status](https://travis-ci.org/erzu/porter.svg)](https://travis-ci.org/erzu/porter)
 
-Oceanify is a JS/CSS module loader featuring module transformation on the fly.
+porter is a JS/CSS module loader featuring module transformation on the fly.
 
 ## How to
 
@@ -15,12 +15,12 @@ You need a main entry point for your app's JS and/or CSS.
 <html>
 <head>
   <meta charset="utf-8">
-  <title>An Oceanify Example</title>
+  <title>An Porter Example</title>
   <!-- CSS ENTRY -->
   <link rel="stylesheet" type="text/css" href="/app.css">
 </head>
 <body>
-  <h1>An Oceanify Example</h1>
+  <h1>An Porter Example</h1>
   <!-- JAVASCRIPT ENTRY -->
   <script src="/app.js?main"></script>
 </body>
@@ -37,7 +37,7 @@ const cropper = require('cropper')
 Or esModule:
 
 ```js
-import * as React from 'react'
+ * as React from 'react'
 ```
 
 And in stylesheets, you can `@import` dependencies too:
@@ -47,38 +47,38 @@ And in stylesheets, you can `@import` dependencies too:
 @import './nav.css';                  /* stylesheets in components */
 ```
 
-To achieve this, just setup the middleware provided by Oceanify. For Koa:
+To achieve this, just setup the middleware provided by porter. For Koa:
 
 ```js
 const koa = require('koa')
-const oceanify = require('oceanify')
+const porter = require('@cara/porter')
 const app = koa()
 
 // The paths of JS/CSS components
-app.use(oceanify({ paths: 'components' }))
+app.use(porter({ paths: 'components' }))
 ```
 
 For Express:
 
 ```js
 const express = require('express')
-const oceanify = require('oceanify')
+const porter = require('@cara/porter')
 const app = express()
 
 // that's it
-app.use(oceanify({ express: true }))
+app.use(porter({ express: true }))
 ```
 
 When it's time to be production ready, simply run:
 
 ```js
 const co = require('co')
-const oceanify = require('oceanify')
+const porter = require('@cara/porter')
 
 co(function* () {
   yield [
-    oceanify.compileAll({ match: 'app.js' }),           // js components and modules
-    oceanify.compileStyleSheets({ match: 'app.css' })   // css files
+    porter.compileAll({ match: 'app.js' }),           // js components and modules
+    porter.compileStyleSheets({ match: 'app.css' })   // css files
   ])
 })
   .catch(function(err) {
@@ -90,33 +90,33 @@ co(function* () {
 
 ### `cacheExcept=[]`
 
-To accelerate loading in development mode, Oceanify will cache node_modules by compiling and bundling them on the fly. You can rule out some of them by passing an array of module names to `cacheExcept` option:
+To accelerate loading in development mode, Porter will cache node_modules by compiling and bundling them on the fly. You can rule out some of them by passing an array of module names to `cacheExcept` option:
 
 ```js
-app.use(oceanify({ cacheExcept: 'mobx' }))
-app.use(oceanify({ cacheExcept: ['mobx', 'react'] }))
+app.use(porter({ cacheExcept: 'mobx' }))
+app.use(porter({ cacheExcept: ['mobx', 'react'] }))
 ```
 
 To turn off the node_modules caching completely, just set `cacheExcept` to `*`:
 
 ```js
-app.use(oceanify({ cacheExcept: '*' }))
+app.use(porter({ cacheExcept: '*' }))
 ```
 
 ### `cachePersist=true`
 
-Oceanify will not clear the cache (except the ones specified in `cacheExcept` option) by default. Set `cachePersist` to false to make Oceanify clear cache every time it restarts:
+porter will not clear the cache (except the ones specified in `cacheExcept` option) by default. Set `cachePersist` to false to make porter clear cache every time it restarts:
 
 ```js
-app.use(oceanify({ cachePersist: false }))
+app.use(porter({ cachePersist: false }))
 ```
 
 ### `dest='public'`
 
-Oceanify caches node_modules compilations, js components transformations (if `.babelrc` exists), and stylesheets. Set `dset=other/directory` to store the cache somewhere else:
+Porter caches node_modules compilations, js components transformations (if `.babelrc` exists), and stylesheets. Set `dset=other/directory` to store the cache somewhere else:
 
 ```js
-app.use(oceanify({ dest: '.oceanify-cache' }))
+app.use(porter({ dest: '.porter-cache' }))
 ```
 
 Some of the cache requires a static serving middleware to work:
@@ -128,34 +128,34 @@ For Koa:
 
 ```js
 app.use(require('koa-static')(path.join(__dirname, 'public')))
-app.use(requrie('oceanify')({ dest: 'public' }))
+app.use(requrie('porter')({ dest: 'public' }))
 ```
 
 For Express:
 
 ```js
 app.use(express.static(path.join(__dirname, 'public')))
-app.use(requrie('oceanify')())
+app.use(requrie('porter')())
 ```
 
 ### `express=false`
 
-`oceanify()` returns a koa middleware by default. Set `express=true` to get an express middleware instead:
+`porter()` returns a koa middleware by default. Set `express=true` to get an express middleware instead:
 
 ```js
-app.use(require('oceanify')({ express: true }))
+app.use(require('@cara/porter')({ express: true }))
 ```
 
 ### `loaderConfig={}`
 
-There's a loader hidden in Oceanify which is the magic behind Oceanify that makes module loading possible. When js entries such as `app.js?main` is requested, Oceanify will prepend the loader and loader config to the content of the component. See the loader section for detailed information.
+There's a loader hidden in Porter which is the magic behind Porter that makes module loading possible. When js entries such as `app.js?main` is requested, Porter will prepend the loader and loader config to the content of the component. See the loader section for detailed information.
 
 ### `mangleExcept=[]`
 
-While Oceanify caches node_modules, the code will be bundled and minified with UglifyJS. In rare caces, UglifyJS' name mangling might generate false results, which can be bypassed with `mangleExcept`:
+While porter caches node_modules, the code will be bundled and minified with UglifyJS. In rare caces, UglifyJS' name mangling might generate false results, which can be bypassed with `mangleExcept`:
 
 ```js
-app.use(oceanify({ mangleExcept: ['react-router'] }))
+app.use(porter({ mangleExcept: ['react-router'] }))
 ```
 
 ### `paths='components'`
@@ -163,7 +163,7 @@ app.use(oceanify({ mangleExcept: ['react-router'] }))
 The directory of your components. Multiple paths is allowd. For example, you need to import modules from both the `components` directory of your app and `node_modules/@corp/sharedComponents`:
 
 ```js
-app.use(oceanify({
+app.use(porter({
   paths: [ 'components', 'node_modules/@corp/sharedComponents']
 }))
 ```
@@ -174,30 +174,30 @@ Normally this option should never be used. Options like `paths` and `dest` are a
 
 ### `serveSource=false`
 
-Oceanify generates source maps while transforming components, caching node_modules, or compiling the final assets. For content security concerns, the `sourceContents` are removed in the generated source maps and a `sourceRoot` is set instead. In this way, Oceanify won't leak any source code by default. And if you do need source code being fetched by browser, you can simply turn on `serveSource`:
+Porter generates source maps while transforming components, caching node_modules, or compiling the final assets. For content security concerns, the `sourceContents` are removed in the generated source maps and a `sourceRoot` is set instead. In this way, porter won't leak any source code by default. And if you do need source code being fetched by browser, you can simply turn on `serveSource`:
 
 ```js
-app.use(oceanify({ serveSource: true }))
+app.use(porter({ serveSource: true }))
 // or set it in a more recommended way
-app.use(oceanify({ serveSource: process.env.NODE_ENV == 'development' }))
+app.use(porter({ serveSource: process.env.NODE_ENV == 'development' }))
 ```
 
 ### `transformOnly=[]`
 
-Besides components, Oceanify can also transform node_modules. Simply put the module names in `transformOnly`:
+Besides components, Porter can also transform node_modules. Simply put the module names in `transformOnly`:
 
 ```js
-app.use(oceanify({ transformOnly: ['some-es6-module'] }))
+app.use(porter({ transformOnly: ['some-es6-module'] }))
 ```
 
-If the module being loaded is listed in `transformOnly`, and a `.babelrc` within the module directory is found, Oceanify will process the module source with babel too, like the way it handles components. Don't forget to install the presets and plugins listed in the module's `.babelrc` .
+If the module being loaded is listed in `transformOnly`, and a `.babelrc` within the module directory is found, porter will process the module source with babel too, like the way it handles components. Don't forget to install the presets and plugins listed in the module's `.babelrc` .
 
 ## Deployment
 
 Oceanfiy provides two static methods for assets precompilation:
 
-- `oceanify.compileAll()`
-- `oceanify.compileStyleSheets()`
+- `porter.compileAll()`
+- `porter.compileStyleSheets()`
 
 ### `.compileAll*([options])`
 
@@ -205,10 +205,10 @@ Oceanfiy provides two static methods for assets precompilation:
 
 ```js
 const co = require('co')
-const oceanify = require('oceanify')
+const porter = require('@cara/porter')
 
 // Specify the entry modules
-co(oceanify.compileAll({ match: 'app.js' }))
+co(porter.compileAll({ match: 'app.js' }))
   .then(function() {
     console.log('done')
   })
@@ -217,12 +217,12 @@ co(oceanify.compileAll({ match: 'app.js' }))
   })
 
 // You can omit the options since they're the defaults.
-co(oceanify.compileAll())
+co(porter.compileAll())
 ```
 
-Oceanify will compile all the components that matches `opts.match`, find their dependencies in `node_modules` directory and compile them too.
+Porter will compile all the components that matches `opts.match`, find their dependencies in `node_modules` directory and compile them too.
 
-You can try the one in [Oceanify Example](https://github.com/erzu/oceanify/tree/master/examples/default). Just execute
+You can try the one in [Porter Example](https://github.com/erzu/porter/tree/master/examples/default). Just execute
 `npm run precompile`.
 
 ### `.compileStyleSheets*([options])`
@@ -231,9 +231,9 @@ You can try the one in [Oceanify Example](https://github.com/erzu/oceanify/tree/
 
 ```js
 const co = require('co')
-const oceanify = require('oceanify')
+const porter = require('@cara/porter')
 
-co(oceanify.compileStyleSheets({ match: 'app.css' }))
+co(porter.compileStyleSheets({ match: 'app.css' }))
   .then(function() {
     console.log('done')
   })
@@ -264,7 +264,7 @@ How can browser know where to `require` when executing `main.js`?
 
 ### Loader
 
-The secret is, entry components that ends with `?main` (e.g. `app.js?main`) will be prepended with two things before the the actual `app.js` when it's served with Oceanify:
+The secret is, entry components that ends with `?main` (e.g. `app.js?main`) will be prepended with two things before the the actual `app.js` when it's served with Porter:
 
 1. Loader
 2. Loader config
@@ -273,7 +273,7 @@ You can import `app.js` explicitly if you prefer:
 
 ```html
 <script src="/loader.js"></script>
-<script>oceanify.import('app')</script>
+<script>porter.import('app')</script>
 ```
 
 Both way works. To make `app.js` consumable by the Loader, it will be wrapped into Common Module Declaration format on the fly:
@@ -293,7 +293,7 @@ If ES Module is preferred, you'll need two things:
 1. Put a `.babelrc` file under your components directory.
 2. Install the presets or plugins configured in said `.babelrc`.
 
-Back to the Loader, after the wrapped `app.js` is fetched, it won't execute right away. The dependencies need to be resolved first. For relative dependencies (e.g. other components), it's easy to just resolve them against `id`. For external dependencies (in this case, react and mobx), there's more work done by Oceanify under the hood:
+Back to the Loader, after the wrapped `app.js` is fetched, it won't execute right away. The dependencies need to be resolved first. For relative dependencies (e.g. other components), it's easy to just resolve them against `id`. For external dependencies (in this case, react and mobx), there's more work done by Porter under the hood:
 
 1. Generate a dependencies map by parsing components and node_modules when it initializes,
 2. Flatten the dependencies map into a list of modules required (directly or indirectly) by current entry,
@@ -335,10 +335,10 @@ The original dependency path `should/should-type` is now at the same level of `s
 
 ### Loader Config
 
-The structure is then put among other options passed to Loader with `oceanify.config()`:
+The structure is then put among other options passed to Loader with `porter.config()`:
 
 ```js
-oceanify.config({
+porter.config({
   "base": "http://localhost:5000",
   "name": "heredoc",
   "version": "1.3.1",
@@ -358,17 +358,17 @@ So here is `app.js?main` expanded:
 ```js
 // GET /loader.js returns both Loader and Loader Config.
 ;(function() { /* Loader */ })
-oceanify.config({ /* Loader Config */})
+porter.config({ /* Loader Config */})
 
 // The module definition and the import kick off.
 define(id, dependencies, function(require, exports, module) { /* app.js */ })
-oceanify.import('app')
+porter.import('app')
 ```
 
 Here's the actual interaction between browser and backend:
 
 1. Browser requests `/app.js?main`;
-2. Oceanify prepares the content of `/app.js?main` with Loader, Loader Config, and the wrapped `app.js`;
+2. Porter prepares the content of `/app.js?main` with Loader, Loader Config, and the wrapped `app.js`;
 3. Browser executes the returned `/app.js`, Loader kicks in, cache `app.js` module in registry;
 4. Loader resolves the dependencies of `app.js` module;
 5. Browser requests the dependencies per Loader's request;
@@ -376,7 +376,7 @@ Here's the actual interaction between browser and backend:
 
 ### StyleSheets
 
-The stylesheets part is much easier since Oceanify does not provide a CSS Loader for now. All of the `@import`s are handled at the backend. Take following `app.css` for example:
+The stylesheets part is much easier since Porter does not provide a CSS Loader for now. All of the `@import`s are handled at the backend. Take following `app.css` for example:
 
 ```css
 @import "cropper/dist/cropper.css";
@@ -393,13 +393,3 @@ When browser requests `app.css`:
 2. `autoprefixer` transforms the bundle;
 
 Voila!
-
-## Comparation to other frameworks
-
-### Why Not Webpack?
-
-That's a little bit difficult to answer. When the first version of Oceanify is developed, we weren't aware of Webpack yet. When Webpack got popular, Oceanify meets most of our requirements already. From the technical perspective, Oceanify is more like browserify with `require.async`.
-
-### Why Not Browserify?
-
-In the projects from our work that use Oceanify, the wrap on the fly and `require.async` features are the two we liked a lot. With wrap on the fly, we don't need to setup a file watcher or something similar. With `require.async`, we can migrate history code with ease.

@@ -16,7 +16,7 @@ function requestPath(apath, status = 200, app = require('../examples/default/app
   })
 }
 
-describe('oceanify serveSource', function() {
+describe('opts.serveSource', function() {
   it('should serve loader.js', function* () {
     yield requestPath('/loader.js')
   })

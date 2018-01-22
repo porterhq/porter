@@ -2,19 +2,19 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Oceanify Example</title>
+  <title>Porter Example</title>
   <link rel="stylesheet" type="text/css" href="/stylesheets/app.css">
 </head>
 <body>
   <section id="intro">
-    <h1>Oceanify Example</h1>
-    <p>This is an app with oceanify setup, with its source available at <a href="https://github.com/erzu/oceanify/tree/master/examples/default">github</a>. Oceanify is <em>a consolidated solution for browser module authoring</em> which provides
+    <h1>Porter Example</h1>
+    <p>This is an app with Porter setup, with its source available at <a href="https://github.com/erzu/porter/tree/master/examples/default">github</a>. Porter is <em>a consolidated solution for browser module authoring</em> which provides:
       <ul>
         <li>a middleware for browser module transformation, </li>
         <li>a loader for browser module loading, and</li>
         <li>a compiler for browser module compilation to make the app production ready.</li>
       </ul>
-      for brevity concern, we'll refer to browser modules as components in the rest of this page.
+      For brevity, we'll refer to browser modules as components in the rest of this page.
     </p>
     <h2>Setup</h2>
     <p>In <code>app.js</code>, setup the middleware.</p>
@@ -28,7 +28,7 @@
   </section>
   <section>
     <h2>Popular Modules</h2>
-    <p>Here's a few popular browser modules us frontend engineer might use. This section works as a demonstration of them consumed by oceanify.</p>
+    <p>Here's a few popular browser modules us frontend engineer might use. This section works as a demonstration of them consumed by Porter.</p>
     <h3>Chart.js</h3>
     <canvas id="example-chart"></canvas>
     <h3>Cropper</h3>
@@ -37,6 +37,6 @@
     </div>
   </section>
   <script src="/loader.js"></script>
-  <script>oceanify.import('home')</script>
+  <script>porter.import('home')</script>
 </body>
 </html>

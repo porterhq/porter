@@ -31,15 +31,15 @@ function sleep(seconds) {
 }
 
 
-describe('oceanify', function() {
+describe('middleware', function() {
   it('should start from main', function* () {
-    const res = yield requestPath('/oceanify-example/0.0.1/home.js?main')
-    expect(res.text).to.contain('\ndefine("oceanify-example/0.0.1/home"')
-    expect(res.text).to.contain('\noceanify["import"]("oceanify-example/0.0.1/home")')
+    const res = yield requestPath('/porter-app/0.0.1/home.js?main')
+    expect(res.text).to.contain('\ndefine("porter-app/0.0.1/home"')
+    expect(res.text).to.contain('\nporter["import"]("porter-app/0.0.1/home")')
   })
 
   it('should handle components', function *() {
-    yield requestPath('/oceanify-example/0.0.1/lib/foo.js')
+    yield requestPath('/porter-app/0.0.1/lib/foo.js')
     yield requestPath('/lib/foo.js')
   })
 
@@ -64,7 +64,7 @@ describe('oceanify', function() {
   })
 
   it('should handle stylesheets', function* () {
-    yield requestPath('/oceanify-example/0.0.1/stylesheets/app.css')
+    yield requestPath('/porter-app/0.0.1/stylesheets/app.css')
     yield requestPath('/stylesheets/app.css')
   })
 
@@ -74,11 +74,11 @@ describe('oceanify', function() {
 })
 
 
-describe('oceanify Cache', function() {
+describe('Cache', function() {
   it('should cache generated style', function* () {
-    yield requestPath('/oceanify-example/0.0.1/stylesheets/app.css')
+    yield requestPath('/porter-app/0.0.1/stylesheets/app.css')
 
-    var dir = path.join(root, 'public/oceanify-example/0.0.1/stylesheets')
+    var dir = path.join(root, 'public/porter-app/0.0.1/stylesheets')
     var entries = yield glob(path.join(dir, 'app-*.css'))
 
     entries = entries.map(function(entry) {
@@ -99,9 +99,9 @@ describe('oceanify Cache', function() {
       }
     */}))
 
-    yield requestPath('/oceanify-example/0.0.1/stylesheets/app.css')
+    yield requestPath('/porter-app/0.0.1/stylesheets/app.css')
 
-    var dir = path.join(root, 'public/oceanify-example/0.0.1/stylesheets')
+    var dir = path.join(root, 'public/porter-app/0.0.1/stylesheets')
     var entries = yield glob(path.join(dir, 'app-*.css'))
     entries = entries.map(function(entry) {
       return path.relative(dir, entry).replace(/-[0-9a-f]{32}\.css$/, '.css')

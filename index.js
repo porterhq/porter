@@ -8,7 +8,7 @@ const path = require('path')
 const co = require('co')
 const crypto = require('crypto')
 const mime = require('mime')
-const debug = require('debug')('oceanify')
+const debug = require('debug')('porter')
 
 const postcss = require('postcss')
 const autoprefixer = require('autoprefixer')
@@ -37,6 +37,10 @@ const loaderSource = fs.readFileSync(loaderPath, 'utf8').replace(/\$\{(\w+)\}/g,
   }
 })
 const loaderStats = fs.statSync(loaderPath)
+
+const serviceWorkerPath = path.join(__dirname, 'porter-sw.js')
+const serviceWorkerSource = fs.readFileSync(serviceWorkerPath, 'utf8')
+const serviceWorkerStats = fs.statSync(serviceWorkerPath)
 
 const RE_EXT = /(\.\w+)$/i
 const RE_ASSET_EXT = /\.(?:gif|jpg|jpeg|png|svg|swf|ico)$/i
@@ -80,7 +84,7 @@ const { exists, lstat, readFile } = fs
  *
  * @returns {Function|GeneratorFunction} A middleware for Koa or Express
  */
-function oceanify(opts = {}) {
+function porter(opts = {}) {
   const encoding = 'utf8'
   const root = opts.root || process.cwd()
   const dest = path.resolve(root, opts.dest || 'public')
@@ -117,6 +121,8 @@ function oceanify(opts = {}) {
       Object.assign(loaderConfig, system)
     })
   }
+  // To be able to skip caching of certain dependencies in registry-cache.js too.
+  loaderConfig.cacheExcept = cacheExceptions
 
   co(cache.removeAll(opts.cachePersist ? [pkg.name, ...cacheExceptions] : null))
     .then(function() {
@@ -142,9 +148,9 @@ function oceanify(opts = {}) {
 
   function* formatMain(id, content) {
     return `${loaderSource}
-oceanify.config(${JSON.stringify(loaderConfig)})
+porter.config(${JSON.stringify(loaderConfig)})
 ${content}
-oceanify["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
+porter["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
 `
   }
 
@@ -310,13 +316,21 @@ oceanify["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
     let result = null
 
     if (id === 'loader.js') {
-      result = [`${loaderSource};oceanify.config(${JSON.stringify(loaderConfig)})`, {
+      result = [`
+${loaderSource}
+porter.config(${JSON.stringify(loaderConfig)})
+`, {
         'Last-Modified': loaderStats.mtime.toJSON()
       }]
     }
     else if (id === 'loaderConfig.json') {
       result = [JSON.stringify(system), {
         'Last-Modified': loaderStats.mtime.toJSON()
+      }]
+    }
+    else if (id === 'porter-sw.js') {
+      result = [serviceWorkerSource, {
+        'Last-Modified': serviceWorkerStats.mtime.toJSON()
       }]
     }
     else if (serveSource && isSource(id)) {
@@ -400,12 +414,11 @@ oceanify["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
 }
 
 
-oceanify.parseMap = parseMap
-oceanify.parseSystem = parseSystem
-oceanify.compileAll = compileAll.compileAll
-oceanify.compileComponent = compileAll.compileComponent
-oceanify.compileModule = compileAll.compileModule
-oceanify.compileStyleSheets = compileStyleSheets
-
-
-module.exports = oceanify
+module.exports = Object.assign(porter, {
+  parseMap,
+  parseSystem,
+  compileAll: compileAll.compileAll,
+  compileComponent: compileAll.compileComponent,
+  compileModule: compileAll.compileModule,
+  compileStyleSheets
+})

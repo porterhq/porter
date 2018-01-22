@@ -10,7 +10,7 @@ const { compileComponent, parseMap } = require('..')
 const { readFileSync: readFile } = require('mz/fs')
 
 
-describe('oceanify.compileComponent', function () {
+describe('.compileComponent', function () {
   const root = path.join(__dirname, '../examples/default')
   const dest = path.join(root, 'public')
 
@@ -20,10 +20,10 @@ describe('oceanify.compileComponent', function () {
 
   it('should compile component', function* () {
     yield compileComponent('lib/foo', { root, dest })
-    const fpath = path.join(dest, 'oceanify-example/0.0.1/lib/foo.js')
+    const fpath = path.join(dest, 'porter-app/0.0.1/lib/foo.js')
     const content = readFile(fpath, 'utf8')
-    expect(content).to.contain('define("oceanify-example/0.0.1/lib/foo",')
-    expect(content).to.not.contain('oceanify.config(')
+    expect(content).to.contain('define("porter-app/0.0.1/lib/foo",')
+    expect(content).to.not.contain('porter.config(')
   })
 
   it('should compile shadow component', function* () {
@@ -41,7 +41,7 @@ describe('oceanify.compileComponent', function () {
       includeModules: true
     })
 
-    const content = readFile(path.join(dest, 'oceanify-example/0.0.1/shadow/9527.js'), 'utf8')
+    const content = readFile(path.join(dest, 'porter-app/0.0.1/shadow/9527.js'), 'utf8')
     expect(content).to.contain('shadow/9527')
     expect(content).to.contain('yen/1.2.4/index')
     expect(content).to.contain('yen/1.2.4/events')
@@ -57,8 +57,8 @@ describe('oceanify.compileComponent', function () {
       includeLoader: true
     })
 
-    const content = readFile(path.join(dest, 'oceanify-example/0.0.1/v2/home.js'), 'utf8')
-    expect(content).to.contain('define("oceanify-example/0.0.1/v2/home",')
-    expect(content).to.contain('oceanify.config(')
+    const content = readFile(path.join(dest, 'porter-app/0.0.1/v2/home.js'), 'utf8')
+    expect(content).to.contain('define("porter-app/0.0.1/v2/home",')
+    expect(content).to.contain('porter.config(')
   })
 })

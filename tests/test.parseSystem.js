@@ -9,7 +9,7 @@ var parseSystem = require('../lib/parseSystem')
 
 const root = path.join(__dirname, '../examples/default')
 
-describe('oceanify.parseSystem', function() {
+describe('.parseSystem', function() {
   it('flatten the dependencies map', function* () {
     const map = yield parseMap({ root })
     const pkg = require(path.join(root, 'package.json'))

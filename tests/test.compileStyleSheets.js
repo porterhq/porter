@@ -11,7 +11,7 @@ const compileStyleSheets = require('../lib/compileStyleSheets')
 const root = path.join(__dirname, '../examples/default')
 
 
-describe('oceanify.compileStyleSheets', function() {
+describe('.compileStyleSheets', function() {
   before(function () {
     exec('rm -rf ' + path.join(root, 'public'))
   })
@@ -22,7 +22,7 @@ describe('oceanify.compileStyleSheets', function() {
       match: 'stylesheets/app.css'
     })
 
-    expect(exists(path.join(root, 'public/oceanify-example/0.0.1/stylesheets/app.css')))
+    expect(exists(path.join(root, 'public/porter-app/0.0.1/stylesheets/app.css')))
       .to.be(true)
   })
 })

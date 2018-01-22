@@ -1,15 +1,12 @@
 'use strict'
 
-var koa = require('koa')
+const koa = require('koa')
+const porter = require('../..')
 
-var oceanify = require('../..')
-
-
-var app = koa()
-app.use(oceanify({
+const app = koa()
+app.use(porter({
   root: __dirname,
   cacheExcept: 'yen'
 }))
-
 
 module.exports = app

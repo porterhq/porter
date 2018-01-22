@@ -2,14 +2,12 @@
 
 'use strict'
 
-var co = require('co')
-
-var oceanify = require('../../..')
-
+const co = require('co')
+const porter = require('../../..')
 
 co(function*() {
-  yield* oceanify.compileAll()
-  yield* oceanify.compileStyleSheets({ match: 'stylesheets/app.css' })
+  yield* porter.compileAll()
+  yield* porter.compileStyleSheets({ match: 'stylesheets/app.css' })
 })
   .then(function() {
     console.log('done')

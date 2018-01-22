@@ -1,10 +1,10 @@
 {
-  "name": "oceanify",
+  "name": "@cara/porter",
   "description": "A koa and express middleware for browser side javascript module authoring.",
-  "version": "5.1.0",
+  "version": "1.0.0",
   "repository": {
     "type": "git",
-    "url": "git@github.com:erzu/oceanify.git"
+    "url": "git@github.com:erzu/porter.git"
   },
   "dependencies": {
     "autoprefixer": "^7.1.2",
@@ -34,7 +34,7 @@
     "supertest": "^1.0.1"
   },
   "scripts": {
-    "test": "rm -rf examples/koa/public; cd examples/default; npm install; cd -; cd examples/express; npm install; cd -; DEBUG=oceanify mocha --timeout 15000 tests/{,command}/test.*.js",
+    "test": "rm -rf examples/koa/public; cd examples/default; npm install; cd -; cd examples/express; npm install; cd -; DEBUG=porter mocha --timeout 15000 tests/{,command}/test.*.js",
     "cover": "node ./node_modules/.bin/istanbul cover ./node_modules/.bin/_mocha tests/{,command}/test.*.js -- --timeout 15000"
   },
   "engines": {

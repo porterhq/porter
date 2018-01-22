@@ -1,14 +1,12 @@
 'use strict'
 
-var request = require('supertest')
+const request = require('supertest')
+const app = require('../examples/express/app')
 
-var app = require('../examples/express/app')
-
-
-describe('oceanify/express', function() {
+describe('opts.express', function() {
   it('should handle components', function(done) {
     request(app)
-      .get('/oceanify-express/0.0.1/show.js')
+      .get('/porter-app/0.0.1/show.js')
       .expect('Content-Type', /javascript/)
       .expect(200)
       .end(done)

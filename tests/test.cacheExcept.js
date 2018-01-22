@@ -16,7 +16,7 @@ function sleep(seconds) {
   })
 }
 
-describe('oceanify cacheExcept', function() {
+describe('opts.cacheExcept', function() {
   it('should skip compilation if within cache exceptions', function* () {
     const fpath = path.join(root, 'public/yen/1.2.4/index.js')
 

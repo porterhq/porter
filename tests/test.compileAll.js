@@ -12,7 +12,7 @@ const glob = require('../lib/glob')
 const root = path.join(__dirname, '../examples/default')
 
 
-describe('oceanify.compileAll', function() {
+describe('.compileAll', function() {
   beforeEach(function () {
     process.chdir(root)
     exec('rm -rf ' + path.join(root, 'public'))
@@ -28,13 +28,13 @@ describe('oceanify.compileAll', function() {
 
     const entries = yield glob('public/**/*.{js,map}', { cwd: root })
 
-    expect(entries).to.contain('public/oceanify-example/0.0.1/home.js')
-    expect(entries).to.contain('public/oceanify-example/0.0.1/home.js.map')
+    expect(entries).to.contain('public/porter-app/0.0.1/home.js')
+    expect(entries).to.contain('public/porter-app/0.0.1/home.js.map')
 
-    const fpath = path.join(root, 'public/oceanify-example/0.0.1/home.js')
+    const fpath = path.join(root, 'public/porter-app/0.0.1/home.js')
     const content = yield readFile(fpath, 'utf8')
-    expect(content).to.contain('define("oceanify-example/0.0.1/lib/index",')
-    expect(content).to.contain('oceanify.config(')
+    expect(content).to.contain('define("porter-app/0.0.1/lib/index",')
+    expect(content).to.contain('porter.config(')
 
     expect(entries).to.contain('public/yen/1.2.4/index.js')
     expect(entries).to.contain('public/yen/1.2.4/index.js.map')
@@ -53,8 +53,8 @@ describe('oceanify.compileAll', function() {
 
     const entries = yield glob('public/**/*.{js,map}', { cwd: root })
 
-    expect(entries).to.contain('public/oceanify-example/0.0.1/v2/home.js')
-    expect(entries).to.contain('public/oceanify-example/0.0.1/v2/home.js.map')
+    expect(entries).to.contain('public/porter-app/0.0.1/v2/home.js')
+    expect(entries).to.contain('public/porter-app/0.0.1/v2/home.js.map')
   })
 
   it('should compile spare components if spareMatch is set', function* () {
@@ -66,6 +66,6 @@ describe('oceanify.compileAll', function() {
     })
 
     const entries = yield glob('public/**/*.{js,map}', { cwd: root })
-    expect(entries).to.contain('public/oceanify-example/0.0.1/templates/base.js')
+    expect(entries).to.contain('public/porter-app/0.0.1/templates/base.js')
   })
 })

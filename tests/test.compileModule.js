@@ -10,7 +10,7 @@ const { compileModule } = require('..')
 const root = path.join(__dirname, '../examples/default')
 
 
-describe('oceanify.compileModule', function () {
+describe('.compileModule', function () {
   before(function () {
     exec('rm -rf ' + path.join(root, 'public'))
   })

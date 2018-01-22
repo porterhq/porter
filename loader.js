@@ -3,7 +3,7 @@
 (function(global) {
 
   // do not override
-  if (global.oceanify) return
+  if (global.porter) return
 
   var system = {
     preload: [],
@@ -417,7 +417,7 @@
     mod.status = MODULE_FETCHED
   }
 
-  global.oceanify = system
+  global.porter = system
 
   global.process = {
     env: {
@@ -425,3 +425,20 @@
     }
   }
 })(this)
+
+if (process.env.NODE_ENV != 'production' && 'serviceWorker' in navigator && (location.protocol == 'https:' || location.hostname == 'localhost')) {
+  navigator.serviceWorker.register('/porter-sw.js', { scope: '/' }).then(function(registration) {
+    if (registration.waiting || registration.active) {
+      var worker = registration.waiting || registration.active
+      var system = window.porter
+      worker.postMessage({
+        type: 'loaderConfig',
+        data: {
+          name: system.name,
+          version: system.version,
+          cacheExcept: system.cacheExcept
+        }
+      })
+    }
+  })
+}

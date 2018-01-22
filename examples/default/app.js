@@ -3,14 +3,12 @@
 const koa = require('koa')
 const serve = require('koa-static')
 const path = require('path')
-
-const oceanify = require('../..')
-
+const porter = require('../..')
 
 const app = koa()
 app.use(serve('views'))
 app.use(serve('public'))
-app.use(oceanify({
+app.use(porter({
   root: __dirname,
   dest: path.join(__dirname, 'public'),
   cachePersist: true,
@@ -21,7 +19,6 @@ app.use(oceanify({
     }
   }
 }))
-
 
 module.exports = app
 

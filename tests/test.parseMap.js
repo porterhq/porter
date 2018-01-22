@@ -7,7 +7,7 @@ const expect = require('expect.js')
 const parseMap = require('../lib/parseMap')
 const root = path.join(__dirname, '../examples/default')
 
-describe('oceanify.parseMap', function() {
+describe('.parseMap', function() {
   let map
 
   before(function* () {
@@ -19,15 +19,15 @@ describe('oceanify.parseMap', function() {
 
   it('parse into recursive dependencies map by traversing components', function () {
     expect(map).to.be.an(Object)
-    expect(map['oceanify-example'].dependencies.yen.version).to.equal('1.2.4')
+    expect(map['porter-app'].dependencies.yen.version).to.equal('1.2.4')
   })
 
   it('handles components alias', function() {
-    expect(map['oceanify-example'].alias['./lib']).to.equal('./lib/index')
+    expect(map['porter-app'].alias['./lib']).to.equal('./lib/index')
   })
 
   it('handles node_modules alias too', function() {
-    expect(map['oceanify-example'].dependencies.inferno.alias).to.eql({
+    expect(map['porter-app'].dependencies.inferno.alias).to.eql({
       './dist': './dist/index'
     })
   })

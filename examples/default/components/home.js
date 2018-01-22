@@ -5,7 +5,7 @@ const Chart = require('chart.js')
 const $ = require('jquery')
 require('cropper')
 const Prism = require('prismjs')
-const lib = require('./lib')
+const foo = require('./lib').foo
 
 function htmlSafe(code) {
   return code
@@ -20,15 +20,15 @@ function intro() {
   var snippets = {
     node: `
 const koa = require('koa')
-const oceanify = require('oceanify')
+const porter = require('@cara/porter')
 const app = koa()
 
-app.use(oceanify())
+app.use(porter())
 `,
     browser: `
 <link rel="stylesheet" href="/stylesheets/app.css">
 <script src="/loader.js"></script>
-<script>oceanify.import('home.js')</script>
+<script>porter.import('home.js')</script>
 `,
     component: `
 // Requiring modules installed at node_modules. The component itself will be transform by babel.
@@ -121,7 +121,7 @@ function demoMap() {
 }
 
 function main() {
-  console.log(lib.foo)
+  console.log(foo)
   intro()
   demoChart()
   demoCropper()

@@ -1,6 +1,6 @@
 {
-  "name": "oceanify-express",
-  "description": "An example express app using oceanify",
+  "name": "porter-app",
+  "description": "A web app built with express and porter",
   "version": "0.0.1",
   "dependencies": {
     "chart.js": "~1.0.2",
@@ -14,7 +14,7 @@
     "yen": "1.2.4"
   },
   "scripts": {
-    "start": "DEBUG=oceanify,$DEBUG node-dev --harmony app.js",
+    "start": "DEBUG=porter,$DEBUG node-dev --harmony app.js",
     "express": "node --harmony express.js",
     "precompile": "node --harmony bin/assets-precompile"
   },
