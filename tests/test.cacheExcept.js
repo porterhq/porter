@@ -1,6 +1,5 @@
 'use strict'
 
-require('co-mocha')
 const path = require('path')
 const request = require('supertest')
 const expect = require('expect.js')
@@ -17,11 +16,11 @@ function sleep(seconds) {
 }
 
 describe('opts.cacheExcept', function() {
-  it('should skip compilation if within cache exceptions', function* () {
+  it('should skip compilation if within cache exceptions', async function () {
     const fpath = path.join(root, 'public/yen/1.2.4/index.js')
 
-    try { yield unlink(fpath) } catch (e) {}
-    yield new Promise(function(resolve, reject) {
+    try { await unlink(fpath) } catch (e) {}
+    await new Promise(function(resolve, reject) {
       request(app.callback())
         .get('/yen/1.2.4/index.js')
         .expect(200)
@@ -31,7 +30,7 @@ describe('opts.cacheExcept', function() {
         })
     })
 
-    yield sleep(1)
-    expect(yield exists(fpath)).to.be(false)
+    await sleep(1)
+    expect(await exists(fpath)).to.be(false)
   })
 })

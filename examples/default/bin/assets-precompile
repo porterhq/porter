@@ -1,14 +1,13 @@
-#!/usr/bin/env node --harmony
+#!/usr/bin/env node
 
 'use strict'
 
-const co = require('co')
 const porter = require('../../..')
 
-co(function*() {
-  yield* porter.compileAll()
-  yield* porter.compileStyleSheets({ match: 'stylesheets/app.css' })
-})
+Promise.all([
+  porter.compileAll(),
+  porter.compileStyleSheets({ match: 'stylesheets/app.css' })
+])
   .then(function() {
     console.log('done')
   })

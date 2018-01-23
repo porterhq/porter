@@ -72,15 +72,12 @@ app.use(porter({ express: true }))
 When it's time to be production ready, simply run:
 
 ```js
-const co = require('co')
 const porter = require('@cara/porter')
 
-co(function* () {
-  yield [
-    porter.compileAll({ match: 'app.js' }),           // js components and modules
-    porter.compileStyleSheets({ match: 'app.css' })   // css files
-  ])
-})
+Promise.all[
+  porter.compileAll({ match: 'app.js' }),           // js components and modules
+  porter.compileStyleSheets({ match: 'app.css' })   // css files
+])
   .catch(function(err) {
     console.error(err.stack)
   })
@@ -199,16 +196,15 @@ Oceanfiy provides two static methods for assets precompilation:
 - `porter.compileAll()`
 - `porter.compileStyleSheets()`
 
-### `.compileAll*([options])`
+### `.compileAll([options])`
 
-`.compileAll([options])` is a generator function. You need to wrap the returned generator object with co to make it function properly.
+`.compileAll([options])` returns a Promise.
 
 ```js
-const co = require('co')
 const porter = require('@cara/porter')
 
 // Specify the entry modules
-co(porter.compileAll({ match: 'app.js' }))
+porter.compileAll({ match: 'app.js' })
   .then(function() {
     console.log('done')
   })
@@ -217,7 +213,7 @@ co(porter.compileAll({ match: 'app.js' }))
   })
 
 // You can omit the options since they're the defaults.
-co(porter.compileAll())
+porter.compileAll()
 ```
 
 Porter will compile all the components that matches `opts.match`, find their dependencies in `node_modules` directory and compile them too.
@@ -225,15 +221,14 @@ Porter will compile all the components that matches `opts.match`, find their dep
 You can try the one in [Porter Example](https://github.com/erzu/porter/tree/master/examples/default). Just execute
 `npm run precompile`.
 
-### `.compileStyleSheets*([options])`
+### `.compileStyleSheets([options])`
 
-`.compileStyleSheets([options])` is a generator function. You need to wrap the returned generator object to make it function properly.
+`.compileStyleSheets([options])` returns a Promise.
 
 ```js
-const co = require('co')
 const porter = require('@cara/porter')
 
-co(porter.compileStyleSheets({ match: 'app.css' }))
+porter.compileStyleSheets({ match: 'app.css' })
   .then(function() {
     console.log('done')
   })

@@ -1,6 +1,5 @@
 'use strict'
 
-require('co-mocha')
 const path = require('path')
 const exec = require('child_process').execSync
 const exists = require('fs').existsSync
@@ -16,8 +15,8 @@ describe('.compileStyleSheets', function() {
     exec('rm -rf ' + path.join(root, 'public'))
   })
 
-  it('compiles stylesheets', function* () {
-    yield* compileStyleSheets({
+  it('compiles stylesheets', async function () {
+    await compileStyleSheets({
       root,
       match: 'stylesheets/app.css'
     })

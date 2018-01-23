@@ -1,6 +1,5 @@
 'use strict'
 
-require('co-mocha')
 const path = require('path')
 const expect = require('expect.js')
 const heredoc = require('heredoc').strip
@@ -18,18 +17,18 @@ describe('.compileComponent', function () {
     exec('rm -rf ' + path.join(root, 'public'))
   })
 
-  it('should compile component', function* () {
-    yield compileComponent('lib/foo', { root, dest })
+  it('should compile component', async function () {
+    await compileComponent('lib/foo', { root, dest })
     const fpath = path.join(dest, 'porter-app/0.0.1/lib/foo.js')
     const content = readFile(fpath, 'utf8')
     expect(content).to.contain('define("porter-app/0.0.1/lib/foo",')
     expect(content).to.not.contain('porter.config(')
   })
 
-  it('should compile shadow component', function* () {
-    const dependenciesMap = yield* parseMap({ root })
+  it('should compile shadow component', async function () {
+    const dependenciesMap = await parseMap({ root })
 
-    yield* compileComponent('shadow/9527', {
+    await compileComponent('shadow/9527', {
       root, dest,
       dependencies: ['yen'],
       factory: heredoc(function() {/*
@@ -47,11 +46,11 @@ describe('.compileComponent', function () {
     expect(content).to.contain('yen/1.2.4/events')
   })
 
-  it('can includeLoader', function* () {
+  it('can includeLoader', async function () {
     const paths = ['components', 'browser_modules']
-    const dependenciesMap = yield* parseMap({ root, paths })
+    const dependenciesMap = await parseMap({ root, paths })
 
-    yield* compileComponent('v2/home', {
+    await compileComponent('v2/home', {
       root, paths, dest,
       dependenciesMap,
       includeLoader: true

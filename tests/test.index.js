@@ -1,6 +1,5 @@
 'use strict'
 
-require('co-mocha')
 const request = require('supertest')
 const expect = require('expect.js')
 const path = require('path')
@@ -32,25 +31,25 @@ function sleep(seconds) {
 
 
 describe('middleware', function() {
-  it('should start from main', function* () {
-    const res = yield requestPath('/porter-app/0.0.1/home.js?main')
+  it('should start from main', async function () {
+    const res = await requestPath('/porter-app/0.0.1/home.js?main')
     expect(res.text).to.contain('\ndefine("porter-app/0.0.1/home"')
     expect(res.text).to.contain('\nporter["import"]("porter-app/0.0.1/home")')
   })
 
-  it('should handle components', function *() {
-    yield requestPath('/porter-app/0.0.1/lib/foo.js')
-    yield requestPath('/lib/foo.js')
+  it('should handle components', async function () {
+    await requestPath('/porter-app/0.0.1/lib/foo.js')
+    await requestPath('/lib/foo.js')
   })
 
-  it('should handle dependencies', function* () {
-    yield requestPath('/yen/1.2.4/index.js')
+  it('should handle dependencies', async function () {
+    await requestPath('/yen/1.2.4/index.js')
   })
 
-  it('should handle recursive dependencies', function* () {
+  it('should handle recursive dependencies', async function () {
     let fpath = path.join(root, 'node_modules/jquery/package.json')
 
-    if (!(yield exists(fpath))) {
+    if (!(await exists(fpath))) {
       fpath = path.join(root, 'node_modules/cropper/node_modules/jquery/package.json')
     }
     const pkg = require(fpath)
@@ -60,26 +59,26 @@ describe('middleware', function() {
       (pkg.browser || pkg.main).replace(/^\.\//, '')
     ].join('/')
 
-    yield requestPath('/' + id)
+    await requestPath('/' + id)
   })
 
-  it('should handle stylesheets', function* () {
-    yield requestPath('/porter-app/0.0.1/stylesheets/app.css')
-    yield requestPath('/stylesheets/app.css')
+  it('should handle stylesheets', async function () {
+    await requestPath('/porter-app/0.0.1/stylesheets/app.css')
+    await requestPath('/stylesheets/app.css')
   })
 
-  it('should serve raw assets too', function* () {
-    yield requestPath('/raw/logo.jpg')
+  it('should serve raw assets too', async function () {
+    await requestPath('/raw/logo.jpg')
   })
 })
 
 
 describe('Cache', function() {
-  it('should cache generated style', function* () {
-    yield requestPath('/porter-app/0.0.1/stylesheets/app.css')
+  it('should cache generated style', async function () {
+    await requestPath('/porter-app/0.0.1/stylesheets/app.css')
 
     var dir = path.join(root, 'public/porter-app/0.0.1/stylesheets')
-    var entries = yield glob(path.join(dir, 'app-*.css'))
+    var entries = await glob(path.join(dir, 'app-*.css'))
 
     entries = entries.map(function(entry) {
       return path.relative(dir, entry).replace(/-[0-9a-f]{32}\.css$/, '.css')
@@ -89,20 +88,20 @@ describe('Cache', function() {
     expect(entries).to.contain('app.css')
   })
 
-  it('should invalidate generated style if source changed', function* () {
+  it('should invalidate generated style if source changed', async function () {
     var fpath = path.join(root, 'components/stylesheets/app.css')
-    var source = yield readFile(fpath, 'utf8')
+    var source = await readFile(fpath, 'utf8')
 
-    yield writeFile(fpath, source + heredoc(function() {/*
+    await writeFile(fpath, source + heredoc(function() {/*
       div {
         padding: 0;
       }
     */}))
 
-    yield requestPath('/porter-app/0.0.1/stylesheets/app.css')
+    await requestPath('/porter-app/0.0.1/stylesheets/app.css')
 
     var dir = path.join(root, 'public/porter-app/0.0.1/stylesheets')
-    var entries = yield glob(path.join(dir, 'app-*.css'))
+    var entries = await glob(path.join(dir, 'app-*.css'))
     entries = entries.map(function(entry) {
       return path.relative(dir, entry).replace(/-[0-9a-f]{32}\.css$/, '.css')
     })
@@ -111,32 +110,32 @@ describe('Cache', function() {
     expect(entries).to.contain('app.css')
 
     // reset source
-    yield writeFile(fpath, source)
+    await writeFile(fpath, source)
   })
 
-  it('should precompile dependencies', function* () {
-    yield requestPath('/yen/1.2.4/index.js')
-    yield sleep(2)
+  it('should precompile dependencies', async function () {
+    await requestPath('/yen/1.2.4/index.js')
+    await sleep(2)
 
     var fpath = path.join(root, 'public/yen/1.2.4/index.js')
-    expect(yield exists(fpath)).to.be(true)
+    expect(await exists(fpath)).to.be(true)
   })
 
-  it('should not precompile if not the main of module', function* () {
+  it('should not precompile if not the main of module', async function () {
     var fpath = path.join(root, 'public/yen/1.2.4/index.js')
-    var stats = yield lstat(fpath)
+    var stats = await lstat(fpath)
 
-    yield requestPath('/yen/1.2.4/events.js')
-    yield sleep(2)
-    expect((yield lstat(fpath)).mtime).to.eql(stats.mtime)
+    await requestPath('/yen/1.2.4/events.js')
+    await sleep(2)
+    expect((await lstat(fpath)).mtime).to.eql(stats.mtime)
   })
 
-  it('should not precompile if compiled already', function* () {
+  it('should not precompile if compiled already', async function () {
     var fpath = path.join(root, 'public/yen/1.2.4/index.js')
-    var stats = yield lstat(fpath)
+    var stats = await lstat(fpath)
 
-    yield requestPath('/yen/1.2.4/index.js')
-    yield sleep(2)
-    expect((yield lstat(fpath)).mtime).to.eql(stats.mtime)
+    await requestPath('/yen/1.2.4/index.js')
+    await sleep(2)
+    expect((await lstat(fpath)).mtime).to.eql(stats.mtime)
   })
 })

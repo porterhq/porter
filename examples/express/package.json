@@ -5,18 +5,18 @@
   "dependencies": {
     "chart.js": "~1.0.2",
     "crox": "1.3.1",
-    "express": "~4.13.1",
+    "express": "^4.13.1",
     "extend-object": "~1.0.0",
     "ez-editor": "0.2.6",
     "heredoc": "~1.3.1",
     "highlight.js": "~8.7.0",
-    "jquery": "~1.11.2",
+    "jquery": "^3.3.1",
     "yen": "1.2.4"
   },
   "scripts": {
-    "start": "DEBUG=porter,$DEBUG node-dev --harmony app.js",
-    "express": "node --harmony express.js",
-    "precompile": "node --harmony bin/assets-precompile"
+    "start": "DEBUG=porter,$DEBUG node-dev app.js",
+    "express": "node express.js",
+    "precompile": "node bin/assets-precompile"
   },
   "license": "MIT",
   "devDependencies": {

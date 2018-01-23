@@ -58,7 +58,7 @@ body { color: navy; }
 
 function demoChart() {
   // http://www.chartjs.org/docs/latest/
-  const ctx = document.getElementById('example-chart').getContext('2d');
+  const ctx = document.getElementById('example-chart').getContext('2d')
   new Chart(ctx, {
       type: 'bar',
       data: {

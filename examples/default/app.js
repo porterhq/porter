@@ -1,11 +1,11 @@
 'use strict'
 
-const koa = require('koa')
+const Koa = require('koa')
 const serve = require('koa-static')
 const path = require('path')
 const porter = require('../..')
 
-const app = koa()
+const app = new Koa()
 app.use(serve('views'))
 app.use(serve('public'))
 app.use(porter({

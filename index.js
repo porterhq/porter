@@ -5,7 +5,6 @@
  */
 
 const path = require('path')
-const co = require('co')
 const crypto = require('crypto')
 const mime = require('mime')
 const debug = require('debug')('porter')
@@ -115,8 +114,8 @@ function porter(opts = {}) {
     parseSystemPromise = Promise.resolve()
     pkg = system = loaderConfig
   } else {
-    parseSystemPromise = co(function* () {
-      dependenciesMap = yield* parseMap(opts)
+    parseSystemPromise = parseMap(opts).then(function(map) {
+      dependenciesMap = map
       system = parseSystem(dependenciesMap)
       Object.assign(loaderConfig, system)
     })
@@ -124,7 +123,7 @@ function porter(opts = {}) {
   // To be able to skip caching of certain dependencies in registry-cache.js too.
   loaderConfig.cacheExcept = cacheExceptions
 
-  co(cache.removeAll(opts.cachePersist ? [pkg.name, ...cacheExceptions] : null))
+  cache.removeAll(opts.cachePersist ? [pkg.name, ...cacheExceptions] : null)
     .then(function() {
       debug('Cache %s cleared', dest)
     }, function(err) {
@@ -146,7 +145,7 @@ function porter(opts = {}) {
     })
   }
 
-  function* formatMain(id, content) {
+  async function formatMain(id, content) {
     return `${loaderSource}
 porter.config(${JSON.stringify(loaderConfig)})
 ${content}
@@ -154,17 +153,17 @@ porter["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
 `
   }
 
-  function* readScript(id, isMain) {
+  async function readScript(id, isMain) {
     const mod = parseId(id, system)
 
     if (mod.name == pkg.name || !(mod.name in system.modules)) {
-      return yield* readComponent(id, isMain)
+      return await readComponent(id, isMain)
     } else {
-      return yield* readModule(id)
+      return await readModule(id)
     }
   }
 
-  function* readComponent(id, isMain) {
+  async function readComponent(id, isMain) {
     const mod = parseId(id, system)
 
     if (!(mod.name in system.modules)) {
@@ -173,12 +172,12 @@ porter["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
       mod.entry = id
     }
 
-    const [fpath] = yield* findComponent(mod.entry, paths)
+    const [fpath] = await findComponent(mod.entry, paths)
     if (!fpath) return
-    const stats = yield lstat(fpath)
-    const source = yield readFile(fpath, encoding)
-    const babelrcPath = yield findBabelrc(fpath, { root })
-    let content = babelrcPath ? (yield* cache.read(id, source)) : source
+    const stats = await lstat(fpath)
+    const source = await readFile(fpath, encoding)
+    const babelrcPath = await findBabelrc(fpath, { root })
+    let content = babelrcPath ? (await cache.read(id, source)) : source
 
     if (!content) {
       const result = transform(source, {
@@ -187,19 +186,19 @@ porter["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
         sourceFileName: path.relative(root, fpath),
         extends: babelrcPath
       })
-      yield [
+      await Promise.all([
         cache.write(id, source, result.code),
         cache.writeFile(`${id}.map`, JSON.stringify(result.map, function(k, v) {
           if (k != 'sourcesContent') return v
         }))
-      ]
+      ])
       content = result.code
     }
 
     const dependencies = matchRequire.findAll(content)
     content = define(id.replace(RE_EXT, ''), dependencies, content)
     content = isMain
-      ? yield* formatMain(id, content)
+      ? await formatMain(id, content)
       : `${content}
 //# sourceMappingURL=./${path.basename(id)}.map`
 
@@ -208,7 +207,7 @@ porter["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
     }]
   }
 
-  function* readModule(id, isMain) {
+  async function readModule(id, isMain) {
     const mod = parseId(id, system)
     const { dir } = findModule(mod, dependenciesMap)
     const fpath = path.join(dir, mod.entry)
@@ -216,10 +215,10 @@ porter["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
     if (!fpath) return
     if (mod.name in system.modules) mightCacheModule(mod)
 
-    const babelrcPath = yield findBabelrc(fpath, { root: dir })
-    let source = yield readFile(fpath, encoding)
+    const babelrcPath = await findBabelrc(fpath, { root: dir })
+    let source = await readFile(fpath, encoding)
     let content = transformModuleNames.includes(mod.name) && babelrcPath
-      ? (yield* cache.read(id, source))
+      ? (await cache.read(id, source))
       : source
 
     if (!content) {
@@ -229,15 +228,15 @@ porter["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
         sourceFileName: path.relative(root, fpath),
         extends: babelrcPath,
       })
-      yield [
+      await Promise.all([
         cache.write(id, source, result.code),
         cache.writeFile(`${id}.map`, JSON.stringify(result.map, function(k, v) {
           if (k != 'sourcesContent') return v
         }))
-      ]
+      ])
       content = result.code
     }
-    const stats = yield lstat(fpath)
+    const stats = await lstat(fpath)
     const dependencies = matchRequire.findAll(content)
     content = define(id.replace(RE_EXT, ''), dependencies, content)
 
@@ -249,7 +248,7 @@ porter["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
   let importer
   const prefixer = postcss().use(autoprefixer())
 
-  function* readStyle(id) {
+  async function readStyle(id) {
     if (!importer) importer = postcss().use(atImport({ paths, dependenciesMap, system }))
     const mod = parseId(id, system)
     if (!(mod.name in system.modules)) {
@@ -258,32 +257,32 @@ porter["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
       mod.entry = id
     }
     const destPath = path.join(dest, id)
-    const [fpath] = yield* findComponent(mod.entry, paths)
+    const [fpath] = await findComponent(mod.entry, paths)
 
     if (!fpath) return
 
-    const source = yield readFile(fpath, encoding)
+    const source = await readFile(fpath, encoding)
     const processOpts = {
       from: path.relative(root, fpath),
       to: path.relative(root, destPath),
       map: { inline: false }
     }
-    const result = yield importer.process(source, processOpts)
-    let content = yield* cache.read(id, result.css)
+    const result = await importer.process(source, processOpts)
+    let content = await cache.read(id, result.css)
 
     if (!content) {
       processOpts.map.prev = result.map
-      const resultWithPrefix = yield prefixer.process(result.css, processOpts)
+      const resultWithPrefix = await prefixer.process(result.css, processOpts)
 
-      yield [
+      await Promise.all([
         cache.write(id, result.css, resultWithPrefix.css),
         cache.writeFile(id + '.map', resultWithPrefix.map)
-      ]
+      ])
       content = resultWithPrefix.css
     }
 
     return [content, {
-      'Last-Modified': (yield lstat(fpath)).mtime.toJSON()
+      'Last-Modified': (await lstat(fpath)).mtime.toJSON()
     }]
   }
 
@@ -294,13 +293,13 @@ porter["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
     })
   }
 
-  function* readSource(id) {
+  async function readSource(id) {
     const fpath = path.join(root, id)
 
-    if (yield exists(fpath)) {
-      const [ content, stats ] = yield [
+    if (await exists(fpath)) {
+      const [ content, stats ] = await Promise.all([
         readFile(fpath, encoding), lstat(fpath)
-      ]
+      ])
 
       return [content, {
         'Last-Modified': stats.mtime.toJSON()
@@ -308,9 +307,9 @@ porter["import"](${JSON.stringify(id.replace(RE_EXT, ''))})
     }
   }
 
-  function* readAsset(id, isMain) {
+  async function readAsset(id, isMain) {
     // Both js and css requires dependenciesMap and system to be ready
-    yield parseSystemPromise
+    await parseSystemPromise
 
     const ext = path.extname(id)
     let result = null
@@ -334,19 +333,19 @@ porter.config(${JSON.stringify(loaderConfig)})
       }]
     }
     else if (serveSource && isSource(id)) {
-      result = yield* readSource(id)
+      result = await readSource(id)
     }
     else if (ext === '.js') {
-      result = yield* readScript(id, isMain)
+      result = await readScript(id, isMain)
     }
     else if (ext === '.css') {
-      result = yield* readStyle(id, isMain)
+      result = await readStyle(id, isMain)
     }
     else if (RE_ASSET_EXT.test(ext)) {
-      const [fpath] = yield* findComponent(id, paths)
+      const [fpath] = await findComponent(id, paths)
       if (fpath) {
-        const content = yield readFile(fpath)
-        const stats = yield lstat(fpath)
+        const content = await readFile(fpath)
+        const stats = await lstat(fpath)
 
         result = [content, {
           'Last-Modified': stats.mtime.toJSON()
@@ -372,7 +371,7 @@ porter.config(${JSON.stringify(loaderConfig)})
       const id = req.path.slice(1)
       const isMain = 'main' in req.query
 
-      co(readAsset(id, isMain)).then(function(result) {
+      readAsset(id, isMain).then(function(result) {
         if (result) {
           res.statusCode = 200
           res.set(result[1])
@@ -390,24 +389,24 @@ porter.config(${JSON.stringify(loaderConfig)})
     }
   }
   else {
-    return function* (next) {
-      if (this.headerSent) return yield next
+    return async function (ctx, next) {
+      if (ctx.headerSent) return await next
 
-      const id = this.path.slice(1)
-      const isMain = 'main' in this.query
-      const result = yield* readAsset(id, isMain)
+      const id = ctx.path.slice(1)
+      const isMain = 'main' in ctx.query
+      const result = await readAsset(id, isMain)
 
       if (result) {
-        this.status = 200
-        this.set(result[1])
-        if (this.fresh) {
-          this.status = 304
+        ctx.status = 200
+        ctx.set(result[1])
+        if (ctx.fresh) {
+          ctx.status = 304
         } else {
-          this.body = result[0]
+          ctx.body = result[0]
         }
       }
       else {
-        yield next
+        await next
       }
     }
   }

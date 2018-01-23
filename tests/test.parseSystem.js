@@ -1,17 +1,16 @@
 'use strict'
 
-require('co-mocha')
-var path = require('path')
-var expect = require('expect.js')
+const path = require('path')
+const expect = require('expect.js')
 
-var parseMap = require('../lib/parseMap')
-var parseSystem = require('../lib/parseSystem')
+const parseMap = require('../lib/parseMap')
+const parseSystem = require('../lib/parseSystem')
 
 const root = path.join(__dirname, '../examples/default')
 
 describe('.parseSystem', function() {
-  it('flatten the dependencies map', function* () {
-    const map = yield parseMap({ root })
+  it('flatten the dependencies map', async function () {
+    const map = await parseMap({ root })
     const pkg = require(path.join(root, 'package.json'))
     const system = parseSystem(map)
 

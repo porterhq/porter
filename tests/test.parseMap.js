@@ -1,6 +1,5 @@
 'use strict'
 
-require('co-mocha')
 const path = require('path')
 const expect = require('expect.js')
 
@@ -10,8 +9,8 @@ const root = path.join(__dirname, '../examples/default')
 describe('.parseMap', function() {
   let map
 
-  before(function* () {
-    map = yield parseMap({
+  before(async function () {
+    map = await parseMap({
       root,
       paths: ['components', 'browser_modules']
     })

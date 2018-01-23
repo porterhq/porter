@@ -9,7 +9,6 @@
   "dependencies": {
     "autoprefixer": "^7.1.2",
     "babel-core": "^6.26.0",
-    "co": "^4.6.0",
     "debug": "^1.0.4",
     "glob": "^7.0.5",
     "match-require": "^2.1.0",
@@ -26,19 +25,18 @@
     "uglify-js": "^2.8.9"
   },
   "devDependencies": {
-    "co-mocha": "^1.1.3",
     "expect.js": "^0.3.1",
     "heredoc": "^1.3.1",
     "istanbul": "^0.4.5",
-    "mocha": "^3.5.0",
-    "supertest": "^1.0.1"
+    "mocha": "^5.0.0",
+    "supertest": "^3.0.0"
   },
   "scripts": {
     "test": "rm -rf examples/koa/public; cd examples/default; npm install; cd -; cd examples/express; npm install; cd -; DEBUG=porter mocha --timeout 15000 tests/{,command}/test.*.js",
     "cover": "node ./node_modules/.bin/istanbul cover ./node_modules/.bin/_mocha tests/{,command}/test.*.js -- --timeout 15000"
   },
   "engines": {
-    "node": ">= 6.0.0"
+    "node": ">= 7.6.0"
   },
   "license": "BSD-3-Clause"
 }

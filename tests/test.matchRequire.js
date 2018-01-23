@@ -1,6 +1,5 @@
 'use strict'
 
-require('co-mocha')
 const expect = require('expect.js')
 const path = require('path')
 const { readFile } = require('mz/fs')
@@ -9,8 +8,8 @@ const matchRequire = require('../lib/matchRequire')
 const root = path.join(__dirname, '../examples/default')
 
 describe('matchRequire', function() {
-  it('match require call expression', function* () {
-    const code = yield readFile(path.join(root, 'components/home.js'), 'utf8')
+  it('match require call expression', async function () {
+    const code = await readFile(path.join(root, 'components/home.js'), 'utf8')
     const deps = matchRequire.findAll(code)
 
     expect(deps).to.contain('yen')

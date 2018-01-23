@@ -1,9 +1,9 @@
 'use strict'
 
-const koa = require('koa')
+const Koa = require('koa')
 const porter = require('../..')
 
-const app = koa()
+const app = new Koa()
 app.use(porter({ root: __dirname }))
 
 module.exports = app

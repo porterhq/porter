@@ -1,6 +1,5 @@
 'use strict'
 
-require('co-mocha')
 const _spawn = require('child_process').spawn
 const fs = require('fs')
 const path = require('path')
@@ -25,14 +24,14 @@ describe('bin/compileModule.js', function() {
   const root = path.join(__dirname, '../../examples/default')
   const cmd = path.resolve(__dirname, '../../bin/compileModule.js')
 
-  before(function* () {
-    yield spawn('rm', [
+  before(async function () {
+    await spawn('rm', [
       '-rf', path.join(root, 'public')
     ])
   })
 
-  it('compiles module', function* () {
-    yield spawn(process.argv[0], [
+  it('compiles module', async function () {
+    await spawn(process.argv[0], [
       cmd,
       '--id', 'yen/1.2.4/index',
       '--root', root,
