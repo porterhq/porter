@@ -1,0 +1,18 @@
+{
+  "name": "yen-reveal",
+  "description": "An example browser module managed by Porter",
+  "version": "0.0.1",
+  "private": true,
+  "dependencies": {
+    "yen": "1.2.4"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "expect.js": "^0.3.1",
+    "mocha": "^3.5.3",
+    "@cara/porter-cli": "^1.0.0"
+  },
+  "scripts": {
+    "start": "porter serve"
+  }
+}
