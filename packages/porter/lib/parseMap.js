@@ -45,10 +45,10 @@ async function closest(root, name) {
 async function findEntry(entry, context) {
   if (entry.endsWith('/')) {
     const [fpath] = await findComponent(`${entry}index.js`, [context])
-    return [fpath, {entry: `${entry}index.js`}]
+    return [fpath, {entry: `${entry}index`}]
   } else {
     const [fpath, aliased] = await findComponent(`${entry}.js`, [context])
-    return [fpath, aliased ? {[entry]: `${entry}/index.js`} : {}]
+    return [fpath, aliased ? {[entry]: `${entry}/index`} : {}]
   }
 }
 

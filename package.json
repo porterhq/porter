@@ -9,6 +9,6 @@
     "supertest": "^3.0.0"
   },
   "scripts": {
-    "test": "lerna run test"
+    "test": "lerna bootstrap && lerna link && lerna run test"
   }
 }
