@@ -35,8 +35,8 @@
     "supertest": "^3.0.0"
   },
   "scripts": {
-    "cover": "node ./node_modules/.bin/istanbul cover ./node_modules/.bin/_mocha tests/test.*.js -- --timeout 15000",
-    "test": "DEBUG=porter mocha --timeout 15000 tests/test.*.js"
+    "cover": "node ./node_modules/.bin/istanbul cover ./node_modules/.bin/_mocha tests/test.*.js -- --timeout 30000",
+    "test": "DEBUG=porter mocha --timeout 30000 tests/test.*.js"
   },
   "engines": {
     "node": ">= 7.6.0"

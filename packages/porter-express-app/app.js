@@ -7,7 +7,7 @@ const app = express()
 app.use(porter({
   root: __dirname,
   cacheExcept: '*',
-  express: true
+  type: 'Function'
 }))
 
 module.exports = app

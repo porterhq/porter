@@ -74,7 +74,7 @@ const { exists, lstat, readFile } = fs
  * @param {string|string[]} [opts.cacheExcept=[]]         Cache exceptions
  * @param {boolean}         [opts.cachePersist=false]     Don't clear cache every time
  * @param {string}          [opts.dest=public]            Cache destination
- * @param {boolean}         [opts.express=false]          Express middleware
+ * @param {string}          [opts.type='AsyncFunction']   Type of the middleware function
  * @param {Object}          [opts.loaderConfig={}]        Loader config
  * @param {boolean}         [opts.mangleExcept=[]]        Mangle exceptions
  * @param {string|string[]} [opts.paths=components]       Base directory name or path
@@ -365,53 +365,82 @@ porter.config(${JSON.stringify(loaderConfig)})
     return result
   }
 
-  if (opts.express) {
-    return function(req, res, next) {
-      if (parseSystemError) next(parseSystemError)
-      if (res.headerSent) return next()
+  function expressFn(req, res, next) {
+    if (parseSystemError) next(parseSystemError)
+    if (res.headerSent) return next()
 
-      const id = req.path.slice(1)
-      const isMain = 'main' in req.query
+    const id = req.path.slice(1)
+    const isMain = 'main' in req.query
 
-      readAsset(id, isMain).then(function(result) {
-        if (result) {
-          res.statusCode = 200
-          res.set(result[1])
-          if (req.fresh) {
-            res.statusCode = 304
-          } else {
-            res.write(result[0])
-          }
-          res.end()
-        }
-        else {
-          next()
-        }
-      }).catch(next)
-    }
-  }
-  else {
-    return async function (ctx, next) {
-      if (parseSystemError) throw parseSystemError
-      if (ctx.headerSent) return await next
-
-      const id = ctx.path.slice(1)
-      const isMain = 'main' in ctx.query
-      const result = await readAsset(id, isMain)
-
+    readAsset(id, isMain).then(function(result) {
       if (result) {
-        ctx.status = 200
-        ctx.set(result[1])
-        if (ctx.fresh) {
-          ctx.status = 304
+        res.statusCode = 200
+        res.set(result[1])
+        if (req.fresh) {
+          res.statusCode = 304
         } else {
-          ctx.body = result[0]
+          res.write(result[0])
         }
+        res.end()
       }
       else {
-        await next
+        next()
+      }
+    }).catch(next)
+  }
+
+  function* generatorFn(next) {
+    const ctx = this
+    if (parseSystemError) throw parseSystemError
+    if (ctx.headerSent) return yield next
+
+    const id = ctx.path.slice(1)
+    const isMain = 'main' in ctx.query
+    const result = yield readAsset(id, isMain)
+
+    if (result) {
+      ctx.status = 200
+      ctx.set(result[1])
+      if (ctx.fresh) {
+        ctx.status = 304
+      } else {
+        ctx.body = result[0]
       }
     }
+    else {
+      yield next
+    }
+  }
+
+  async function asyncFn(ctx, next) {
+    if (parseSystemError) throw parseSystemError
+    if (ctx.headerSent) return await next
+
+    const id = ctx.path.slice(1)
+    const isMain = 'main' in ctx.query
+    const result = await readAsset(id, isMain)
+
+    if (result) {
+      ctx.status = 200
+      ctx.set(result[1])
+      if (ctx.fresh) {
+        ctx.status = 304
+      } else {
+        ctx.body = result[0]
+      }
+    }
+    else {
+      await next
+    }
+  }
+
+  switch (opts.type) {
+  case 'Function':
+    return expressFn
+  case 'GeneratorFunction':
+    return generatorFn
+  default:
+    return asyncFn
   }
 }
 
