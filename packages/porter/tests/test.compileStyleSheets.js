@@ -8,7 +8,7 @@ const expect = require('expect.js')
 const compileStyleSheets = require('../lib/compileStyleSheets')
 
 const root = path.join(__dirname, '../../porter-app')
-
+const pkg = require(`${root}/package.json`)
 
 describe('.compileStyleSheets', function() {
   before(function () {
@@ -21,7 +21,7 @@ describe('.compileStyleSheets', function() {
       match: 'stylesheets/app.css'
     })
 
-    expect(exists(path.join(root, 'public/@cara/porter-app/0.0.1/stylesheets/app.css')))
+    expect(exists(path.join(root, `public/${pkg.name}/${pkg.version}/stylesheets/app.css`)))
       .to.be(true)
   })
 })

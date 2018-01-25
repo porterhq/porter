@@ -9,7 +9,7 @@ const { compileAll } = require('..')
 const glob = require('../lib/glob')
 
 const root = path.join(__dirname, '../../porter-app')
-
+const pkg = require(`${root}/package.json`)
 
 describe('.compileAll', function() {
   beforeEach(function () {
@@ -27,12 +27,12 @@ describe('.compileAll', function() {
 
     const entries = await glob('public/**/*.{js,map}', { cwd: root })
 
-    expect(entries).to.contain('public/@cara/porter-app/0.0.1/home.js')
-    expect(entries).to.contain('public/@cara/porter-app/0.0.1/home.js.map')
+    expect(entries).to.contain(`public/${pkg.name}/${pkg.version}/home.js`)
+    expect(entries).to.contain(`public/${pkg.name}/${pkg.version}/home.js.map`)
 
-    const fpath = path.join(root, 'public/@cara/porter-app/0.0.1/home.js')
+    const fpath = path.join(root, `public/${pkg.name}/${pkg.version}/home.js`)
     const content = await readFile(fpath, 'utf8')
-    expect(content).to.contain('define("@cara/porter-app/0.0.1/lib/index",')
+    expect(content).to.contain(`define("${pkg.name}/${pkg.version}/lib/index",`)
     expect(content).to.contain('porter.config(')
 
     expect(entries).to.contain('public/yen/1.2.4/index.js')
@@ -52,8 +52,8 @@ describe('.compileAll', function() {
 
     const entries = await glob('public/**/*.{js,map}', { cwd: root })
 
-    expect(entries).to.contain('public/@cara/porter-app/0.0.1/v2/home.js')
-    expect(entries).to.contain('public/@cara/porter-app/0.0.1/v2/home.js.map')
+    expect(entries).to.contain(`public/${pkg.name}/${pkg.version}/v2/home.js`)
+    expect(entries).to.contain(`public/${pkg.name}/${pkg.version}/v2/home.js.map`)
   })
 
   it('should compile spare components if spareMatch is set', async function () {
@@ -65,6 +65,6 @@ describe('.compileAll', function() {
     })
 
     const entries = await glob('public/**/*.{js,map}', { cwd: root })
-    expect(entries).to.contain('public/@cara/porter-app/0.0.1/templates/base.js')
+    expect(entries).to.contain(`public/${pkg.name}/${pkg.version}/templates/base.js`)
   })
 })

@@ -11,6 +11,7 @@ const { readFileSync: readFile } = require('mz/fs')
 
 describe('.compileComponent', function () {
   const root = path.join(__dirname, '../../porter-app')
+  const pkg = require(`${root}/package.json`)
   const dest = path.join(root, 'public')
 
   beforeEach(function () {
@@ -19,9 +20,9 @@ describe('.compileComponent', function () {
 
   it('should compile component', async function () {
     await compileComponent('lib/foo', { root, dest })
-    const fpath = path.join(dest, '@cara/porter-app/0.0.1/lib/foo.js')
+    const fpath = path.join(dest, `${pkg.name}/${pkg.version}/lib/foo.js`)
     const content = readFile(fpath, 'utf8')
-    expect(content).to.contain('define("@cara/porter-app/0.0.1/lib/foo",')
+    expect(content).to.contain(`define("${pkg.name}/${pkg.version}/lib/foo",`)
     expect(content).to.not.contain('porter.config(')
   })
 
@@ -40,7 +41,7 @@ describe('.compileComponent', function () {
       includeModules: true
     })
 
-    const content = readFile(path.join(dest, '@cara/porter-app/0.0.1/shadow/9527.js'), 'utf8')
+    const content = readFile(path.join(dest, `${pkg.name}/${pkg.version}/shadow/9527.js`), 'utf8')
     expect(content).to.contain('shadow/9527')
     expect(content).to.contain('yen/1.2.4/index')
     expect(content).to.contain('yen/1.2.4/events')
@@ -56,8 +57,8 @@ describe('.compileComponent', function () {
       includeLoader: true
     })
 
-    const content = readFile(path.join(dest, '@cara/porter-app/0.0.1/v2/home.js'), 'utf8')
-    expect(content).to.contain('define("@cara/porter-app/0.0.1/v2/home",')
+    const content = readFile(path.join(dest, `${pkg.name}/${pkg.version}/v2/home.js`), 'utf8')
+    expect(content).to.contain(`define("${pkg.name}/${pkg.version}/v2/home",`)
     expect(content).to.contain('porter.config(')
   })
 })

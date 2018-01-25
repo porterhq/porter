@@ -7,6 +7,7 @@ const heredoc = require('heredoc').strip
 
 const root = path.resolve(__dirname, '..')
 const app = require('../app')
+const pkg = require('../package.json')
 const glob = require('../lib/glob')
 
 const { readFile, writeFile, exists, lstat } = require('mz/fs')
@@ -32,13 +33,13 @@ function sleep(seconds) {
 
 describe('middleware', function() {
   it('should start from main', async function () {
-    const res = await requestPath('/@cara/porter-app/0.0.1/home.js?main')
-    expect(res.text).to.contain('\ndefine("@cara/porter-app/0.0.1/home"')
-    expect(res.text).to.contain('\nporter["import"]("@cara/porter-app/0.0.1/home")')
+    const res = await requestPath(`/${pkg.name}/${pkg.version}/home.js?main`)
+    expect(res.text).to.contain(`\ndefine("${pkg.name}/${pkg.version}/home"`)
+    expect(res.text).to.contain(`\nporter["import"]("${pkg.name}/${pkg.version}/home")`)
   })
 
   it('should handle components', async function () {
-    await requestPath('/@cara/porter-app/0.0.1/lib/foo.js')
+    await requestPath(`/${pkg.name}/${pkg.version}/lib/foo.js`)
     await requestPath('/lib/foo.js')
   })
 
@@ -63,7 +64,7 @@ describe('middleware', function() {
   })
 
   it('should handle stylesheets', async function () {
-    await requestPath('/@cara/porter-app/0.0.1/stylesheets/app.css')
+    await requestPath(`/${pkg.name}/${pkg.version}/stylesheets/app.css`)
     await requestPath('/stylesheets/app.css')
   })
 
@@ -75,9 +76,9 @@ describe('middleware', function() {
 
 describe('Cache', function() {
   it('should cache generated style', async function () {
-    await requestPath('/@cara/porter-app/0.0.1/stylesheets/app.css')
+    await requestPath(`/${pkg.name}/${pkg.version}/stylesheets/app.css`)
 
-    var dir = path.join(root, 'public/@cara/porter-app/0.0.1/stylesheets')
+    var dir = path.join(root, `public/${pkg.name}/${pkg.version}/stylesheets`)
     var entries = await glob(path.join(dir, 'app-*.css'))
 
     entries = entries.map(function(entry) {
@@ -98,9 +99,9 @@ describe('Cache', function() {
       }
     */}))
 
-    await requestPath('/@cara/porter-app/0.0.1/stylesheets/app.css')
+    await requestPath(`/${pkg.name}/${pkg.version}/stylesheets/app.css`)
 
-    var dir = path.join(root, 'public/@cara/porter-app/0.0.1/stylesheets')
+    var dir = path.join(root, `public/${pkg.name}/${pkg.version}/stylesheets`)
     var entries = await glob(path.join(dir, 'app-*.css'))
     entries = entries.map(function(entry) {
       return path.relative(dir, entry).replace(/-[0-9a-f]{32}\.css$/, '.css')
