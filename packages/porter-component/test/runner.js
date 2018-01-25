@@ -1,7 +1,7 @@
 'use strict'
 
 var $ = require('yen')
-require('yen-reveal')
+require('@cara/porter-component')
 var expect = require('expect.js')
 
 mocha.setup('bdd')

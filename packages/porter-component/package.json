@@ -1,6 +1,6 @@
 {
-  "name": "yen-reveal",
-  "description": "An example browser module managed by Porter",
+  "name": "@cara/porter-component",
+  "description": "A component managed by porter-cli",
   "version": "0.0.1",
   "private": true,
   "dependencies": {

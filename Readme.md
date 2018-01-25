@@ -48,12 +48,22 @@ And in stylesheets, you can `@import` dependencies too:
 To achieve this, just setup the middleware provided by porter. For Koa:
 
 ```js
+const Koa = require('koa')
+const porter = require('@cara/porter')
+const app = new Koa()
+
+// The paths of JS/CSS components
+app.use(porter({ paths: 'components' }))
+```
+
+For older versions of Koa that require generator functions:
+
+```js
 const koa = require('koa')
 const porter = require('@cara/porter')
 const app = koa()
 
-// The paths of JS/CSS components
-app.use(porter({ paths: 'components' }))
+app.use(porter({ type: 'GeneratorFunction' }))
 ```
 
 For Express:
@@ -64,7 +74,7 @@ const porter = require('@cara/porter')
 const app = express()
 
 // that's it
-app.use(porter({ express: true }))
+app.use(porter({ type: 'Function' }))
 ```
 
 When it's time to be production ready, simply run:

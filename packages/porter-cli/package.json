@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "repository": {
     "type": "git",
-    "url": "git@github.com:erzu/porter-cli.git"
+    "url": "git@github.com:erzu/porter.git"
   },
   "publishConfig": {
     "access": "public"
