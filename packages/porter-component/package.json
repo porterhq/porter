@@ -1,14 +1,14 @@
 {
   "name": "@cara/porter-component",
   "description": "A component managed by porter-cli",
-  "version": "1.0.0-alpha.1",
+  "version": "1.0.0-alpha.2",
   "private": true,
   "dependencies": {
     "yen": "1.2.4"
   },
   "license": "MIT",
   "devDependencies": {
-    "@cara/porter-cli": "^1.0.0-alpha.1",
+    "@cara/porter-cli": "^1.0.0-alpha.2",
     "expect.js": "^0.3.1",
     "mocha": "^3.5.3"
   },
