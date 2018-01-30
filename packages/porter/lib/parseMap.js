@@ -45,7 +45,7 @@ async function closest(root, name) {
 async function findEntry(entry, context) {
   if (entry.endsWith('/')) {
     const [fpath] = await findComponent(`${entry}index.js`, [context])
-    return [fpath, {entry: `${entry}index`}]
+    return [fpath, {[entry]: `${entry}index`}]
   } else {
     const [fpath, aliased] = await findComponent(`${entry}.js`, [context])
     return [fpath, aliased ? {[entry]: `${entry}/index`} : {}]
@@ -84,9 +84,9 @@ async function resolveModule(mod, opts) {
     const [fpath, entryAlias] = await findEntry(entry, context)
 
     if (!fpath) return console.error(`Skipped ${entry} at ${context}`)
+    Object.assign(alias, entryAlias)
     if (resolved[fpath]) return
 
-    Object.assign(alias, entryAlias)
     const content = await readFile(fpath, 'utf8')
     const deps = matchRequire.findAll(content)
     resolved[fpath] = true
