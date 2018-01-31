@@ -220,12 +220,14 @@
     registry[id] = this
   }
 
-  Module.prototype.depends = function(dep) {
+  Module.prototype.depends = function(dep, distance) {
     var mod = this
+    if (!distance) distance = 1
+    if (distance > 3) return false
     if (dep.parents.indexOf(mod) >= 0) return true
     for (var i = 0; i < dep.parents.length; i++) {
       if (dep.cycles.indexOf(dep.parents[i]) >= 0) continue
-      if (mod.depends(dep.parents[i])) return true
+      if (mod.depends(dep.parents[i], distance + 1)) return true
     }
     return false
   }
