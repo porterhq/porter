@@ -7,19 +7,9 @@
 const path = require('path')
 const crypto = require('crypto')
 const _spawn = require('child_process').spawn
-const debug = require('debug')('porter')
-const fs = require('mz/fs')
 const rimraf = require('rimraf')
-
-const findModule = require('./findModule')
+const { exists, readdir, readFile, unlink, writeFile } =  require('mz/fs')
 const mkdirp = require('./mkdirp')
-
-const readFile = fs.readFile
-const writeFile = fs.writeFile
-const exists = fs.exists
-const readdir = fs.readdir
-const unlink = fs.unlink
-
 
 function spawn(command, args, opts) {
   return new Promise(function(resolve, reject) {
@@ -55,36 +45,19 @@ const precompiling = []
  * @param {string}          opts.dest            Destination folder
  */
 async function compileModule(mod, opts) {
-  const { dependenciesMap, dest, root } = opts
-  let { dir: fpath } = findModule(mod, dependenciesMap)
-
-  while (fpath && !/node_modules$/.test(fpath)) {
-    fpath = path.dirname(fpath)
-  }
-
-  if (!(await exists(fpath))) {
-    console.error('Failed to find module %s', mod.name)
-    return
-  }
-
-  const modPath = path.join(fpath, mod.name)
-  const realPath = path.resolve(modPath, await fs.realpath(modPath))
-
-  if (!realPath.startsWith(root)) {
-    debug('skipped caching of external module [%s] %s', mod.name, realPath)
-    return
-  }
+  const { name, version, entry, dir } = mod
+  const { dest, mangle, root } = opts
 
   const args = [
     path.join(__dirname, '../bin/compileModule.js'),
-    '--id', path.join(mod.name, mod.version, mod.entry.replace(RE_EXT, '')),
+    '--id', path.join(name, version, entry.replace(RE_EXT, '')),
     '--dest', dest,
-    '--paths', fpath,
+    '--paths', dir,
     '--root', root,
     '--source-root', '/'
   ]
 
-  if (opts.mangle) {
+  if (mangle) {
     args.push('--mangle')
   }
 
@@ -92,7 +65,7 @@ async function compileModule(mod, opts) {
     stdio: 'inherit'
   })
 
-  const id = [mod.name, mod.version].join('/')
+  const id = [name, version].join('/')
   for (let i = precompiling.length - 1; i >= 0; i--) {
     if (precompiling[i] === id) precompiling.splice(i, 1)
   }
@@ -111,14 +84,13 @@ class Cache {
    * @param {string} opts.root     The root path
    */
   constructor(opts) {
-    const { dest, encoding, root } = opts
+    const { dest, root } = opts
 
     if (!dest) {
       throw new Error('Please specify the cache destination folder.')
     }
 
     this.dest = dest
-    this.encoding = encoding
     this.root = root
   }
 
@@ -128,7 +100,7 @@ class Cache {
     const fpath = path.join(this.dest, cacheName)
 
     if (await exists(fpath)) {
-      return await readFile(fpath, this.encoding)
+      return await readFile(fpath, 'utf8')
     }
   }
 
@@ -175,7 +147,7 @@ class Cache {
   }
 
   precompile(mod, opts) {
-    const { dependenciesMap, mangle, system } = opts
+    const { dependenciesMap, mangle } = opts
     const { dest, root } = this
 
     if (precompiling.indexOf(mod.name + '/' + mod.version) >= 0) {
@@ -183,15 +155,6 @@ class Cache {
     }
 
     precompiling.push(mod.name + '/' + mod.version)
-    const data = system.modules[mod.name][mod.version]
-    const main = data.main
-      ? data.main.replace(/^\.\//, '').replace(/\.js$/, '')
-      : 'index'
-
-    if (`${main}.js` != mod.entry && `${main}/index.js` != mod.entry) {
-      return
-    }
-
     precompileQueue = precompileQueue.then(function() {
       return compileModule(mod, {
         dependenciesMap,

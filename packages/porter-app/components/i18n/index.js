@@ -1,5 +1,5 @@
 'use strict'
 
 module.exports = {
-  data: {}
+  zh: require('./zh')
 }

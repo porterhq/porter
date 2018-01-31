@@ -2,22 +2,19 @@
 
 'use strict'
 
+const debug = require('debug')('porter')
 const minimist = require('minimist')
-const compileAll = require('../lib/compileAll')
+const Porter = require('..')
 
 const argv = minimist(process.argv.slice(2))
+const { root, paths, dest } = argv
+const porter = new Porter({ root, paths, dest })
 
-console.log('Compiling %s from %s into %s', argv.id, argv.paths, argv.dest)
-compileAll.compileModule(argv.id, {
-  dest: argv.dest,
+debug('Compiling %s from %s into %s', argv.id, argv.paths, argv.dest)
+porter.compileModule(argv.id, {
   mangle: argv.mangle,
-  paths: argv.paths,
-  root: argv.root,
   sourceRoot: argv['source-root'] || '/'
 })
-  .then(function() {
-    process.exit()
-  })
   .catch(function(err) {
     console.error(err.stack)
   })

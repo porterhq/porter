@@ -3,13 +3,12 @@
 const Koa = require('koa')
 const serve = require('koa-static')
 const path = require('path')
-const porter = require('@cara/porter')
+const Porter = require('@cara/porter')
 
 const app = new Koa()
-app.use(serve('views'))
-app.use(serve('public'))
-app.use(porter({
+const porter = new Porter({
   root: __dirname,
+  paths: ['components', 'browser_modules'],
   dest: path.join(__dirname, 'public'),
   cachePersist: true,
   serveSource: true,
@@ -18,7 +17,10 @@ app.use(porter({
       'templates': '/templates'
     }
   }
-}))
+})
+app.use(serve('views'))
+app.use(serve('public'))
+app.use(porter.async())
 
 module.exports = app
 

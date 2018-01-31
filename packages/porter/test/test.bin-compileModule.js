@@ -22,9 +22,7 @@ const cmd = path.join(__dirname, '../bin/compileModule.js')
 
 describe('bin/compileModule.js', function() {
   before(async function () {
-    await spawn('rm', [
-      '-rf', path.join(root, 'public')
-    ])
+    await spawn('rm', ['-rf', path.join(root, 'public')])
   })
 
   it('compiles module', async function () {

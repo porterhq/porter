@@ -49,21 +49,20 @@ To achieve this, just setup the middleware provided by porter. For Koa:
 
 ```js
 const Koa = require('koa')
-const porter = require('@cara/porter')
+const Porter = require('@cara/porter')
 const app = new Koa()
 
-// The paths of JS/CSS components
-app.use(porter({ paths: 'components' }))
+app.use(new Porter().async())
 ```
 
 For older versions of Koa that require generator functions:
 
 ```js
 const koa = require('koa')
-const porter = require('@cara/porter')
+const Porter = require('@cara/porter')
 const app = koa()
 
-app.use(porter({ type: 'GeneratorFunction' }))
+app.use(new Porter().gen())
 ```
 
 For Express:
@@ -74,13 +73,14 @@ const porter = require('@cara/porter')
 const app = express()
 
 // that's it
-app.use(porter({ type: 'Function' }))
+app.use(new Porter().func())
 ```
 
 When it's time to be production ready, simply run:
 
 ```js
-const porter = require('@cara/porter')
+const Porter = require('@cara/porter')
+const porter = new Porter()
 
 Promise.all[
   porter.compileAll({ match: 'app.js' }),           // js components and modules

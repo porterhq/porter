@@ -5,7 +5,6 @@ const Chart = require('chart.js')
 const $ = require('jquery')
 require('cropper')
 const Prism = require('prismjs')
-const foo = require('./lib').foo
 
 // #34
 require('react-datepicker')
@@ -23,10 +22,10 @@ function intro() {
   var snippets = {
     node: `
 const koa = require('koa')
-const porter = require('@cara/porter')
+const Porter = require('@cara/porter')
 const app = koa()
 
-app.use(porter())
+app.use(new Porter().async())
 `,
     browser: `
 <link rel="stylesheet" href="/stylesheets/app.css">
@@ -119,12 +118,11 @@ function demoRequireAsync() {
 
 function demoMap() {
   // test map
-  const t = require('templates/1')
-  console.log(t)
+  const i18n = require('i18n')
+  console.log(i18n.zh.hello())
 }
 
 function main() {
-  console.log(foo)
   intro()
   demoChart()
   demoCropper()

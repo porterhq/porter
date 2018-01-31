@@ -4,13 +4,20 @@
 /* globals fetch: false */
 const CACHE = 'porter'
 const cacheExcept = []
+let cacheDisabled = false
 
 self.addEventListener('message', function(e) {
   const message = e.data
   if (message.type == 'loaderConfig') {
-    const names = [message.data.name, ...message.data.cacheExcept]
-    for (const name of names) {
-      if (!cacheExcept.includes(name)) cacheExcept.push(name)
+    if (Array.isArray(message.data.cacheExcept)) {
+      if (message.data.cacheExcept[0] == '*') {
+        cacheDisabled = true
+      } else {
+        const names = [message.data.name].concat(message.data.cacheExcept)
+        for (const name of names) {
+          if (!cacheExcept.includes(name)) cacheExcept.push(name)
+        }
+      }
     }
     self.skipWaiting()
   }
@@ -33,9 +40,10 @@ self.addEventListener('fetch', function(e) {
 })
 
 function shouldCache(request) {
+  if (cacheDisabled) return false
   const path = request.url.split('/').slice(3).join('/')
   if (!/\.(css|js)$/.test(path)) return false
-  const m = path.match(/^((?:@[-\w]+\/)?[-\.\w]+)\/\d+\./)
+  const m = path.match(/^((?:@[-\w]+\/)?[-\.\w]+)\/\d+\.\d+\.\d+[^\/]+/)
   if (!m) return false
   return !cacheExcept.includes(m[1])
 }
@@ -45,7 +53,7 @@ async function cacheOrFetch(e) {
   const cache = await caches.open(CACHE)
   let response = await cache.match(request)
 
-  if (response) {
+  if (response && response.status == 200) {
     // e.waitUntil(cache.add(request))
   } else {
     response = await fetch(request)

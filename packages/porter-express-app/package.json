@@ -20,7 +20,7 @@
   },
   "scripts": {
     "start": "DEBUG=porter,$DEBUG node app.js",
-    "test": "DEBUG=porter,$DEBUG mocha tests/test.*.js"
+    "test": "DEBUG=porter,$DEBUG mocha"
   },
   "license": "MIT"
 }

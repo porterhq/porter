@@ -14,8 +14,10 @@
     "koa-static": "^4.0.2",
     "prismjs": "^1.7.0",
     "react": "^16.2.0",
+    "react-color": "^2.13.8",
     "react-datepicker": "^1.0.4",
     "react-dom": "^16.2.0",
+    "react-stack-grid": "^0.7.1",
     "yen": "1.2.4"
   },
   "scripts": {
@@ -29,6 +31,7 @@
     "babel-preset-env": "^1.6.0",
     "expect.js": "^0.3.1",
     "glob": "^7.1.2",
+    "mocha": "^5.0.0",
     "supertest": "^3.0.0"
   }
 }

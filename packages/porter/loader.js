@@ -189,7 +189,6 @@
 
 
   function importFactory(context) {
-    context = context || ''
     var entryId = 'import-' + (+new Date()).toString(36)
 
     return function(ids, fn) {
@@ -346,51 +345,55 @@
     if (exports) mod.exports = exports
   }
 
-
+  /**
+   * @param {string} id
+   * @param {string} context
+   * @example
+   * Module.resolve('./lib/foo', 'app/1.0.0/home')
+   * Module.resolve('lib/foo', 'app/1.0.0/home')
+   * Module.resolve('react', 'app/1.0.0)
+   */
   Module.resolve = function(id, context) {
-    if (!system.modules || !context || RE_URI.test(id)) return id
+    if (!system.modules || RE_URI.test(id)) return id
+    if (id.charAt(0) === '.') id = resolve(dirname(context), id)
 
-    var map = system.modules
+    var modules = system.modules
     var parent = parseId(context)
-    var opts = parent.name in map
-      ? map[parent.name][parent.version]
-      : map[system.name][system.version]
+    var parentMap = modules[parent.name][parent.version]
+    var systemMap = modules[system.name][system.version]
 
-    if (opts.alias && (id in opts.alias)) {
-      id = opts.alias[id]
-    }
-
-    if (id.charAt(0) === '.') return resolve(dirname(context), id)
-
-    var deps = opts.dependencies
     var mod = parseId(id)
+    if (!(mod.name in modules)) {
+      mod = { name: system.name, version: system.version, entry: id }
+    }
     var name = mod.name
+    var version = mod.version
+    var map
 
-    if (mod.version) return id
-    if (name == system.name) {
-      return resolve(name, system.version, mod.entry || system.main)
+    if (version) {
+      map = modules[name][version]
+    }
+    else if (parentMap && parentMap.dependencies && (name in parentMap.dependencies)) {
+      if (!version) version = parentMap.dependencies[name]
+      map = modules[name][version]
+    }
+    else if (name in systemMap.dependencies) {
+      if (!version) version = systemMap.dependencies[name]
+      map = modules[name][version]
+    }
+    else {
+      version = system.version
+      map = systemMap
     }
 
-    // if module doesn't present in current dependencies, try system dependencies
-    if (!(name in deps)) deps = map[system.name][system.version].dependencies
-    if (name in deps) {
-      var version = deps[name]
-      var pkg = map[name][version]
-      var entry = mod.entry || pkg.main || 'index'
-      if (pkg.alias && entry in pkg.alias) entry = pkg.alias[entry]
-      return resolve(name, version, entry.replace(/\.js$/, ''))
-    }
-
-    // must be system component if none of previous conditions met.
-    return resolve(system.name, system.version, id)
+    var entry = mod.entry || map.main || 'index'
+    if (map.alias && entry in map.alias) entry = map.alias[entry]
+    return resolve(name, version, entry.replace(/\.js$/, ''))
   }
-
-
-  var globalImport = importFactory()
 
   Object.assign(system, {
     'import': function(ids, fn) {
-      globalImport([].concat(system.preload, ids), fn)
+      importFactory([system.name, system.version].join('/'))([].concat(system.preload, ids), fn)
     },
 
     config: function(opts) {
