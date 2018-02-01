@@ -6,6 +6,7 @@ const debug = require('debug')('porter')
 const minimist = require('minimist')
 const Porter = require('..')
 
+// argv.paths should be a path ends with `node_modules`.
 const argv = minimist(process.argv.slice(2))
 const { root, paths, dest } = argv
 const porter = new Porter({ root, paths, dest })

@@ -24,19 +24,18 @@ describe('.compileAll()', function() {
     system = porter.system
   })
 
-  it('should compile all components', async function () {
+  it('should compile components with internal dependencies bundled', async function () {
     const fpath = path.join(root, `public/${system.name}/${system.version}/home.js`)
     const content = await readFile(fpath, 'utf8')
     expect(content).to.contain(`define("${system.name}/${system.version}/i18n/index",`)
     expect(content).to.contain('porter.config(')
   })
 
-  it('should compile all dependencies separately by default', async function () {
-    expect(entries).to.contain('public/yen/1.2.4/index.js')
-    expect(entries).to.contain('public/yen/1.2.4/index.js.map')
-
-    expect(entries).to.contain('public/chart.js/2.7.0/src/chart.js')
-    expect(entries).to.contain('public/chart.js/2.7.0/src/chart.js.map')
+  it('should compile external dependencies separately', async function () {
+    const name = 'chart.js'
+    const { version, main } = porter.findMap({ name })
+    expect(entries).to.contain(`public/${name}/${version}/${main}.js`)
+    expect(entries).to.contain(`public/${name}/${version}/${main}.js.map`)
   })
 
   it('should compile components in all paths', async function () {
@@ -46,6 +45,30 @@ describe('.compileAll()', function() {
 
   it('should compile spare components if `spareMatch` is set', async function () {
     expect(entries).to.contain(`public/${system.name}/${system.version}/i18n/index.js`)
+  })
+
+  it('should generate source map of main components', async function() {
+    const fpath = path.join(root, `public/${system.name}/${system.version}/home.js.map`)
+    const map = JSON.parse(await readFile(fpath, 'utf8'))
+    expect(map.sources).to.contain('components/home.js')
+    expect(map.sources).to.contain('components/i18n/index.js')
+    expect(map.sources).to.contain('components/i18n/zh.js')
+  })
+
+  it('should generate source map of components from other paths', async function() {
+    const fpath = path.join(root, `public/${system.name}/${system.version}/runner.js.map`)
+    const map = JSON.parse(await readFile(fpath, 'utf8'))
+    expect(map.sources).to.contain('browser_modules/runner.js')
+    expect(map.sources).to.contain('browser_modules/cyclic-modules/suite.js')
+    expect(map.sources).to.contain('browser_modules/require-directory/convert/index.js')
+  })
+
+  it('should generate source map of external dependencies as well', async function() {
+    const name = 'react'
+    const { version, main } = porter.findMap({ name })
+    const fpath = path.join(root, 'public', `${name}/${version}/${main}.js.map`)
+    const map = JSON.parse(await readFile(fpath, 'utf8'))
+    expect(map.sources).to.contain('node_modules/react/index.js')
   })
 })
 

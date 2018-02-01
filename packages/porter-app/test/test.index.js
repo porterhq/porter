@@ -10,13 +10,13 @@ const app = require('../app')
 const pkg = require('../package.json')
 const glob = require('../lib/glob')
 
-const { readFile, writeFile, exists, lstat } = require('mz/fs')
+const { readFile, writeFile, exists, lstat, unlink } = require('mz/fs')
 
-function requestPath(apath) {
+function requestPath(urlPath, status = 200, mockApp = app.callback()) {
   return new Promise(function(resolve, reject) {
-    request(app.callback())
-      .get(apath)
-      .expect(200)
+    request(mockApp)
+      .get(urlPath)
+      .expect(status)
       .end(function(err, res) {
         if (err) reject(err)
         else resolve(res)
@@ -25,13 +25,16 @@ function requestPath(apath) {
 }
 
 function sleep(seconds) {
-  return new Promise(function(resolve) {
-    setTimeout(resolve, seconds * 1000)
-  })
+  return new Promise(resolve => setTimeout(resolve, seconds * 1000))
 }
 
+describe('.async()', function() {
+  const { porter } = app
 
-describe('middleware', function() {
+  before(async function() {
+    await porter.parsePromise
+  })
+
   it('should start from main', async function () {
     const res = await requestPath(`/${pkg.name}/${pkg.version}/home.js?main`)
     expect(res.text).to.contain(`\ndefine("${pkg.name}/${pkg.version}/home"`)
@@ -39,28 +42,23 @@ describe('middleware', function() {
   })
 
   it('should handle components', async function () {
-    await requestPath(`/${pkg.name}/${pkg.version}/lib/foo.js`)
-    await requestPath('/lib/foo.js')
+    await requestPath(`/${pkg.name}/${pkg.version}/i18n/index.js`)
+    // #36
+    await requestPath(`/${pkg.name}/i18n/zh.js`, 404)
+    await requestPath('/i18n/zh.js')
   })
 
   it('should handle dependencies', async function () {
-    await requestPath('/yen/1.2.4/index.js')
+    const name = 'yen'
+    const { version, main } = porter.findMap({ name })
+    await requestPath(`/${name}/${version}/${main}.js`)
   })
 
   it('should handle recursive dependencies', async function () {
-    let fpath = path.join(root, 'node_modules/jquery/package.json')
-
-    if (!(await exists(fpath))) {
-      fpath = path.join(root, 'node_modules/cropper/node_modules/jquery/package.json')
-    }
-    const pkg = require(fpath)
-    const id = [
-      pkg.name,
-      pkg.version,
-      (pkg.browser || pkg.main).replace(/^\.\//, '')
-    ].join('/')
-
-    await requestPath('/' + id)
+    // object-assign isn't in system's dependencies
+    const name = 'object-assign'
+    const { version, main } = porter.findMap({ name })
+    await requestPath(`/${name}/${version}/${main}.js`)
   })
 
   it('should handle stylesheets', async function () {
@@ -73,16 +71,19 @@ describe('middleware', function() {
   })
 })
 
+describe('.func()', function() {
+  it('should work with express app', async function() {
+    await requestPath(`/${pkg.name}/${pkg.version}/home.js`, 200, require('../app.func'))
+  })
+})
 
 describe('Cache', function() {
   it('should cache generated style', async function () {
     await requestPath(`/${pkg.name}/${pkg.version}/stylesheets/app.css`)
 
-    var dir = path.join(root, `public/${pkg.name}/${pkg.version}/stylesheets`)
-    var entries = await glob(path.join(dir, 'app-*.css'))
-
-    entries = entries.map(function(entry) {
-      return path.relative(dir, entry).replace(/-[0-9a-f]{32}\.css$/, '.css')
+    const dir = path.join(root, `public/${pkg.name}/${pkg.version}/stylesheets`)
+    const entries = (await glob('app-*.css', { cwd: dir })).map(entry => {
+      return entry.replace(/-[0-9a-f]{32}\.css$/, '.css')
     })
 
     expect(entries.length).to.equal(1)
@@ -90,8 +91,8 @@ describe('Cache', function() {
   })
 
   it('should invalidate generated style if source changed', async function () {
-    var fpath = path.join(root, 'components/stylesheets/app.css')
-    var source = await readFile(fpath, 'utf8')
+    const fpath = path.join(root, 'components/stylesheets/app.css')
+    const source = await readFile(fpath, 'utf8')
 
     await writeFile(fpath, source + heredoc(function() {/*
       div {
@@ -101,10 +102,9 @@ describe('Cache', function() {
 
     await requestPath(`/${pkg.name}/${pkg.version}/stylesheets/app.css`)
 
-    var dir = path.join(root, `public/${pkg.name}/${pkg.version}/stylesheets`)
-    var entries = await glob(path.join(dir, 'app-*.css'))
-    entries = entries.map(function(entry) {
-      return path.relative(dir, entry).replace(/-[0-9a-f]{32}\.css$/, '.css')
+    const dir = path.join(root, `public/${pkg.name}/${pkg.version}/stylesheets`)
+    const entries = (await glob('app-*.css', { cwd: dir })).map(entry => {
+      return entry.replace(/-[0-9a-f]{32}\.css$/, '.css')
     })
 
     expect(entries.length).to.equal(1)
@@ -113,18 +113,20 @@ describe('Cache', function() {
     // reset source
     await writeFile(fpath, source)
   })
+})
 
+describe('.cacheModule()', function() {
   it('should precompile dependencies', async function () {
     await requestPath('/yen/1.2.4/index.js')
     await sleep(2)
 
-    var fpath = path.join(root, 'public/yen/1.2.4/index.js')
-    expect(await exists(fpath)).to.be(true)
+    const fpath = path.join(root, 'public/yen/1.2.4/index.js')
+    expect(await exists(fpath)).to.be.ok()
   })
 
   it('should not precompile if not the main of module', async function () {
-    var fpath = path.join(root, 'public/yen/1.2.4/index.js')
-    var stats = await lstat(fpath)
+    const fpath = path.join(root, 'public/yen/1.2.4/index.js')
+    const stats = await lstat(fpath)
 
     await requestPath('/yen/1.2.4/events.js')
     await sleep(2)
@@ -132,11 +134,43 @@ describe('Cache', function() {
   })
 
   it('should not precompile if compiled already', async function () {
-    var fpath = path.join(root, 'public/yen/1.2.4/index.js')
-    var stats = await lstat(fpath)
+    const fpath = path.join(root, 'public/yen/1.2.4/index.js')
+    const stats = await lstat(fpath)
 
     await requestPath('/yen/1.2.4/index.js')
     await sleep(2)
     expect((await lstat(fpath)).mtime).to.eql(stats.mtime)
+  })
+})
+
+describe('{ cacheExcept }', function() {
+  const fpath = path.join(root, 'public/yen/1.2.4/index.js')
+
+  before(async function() {
+    try { await unlink(fpath) } catch (err) {}
+  })
+
+  it('should skip compilation if within cache exceptions', async function () {
+    await requestPath('/yen/1.2.4/index.js', 200, require('../app.cacheExcept').callback())
+    await sleep(1)
+    expect(await exists(fpath)).to.be(false)
+  })
+})
+
+describe('{ serveSource }', function() {
+  it('should serve the source of loader.js', async function () {
+    await requestPath('/loader.js')
+  })
+
+  it('should serve components source', async function () {
+    await requestPath('/components/home.js')
+  })
+
+  it('should serve dependencies source', async function () {
+    await requestPath('/node_modules/yen/index.js')
+  })
+
+  it('should not serve source by default', async function () {
+    await requestPath('/components/home.js', 404, require('../app.serveSource').callback())
   })
 })

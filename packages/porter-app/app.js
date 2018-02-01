@@ -10,11 +10,10 @@ const porter = new Porter({
   root: __dirname,
   paths: ['components', 'browser_modules'],
   dest: path.join(__dirname, 'public'),
-  cachePersist: true,
   serveSource: true,
   loaderConfig: {
     map: {
-      'templates': '/templates'
+      'i18n': '/i18n'
     }
   }
 })
@@ -22,6 +21,7 @@ app.use(serve('views'))
 app.use(serve('public'))
 app.use(porter.async())
 
+app.porter = porter
 module.exports = app
 
 if (!module.parent) {

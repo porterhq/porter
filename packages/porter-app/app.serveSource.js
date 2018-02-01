@@ -1,9 +1,9 @@
 'use strict'
 
 const Koa = require('koa')
-const porter = require('@cara/porter')
+const Porter = require('@cara/porter')
 
 const app = new Koa()
-app.use(porter({ root: __dirname }))
+app.use(new Porter({ root: __dirname }).async())
 
 module.exports = app

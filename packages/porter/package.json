@@ -23,7 +23,6 @@
     "mz": "^2.6.0",
     "postcss": "^6.0.9",
     "postcss-import": "^10.0.0",
-    "rimraf": "^2.6.2",
     "semver": "^4.3.6",
     "source-map": "^0.6.1",
     "uglify-js": "^2.8.9"
@@ -36,8 +35,8 @@
     "supertest": "^3.0.0"
   },
   "scripts": {
-    "cover": "node ./node_modules/.bin/istanbul cover ./node_modules/.bin/_mocha tests/test.*.js -- --timeout 30000",
-    "test": "DEBUG=porter mocha --timeout 30000 tests/test.*.js"
+    "cover": "npx istanbul cover ./node_modules/.bin/_mocha -- --timeout 30000",
+    "test": "DEBUG=porter mocha --timeout 30000"
   },
   "engines": {
     "node": ">= 7.6.0"

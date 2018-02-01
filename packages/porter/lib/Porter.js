@@ -12,6 +12,7 @@ const minimatch = require('minimatch')
 const UglifyJS = require('uglify-js')
 const { exists, lstat, readFile, realpath, writeFile } = require('mz/fs')
 const { SourceMapConsumer, SourceMapGenerator } = require('source-map')
+const { spawn: _spawn } = require('child_process')
 
 const Cache = require('./Cache')
 const deheredoc = require('./deheredoc')
@@ -24,6 +25,17 @@ const rModuleId = /^((?:@[^\/]+\/)?[^\/]+)(?:\/(\d+\.\d+\.\d+[^\/]*))?(?:\/(.*))
 const rURI = /^(?:https?:)?\/\//
 
 const inProduction = process.env.NODE_ENV === 'production'
+
+function spawn(command, args, opts) {
+  return new Promise(function(resolve, reject) {
+    const proc = _spawn(command, args, opts)
+
+    proc.on('exit', function(code) {
+      if (code === 0) resolve()
+      else reject(new Error(code))
+    })
+  })
+}
 
 async function findAsset(id, dirs, extensions = ['']) {
   if (id.endsWith('/')) extensions = [`index${extensions[0]}`]
@@ -191,7 +203,9 @@ async function compileScript(id, { dest, js, map }) {
  * @return {Object} - { js, map }
  */
 function minifyScript(id, ast, opts) {
-  const { mangle, sourceMaps, sourceRoot } = { mangle: true, sourceRoot: '/', ...opts }
+  const { mangle, sourceMaps } = { mangle: true, ...opts }
+  // Make sure source root is set. If not, the `sources` in generated source map might be obfuscated because `SourceMapGenerator` tries to get relative source paths from source root constantly.
+  const sourceRoot = opts.sourceRoot || '/'
   /* eslint-disable camelcase */
   const compressor = new UglifyJS.Compressor({
     screw_ie8: false,
@@ -248,7 +262,7 @@ function minifyScript(id, ast, opts) {
 /**
  * Bundle a component or module, with its relative dependencies included by default. And if passed opts.tree, include all the dependencies. When bundling all the dependencies, `bundleScript` gets called recursively. The call stack might be something like:
  *
- *     bundleScript('@my/app/0.0.1/index', {
+ *     bundleScript('app/0.0.1/index', {
  *       paths: path.join(root, 'components'),
  *       tree, treeBranch,
  *       toplevel: await parseLoader()
@@ -260,8 +274,8 @@ function minifyScript(id, ast, opts) {
  *       paths: path.join(root, 'node_modules'),
  *       tree, treeBranch,
  *       toplevel,   // current toplevel ast,
- *       ids: ['main', 'lib/foo'],
- *       routes: ['ez-editor']
+ *       moduleIds: { 'app/0.0.1/index': true },
+ *       moduleRoute: ['app', 'ez-editor']
  *     })
  *
  *     // found out that the dependencies of ez-editor are ['yen'] and so on.
@@ -270,8 +284,8 @@ function minifyScript(id, ast, opts) {
  *       paths: path.join(root, 'node_modules/ez-editor/node_modules'),
  *       tree, treeBranch,
  *       toplevel,
- *       ids: ['main', 'lib/foo', 'ez-editor/0.2.4/index'],
- *       routes: ['ez-editor', 'yen']
+ *       moduleIds: { 'app/0.0.1/index': true, 'ez-editor/0.2.4/index': true },
+ *       moduleRoute: ['app', 'ez-editor', 'yen']
  *     })
  *
  * @param {string}   main
@@ -299,9 +313,10 @@ async function bundleScript(main, opts) {
   let toplevel = opts.toplevel
   let sourceMaps = []
 
+  // `append()` could be call either when compiling components or when compiling modules.
   async function append(id, dependencies, factory) {
     if (componentIds[id]) return
-    componentIds[id] = true
+    // When compiling spare components, `includeComponents` is false, no need to bundle dependencies.
     if (isBundlingComponent && id != main && !includeComponents) return
 
     let [, name, version, entry] = id.match(rModuleId)
@@ -318,6 +333,7 @@ async function bundleScript(main, opts) {
       id = (id + ext).replace(rExt, '')
     }
 
+    componentIds[id] = true
     factory = factory || (await readFile(fpath, 'utf8'))
     dependencies = dependencies || matchRequire.findAll(factory)
 
@@ -364,6 +380,7 @@ async function bundleScript(main, opts) {
         continue
       }
 
+      // When bundling components, it is possibel to require components by absolute path, such as `require('lib/foo')`. On the other hand, when bundling node_modules, this feature isn't provided.
       if (isBundlingComponent) {
         const [fpath, ext] = await findScript(dep, paths)
         if (fpath) {
@@ -373,6 +390,7 @@ async function bundleScript(main, opts) {
         }
       }
 
+      // If dependencies tree is available, and we're now sure that `dep` is not an internal dependency, try append `dep` as a module. The module isn't always appended actually since includeModules could be false. Either way, the moduleIds shall contain the modules that are required.
       if (tree) {
         if (moduleRoute.length == 0) moduleRoute.push(Object.keys(tree).pop())
         await appendModule(dep)
@@ -466,7 +484,8 @@ class Porter {
       paths: 'components',
       dest: 'public',
       cacheExcept: [],
-      cachePersist: true,
+      cacheModuleQueue: Promise.resolve(),
+      cachingModules: {},
       mangleExcept: [],
       transformNodeModules: [],
       serveSource: false,
@@ -485,9 +504,11 @@ class Porter {
     this.loaderConfig.cacheExcept = [...this.cacheExcept]
 
     this.cache = new Cache({ root: this.root, dest: this.dest })
-    this.cache.removeAll(this.cachePersist ? this.cacheExcept : null)
-      .then(() => debug('Cache %s cleared', this.dest))
-      .catch(err => console.error(err.stack))
+    if (this.cacheExcept.length > 0) {
+      spawn('rm', ['-rf', ...this.cacheExcept], { cwd: this.dest })
+        .then(() => debug(`Cache cleared (${path.relative(this.root, this.dest)})`))
+        .catch(err => console.error(err.stack))
+    }
 
     this.systemScriptCache = {}
     this.parsePromise = this.parse().catch(err => {
@@ -750,7 +771,7 @@ class Porter {
   }
 
   async readStyle(id) {
-    const { dest, importer, prefixer, root, system } = this
+    const { cache, dest, importer, prefixer, root, system } = this
     let [, name, , entry] = id.match(rModuleId)
     if (!(name in system.modules)) {
       name = system.name
@@ -768,15 +789,15 @@ class Porter {
       map: { inline: false }
     }
     const result = await importer.process(source, processOpts)
-    let content = await this.cache.read(id, result.css)
+    let content = await cache.read(id, result.css)
 
     if (!content) {
       processOpts.map.prev = result.map
       const resultWithPrefix = await prefixer.process(result.css, processOpts)
 
       await Promise.all([
-        this.cache.write(id, result.css, resultWithPrefix.css),
-        this.cache.writeFile(id + '.map', resultWithPrefix.map)
+        cache.write(id, result.css, resultWithPrefix.css),
+        cache.writeFile(id + '.map', resultWithPrefix.map)
       ])
       content = resultWithPrefix.css
     }
@@ -803,11 +824,15 @@ class Porter {
 
   async readScript(id, isMain) {
     const [, name] = id.match(rModuleId)
-    const { system } = this
+    const { paths, system } = this
 
     if (name === system.name) {
       return await this.readComponent(id, isMain)
-    } else {
+    }
+    else if ((await findScript(id, paths, ['']))[0]) {
+      return await this.readComponent(`${system.name}/${system.version}/${id}`, isMain)
+    }
+    else {
       return await this.readModule(id)
     }
   }
@@ -826,8 +851,10 @@ class Porter {
 
   async readComponent(id, isMain) {
     const { cache, paths, root, system } = this
-    let [, name, , entry] = id.match(rModuleId)
+    let [, name, version, entry] = id.match(rModuleId)
 
+    // Disallow access of components without version like `${system.name}/${entry}` because it is error prone. #36
+    if (!version) return
     if (!(name in system.modules)) {
       name = system.name
       entry = id
@@ -868,29 +895,59 @@ class Porter {
   }
 
   async cacheModule({ name, version, entry }) {
+    entry = entry.replace(rExt, '')
     const { dir, entries } = this.findMap({ name, version })
+    const { cachingModules, root } = this
 
     // Skip caching of internal entries.
     if (!(entry in entries)) return
 
-    const realDir = path.resolve(dir, '..', await realpath(dir))
-    const { mangleExcept, root } = this
+    const id = `${name}/${version}/${entry}`
+    if (cachingModules[id]) return
 
-    if (realDir.startsWith(root)) {
-      this.cache.precompile({ name, version, dir }, { mangle: mangleExcept.includes(name) })
-    } else {
-      debug(`Skipped caching of external module '${name}@${version}'.`)
-    }
+    // Modules might be linked with `npm link`. If dir is symbolic link, resolve it with `fs.realpath()`. If not, applying a `path.resolve()` here won't obfuscate the real directory path.
+    const realDir = path.resolve(dir, '..', await realpath(dir))
+
+    // Skip caching linked modules because it's highly likely that the developer wants to debug that module.
+    if (!realDir.startsWith(root)) return
+
+    this.cacheModuleQueue = this.cacheModuleQueue.then(
+      this.spawnCacheModule({ name, version, entry, dir })
+    )
+    await this.cacheModuleQueue
+  }
+
+  async spawnCacheModule({ name, version, entry, dir }) {
+    const { cachingModules, dest, mangleExcept, root } = this
+    const id = `${name}/${version}/${entry}`
+    const args = [
+      path.join(__dirname, '../bin/compileModule.js'),
+      '--id', id,
+      '--dest', dest,
+      '--paths', dir,
+      '--root', root,
+      '--source-root', '/'
+    ]
+    if (mangleExcept.includes(name)) args.push('--mangle')
+    await spawn(process.argv[0], args, { stdio: 'inherit' })
+    cachingModules[id] = false
   }
 
   async readModule(id, isMain) {
     const { cache, cacheExcept, root, transformNodeModules } = this
     const [, name, version, entry] = id.match(rModuleId)
-    const { dir } = this.findMap({ name, version })
+    const map = this.findMap({ name, version })
+
+    // It's possible that the id passed to `this.readModule()` isn't valid.
+    if (!map) return
+
+    const { dir } = map
     const fpath = path.join(dir, entry)
 
     if (!fpath) return
-    if (!cacheExcept.includes(name)) this.cacheModule({ name, version, entry })
+    if (!cacheExcept.includes(name)) {
+      this.cacheModule({ name, version, entry }).catch(err => console.error(err.stack))
+    }
 
     const babelrcPath = await findBabelrc(fpath, { root: dir })
     let source = await readFile(fpath, 'utf8')
@@ -1139,15 +1196,12 @@ porter["import"](${JSON.stringify(id)})
 
   /**
    * Compile all components and modules within the root directory into dest folder.
-   *
-   * Example:
-   *
-   *   compileAll({ paths: './components', match: 'main/*' })
-   *
    * @param {Object}               opts
    * @param {string|Array|RegExp} [opts.match]              The match pattern to find entry components to compile
    * @param {string|Array|RegExp} [opts.spareMatch]         The match pattern to find spare components to compile
    * @param {string}              [opts.sourceRoot]         The source root
+   * @example
+   * compileAll({ match: 'pages/*', spareMatch: 'frames/*' })
    */
   async compileAll(opts = {}) {
     if (!opts.match) {
