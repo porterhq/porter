@@ -1,7 +1,7 @@
 {
   "name": "@cara/porter-cli",
   "description": "Toolkit of Porter that helps browser modules development.",
-  "version": "1.0.0-alpha.4",
+  "version": "1.0.0-alpha.5",
   "repository": {
     "type": "git",
     "url": "git@github.com:erzu/porter.git"
@@ -10,7 +10,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@cara/porter": "^1.0.0-alpha.4",
+    "@cara/porter": "^1.0.0-alpha.5",
     "commander": "^2.8.1",
     "koa": "^2.4.0",
     "koa-static": "^4.0.2"
