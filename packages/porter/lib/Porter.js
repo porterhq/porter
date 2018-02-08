@@ -5,10 +5,11 @@ const autoprefixer = require('autoprefixer')
 const babel = require('babel-core')
 const crypto = require('crypto')
 const debug = require('debug')('porter')
-const path = require('path')
-const postcss = require('postcss')
+const looseEnvify = require('loose-envify')
 const mime = require('mime')
 const minimatch = require('minimatch')
+const path = require('path')
+const postcss = require('postcss')
 const UglifyJS = require('uglify-js')
 const { exists, lstat, readFile, realpath, writeFile } = require('mz/fs')
 const { SourceMapConsumer, SourceMapGenerator } = require('source-map')
@@ -163,6 +164,16 @@ async function findBabelrc(fpath, { root }) {
   return dirHasBabelrc[dir]
 }
 
+function envify(file, content) {
+  return new Promise(resolve => {
+    const stream = looseEnvify(file, { BROWSER: true, NODE_ENV: 'development' })
+    let buf = ''
+    stream.on('data', chunk => buf += chunk)
+    stream.on('end', () => resolve(buf))
+    stream.end(content)
+  })
+}
+
 function transform(code, opts) {
   return babel.transform(code, {
     sourceMaps: true,
@@ -259,6 +270,44 @@ function minifyScript(id, ast, opts) {
   }
 }
 
+async function transformScript(id, { cache, dir, fpath, enableEnvify, enableTransform, root }) {
+  const source = await readFile(fpath, 'utf8')
+  // fpath might be undefined when transforming fake components
+  const babelrcPath = await findBabelrc(fpath || dir, { root: dir || root })
+
+  if (!enableTransform || !babelrcPath) {
+    if (enableEnvify) {
+      return { code: await envify(fpath, source) }
+    } else {
+      return { code: source }
+    }
+  }
+
+  // When compiling for production, cache should be disabled otherwise the compiled result might be lacking source map.
+  if (cache) {
+    const code = await cache.read(id, source)
+    if (code) return { code }
+  }
+
+  const result = transform(enableEnvify ? (await envify(fpath, source)) : source, {
+    filename: id,
+    filenameRelative: path.relative(root, fpath),
+    sourceFileName: path.relative(root, fpath),
+    extends: babelrcPath,
+  })
+
+  if (cache) {
+    await Promise.all([
+      cache.write(id, source, result.code),
+      cache.writeFile(`${id}.map`, JSON.stringify(result.map, function(k, v) {
+        if (k != 'sourcesContent') return v
+      }))
+    ])
+  }
+
+  return result
+}
+
 /**
  * Bundle a component or module, with its relative dependencies included by default.
  * @param {Object}   mod
@@ -267,8 +316,9 @@ function minifyScript(id, ast, opts) {
  * @param {string}   mod.entry
  * @param {Object}   opts
  * @param {string}   opts.paths                   The load paths
- * @param {boolean} [opts.enableBundle=true]      Whether or not to bundle internal dependencies
  * @param {boolean} [opts.enableAbsoluteId=false] Whether or not to allow require by absolute ids
+ * @param {boolean} [opts.enableBundle=true]      Whether or not to bundle internal dependencies
+ * @param {boolean} [opts.enableEnvify=false]     Whether or not to replace environment variables such as `process.env.NODE_ENV`
  * @param {boolean} [opts.enableTransform=false]  Whether or not to enable transformations on factory code
  * @param {Object}  [opts.toplevel=null]          The toplevel ast that contains all the bundled scripts
  * @returns {Object} { toplevel, sourceMaps, wildModules }
@@ -277,12 +327,13 @@ async function bundleScript({ name, version, entry: mainEntry }, opts) {
   opts = {
     doneIds: {},
     enableBundle: true,
+    enableEnvify: false,
     enableTransform: false,
     enableAbsoluteId: false,
     ...opts
   }
   const paths = [].concat(opts.paths)
-  const { root, enableBundle, enableTransform, enableAbsoluteId, doneIds } = opts
+  const { root, enableBundle, enableEnvify, enableTransform, enableAbsoluteId, doneIds } = opts
   if (!root) throw new Error('Please speicify script root')
   const wildModules = []
   let toplevel = opts.toplevel
@@ -302,28 +353,19 @@ async function bundleScript({ name, version, entry: mainEntry }, opts) {
     }
 
     doneIds[id] = true
-    factory = factory || (await readFile(fpath, 'utf8'))
+    if (!factory) {
+      const result = await transformScript(id, { fpath, enableEnvify, enableTransform, root })
+      factory = result.code
+      if (result.map) sourceMaps.push(result.map)
+    }
     dependencies = dependencies || matchRequire.findAll(factory)
 
     for (let i = dependencies.length - 1; i >= 0; i--) {
       if (dependencies[i].endsWith('heredoc')) dependencies.splice(i, 1)
     }
 
-    let result = { code: factory, map: null }
-    let babelrcPath
-
-    if (enableTransform && (babelrcPath = await findBabelrc(fpath || paths[0], { root }))) {
-      result = transform(factory, {
-        filename: `${id}.js`,
-        filenameRelative: fpath ? path.relative(root, fpath) : `${id}.js`,
-        sourceFileName: fpath ? path.relative(root, fpath) : `${id}.js`,
-        extends: babelrcPath,
-      })
-      sourceMaps.push(result.map)
-    }
-
     try {
-      toplevel = UglifyJS.parse(define(id, dependencies, result.code), {
+      toplevel = UglifyJS.parse(define(id, dependencies, factory), {
         // fpath might be undefined because we allow virtual components.
         filename: fpath ? path.relative(root, fpath) : id,
         toplevel
@@ -417,7 +459,7 @@ class Porter {
       cacheModuleQueue: Promise.resolve(),
       cacheModuleIds: {},
       mangleExcept: [],
-      transformNodeModules: [],
+      transformModuleNames: [],
       serveSource: false,
       loaderConfig: {},
       ...opts
@@ -429,7 +471,7 @@ class Porter {
     this.cacheExcept = [].concat(this.cacheExcept)
     this.cacheDest = this.cacheDest ? path.resolve(this.root, this.cacheDest) : this.dest
     this.mangleExcept = [].concat(this.mangleExcept)
-    this.transformNodeModules = [].concat(this.transformNodeModules)
+    this.transformModuleNames = [].concat(this.transformModuleNames)
 
     // ServiceWorker relies on this to invalidate cache.
     this.loaderConfig.cacheExcept = [...this.cacheExcept]
@@ -481,9 +523,16 @@ class Porter {
     if (existingModule && existingModule.entries[entry]) return existingModule
 
     // Re-use map if exists already.
-    const result = name in parent.dependencies
-      ? parent.dependencies[name]
-      : { dir: pkgRoot, dependencies: {}, main: mainEntry, version: pkg.version, alias: {}, entries: {}, parent }
+    const result = parent.dependencies[name] || {
+      dir: pkgRoot,
+      dependencies: {},
+      main: mainEntry,
+      version: pkg.version,
+      alias: {},
+      browserify: pkg.browserify,
+      entries: {},
+      parent
+    }
 
     // https://github.com/erzu/porter/issues/1
     // https://github.com/browserify/browserify-handbook#browser-field
@@ -537,7 +586,7 @@ class Porter {
         })
       }
       else if (await this.isComponent(dep)) {
-        //
+        // #38 cyclic dependencies between components and modules
       }
       else {
         console.warn("WARN unmet dependency '%s' of '%s'", dep, pkg.name)
@@ -749,9 +798,9 @@ class Porter {
       map: { inline: false }
     }
     const result = await importer.process(source, processOpts)
-    let content = await cache.read(id, result.css)
+    let code = await cache.read(id, result.css)
 
-    if (!content) {
+    if (!code) {
       processOpts.map.prev = result.map
       const resultWithPrefix = await prefixer.process(result.css, processOpts)
 
@@ -759,10 +808,10 @@ class Porter {
         cache.write(id, result.css, resultWithPrefix.css),
         cache.writeFile(id + '.map', resultWithPrefix.map)
       ])
-      content = resultWithPrefix.css
+      code = resultWithPrefix.css
     }
 
-    return [content, {
+    return [code, {
       'Last-Modified': (await lstat(fpath)).mtime.toJSON()
     }]
   }
@@ -776,8 +825,11 @@ class Porter {
       return this.systemScriptCache[id]
     }
     const fpath = path.join(__dirname, '..', id)
-    const [content, stats] = await Promise.all([readFile(fpath, 'utf8'), lstat(fpath)])
-    const result =  [content, { 'Last-Modified': stats.mtime.toJSON() }]
+    const [content, stats] = await Promise.all([
+      readFile(fpath, 'utf8'),
+      lstat(fpath)
+    ])
+    const result =  [await envify(fpath, content), { 'Last-Modified': stats.mtime.toJSON() }]
     this.systemScriptCache[id] = result
     return result
   }
@@ -823,40 +875,26 @@ class Porter {
     const [fpath] = await findAsset(entry, paths, ['', '/index.js'])
     if (!fpath) return
     const stats = await lstat(fpath)
-    const source = await readFile(fpath, 'utf8')
-    const babelrcPath = await findBabelrc(fpath, { root })
-    let content = babelrcPath ? (await cache.read(id, source)) : source
+    let { code } = await transformScript(id, {
+      cache, root, dir: root, fpath,
+      enableEnvify: true,
+      enableTransform: true
+    })
 
-    if (!content) {
-      const result = transform(source, {
-        filename: id,
-        filenameRelative: path.relative(root, fpath),
-        sourceFileName: path.relative(root, fpath),
-        extends: babelrcPath
-      })
-      await Promise.all([
-        cache.write(id, source, result.code),
-        cache.writeFile(`${id}.map`, JSON.stringify(result.map, function(k, v) {
-          if (k != 'sourcesContent') return v
-        }))
-      ])
-      content = result.code
-    }
+    const dependencies = matchRequire.findAll(code)
+    code = define(id.replace(rExt, ''), dependencies, code)
+    code = isMain
+      ? await this.formatMain(id, code)
+      : [code, `//# sourceMappingURL=./${path.basename(id)}.map`].join('\n')
 
-    const dependencies = matchRequire.findAll(content)
-    content = define(id.replace(rExt, ''), dependencies, content)
-    content = isMain
-      ? await this.formatMain(id, content)
-      : [content, `//# sourceMappingURL=./${path.basename(id)}.map`].join('\n')
-
-    return [content, {
+    return [code, {
       'Last-Modified': stats.mtime.toJSON()
     }]
   }
 
   async cacheModule({ name, version, entry }) {
     entry = entry.replace(rExt, '')
-    const { dir, entries, alias } = this.findMap({ name, version })
+    const { dir, entries, alias, browserify } = this.findMap({ name, version })
     const { cacheModuleIds, root } = this
 
     let unaliasEntry = entry
@@ -877,13 +915,16 @@ class Porter {
     if (!realDir.startsWith(root)) return
 
     this.cacheModuleQueue = this.cacheModuleQueue.then(
-      this.spawnCacheModule({ name, version, entry, dir })
+      this.spawnCacheModule({ name, version, entry }, {
+        dir,
+        enableEnvify: browserify && browserify.transform && browserify.transform.includes('loose-envify')
+      })
     )
     await this.cacheModuleQueue
   }
 
-  async spawnCacheModule({ name, version, entry, dir }) {
-    const { cacheModuleIds, cacheDest, mangleExcept, root } = this
+  async spawnCacheModule({ name, version, entry }, { dir, enableEnvify }) {
+    const { cacheModuleIds, cacheDest, mangleExcept, root, transformModuleNames } = this
 
     const args = [
       path.join(__dirname, '../bin/compileModule.js'),
@@ -896,19 +937,21 @@ class Porter {
       '--source-root', '/'
     ]
     if (mangleExcept.includes(name)) args.push('--mangle')
+    if (transformModuleNames.includes(name)) args.push('--transform')
+    if (enableEnvify) args.push('--envify')
     await spawn(process.argv[0], args, { stdio: 'inherit' })
     cacheModuleIds[`${name}/${version}/${entry}`] = false
   }
 
   async readModule(id, isMain) {
-    const { cache, cacheExcept, root, transformNodeModules } = this
+    const { cache, cacheExcept, root, transformModuleNames } = this
     const [, name, version, entry] = id.match(rModuleId)
     const map = this.findMap({ name, version })
 
     // It's possible that the id passed to `this.readModule()` isn't valid.
     if (!map) return
 
-    const { dir } = map
+    const { dir, browserify } = map
     const fpath = path.join(dir, entry)
 
     if (!fpath) return
@@ -916,32 +959,15 @@ class Porter {
       this.cacheModule({ name, version, entry }).catch(err => console.error(err.stack))
     }
 
-    const babelrcPath = await findBabelrc(fpath, { root: dir })
-    let source = await readFile(fpath, 'utf8')
-    let content = transformNodeModules.includes(name) && babelrcPath
-      ? (await cache.read(id, source))
-      : source
-
-    if (!content) {
-      const result = transform(source, {
-        filename: id,
-        filenameRelative: path.relative(root, fpath),
-        sourceFileName: path.relative(root, fpath),
-        extends: babelrcPath,
-      })
-      await Promise.all([
-        cache.write(id, source, result.code),
-        cache.writeFile(`${id}.map`, JSON.stringify(result.map, function(k, v) {
-          if (k != 'sourcesContent') return v
-        }))
-      ])
-      content = result.code
-    }
+    const { code } = await transformScript(id, {
+      cache, dir, fpath, root,
+      enableEnvify: browserify && browserify.transform && browserify.transform.includes('loose-envify'),
+      enableTransform: transformModuleNames.includes(name)
+    })
     const stats = await lstat(fpath)
-    const dependencies = matchRequire.findAll(content)
-    content = define(id.replace(rExt, ''), dependencies, content)
+    const dependencies = matchRequire.findAll(code)
 
-    return [content, {
+    return [define(id.replace(rExt, ''), dependencies, code), {
       'Last-Modified': stats.mtime.toJSON()
     }]
   }
@@ -1105,7 +1131,7 @@ class Porter {
 
     let result = await bundleScript({ name, version, entry }, {
       root, paths,
-      enableTransform: true, enableAbsoluteId: true, enableBundle: includeComponents,
+      enableEnvify: true, enableTransform: true, enableAbsoluteId: true, enableBundle: includeComponents,
       dependencies: opts.dependencies,
       factory: opts.factory,
       toplevel: includeLoader ? (await this.parseLoader()) : null
@@ -1139,10 +1165,12 @@ porter["import"](${JSON.stringify(id)})
     while ((mod = wildModules.shift())) {
       const { name, entry } = mod
       const route = mod.route || [system.name, name]
-      const { dir, version, main } = routeMap(route, this.tree, opts.treeBranch)
-      const enableTransform = this.transformNodeModules.includes(name)
+      const { browserify, dir, version, main } = routeMap(route, this.tree, opts.treeBranch)
+      const enableTransform = this.transformModuleNames.includes(name)
       const result = await bundleScript({ name, version, entry: entry || main }, {
-        root, paths: dir, enableTransform, toplevel
+        root, paths: dir,
+        enableEnvify: browserify && browserify.transform && browserify.transform.includes('loose-envify'),
+        enableTransform, toplevel
       })
       for (const m of result.wildModules) m.route = [...route, m.name]
       wildModules.push(...result.wildModules)
@@ -1167,13 +1195,14 @@ porter["import"](${JSON.stringify(id)})
   async compileModule({ name, version, entry }, opts) {
     await this.parsePromise
     opts = { save: true, ...opts }
-    const { dest, root, transformNodeModules } = this
+    const { dest, root } = this
     const { paths } = opts
 
     if (!paths) throw new Error(`Please provide paths of module '${name}/${version}'`)
     const { toplevel, sourceMaps, wildModules } = await bundleScript({ name, version, entry }, {
       root, paths,
-      enableTransform: transformNodeModules.includes(name)
+      enableEnvify: opts.enableEnvify,
+      enableTransform: opts.enableTransform
     })
     const id = `${name}/${version}/${entry}`
     const result = minifyScript(id, toplevel, {
@@ -1200,7 +1229,7 @@ porter["import"](${JSON.stringify(id)})
     }
     await this.parsePromise
     const { sourceRoot } = opts
-    const { paths, system, loaderConfig, transformNodeModules } = this
+    const { paths, system, loaderConfig, transformModuleNames } = this
     const matchFn = makeMatchFn(opts.match)
     const spareMatchFn = makeMatchFn(opts.spareMatch)
     const isPreloadFn = makeMatchFn([].concat(loaderConfig.preload))
@@ -1254,13 +1283,14 @@ porter["import"](${JSON.stringify(id)})
         for (const child of result.wildModules) await queueModule(child)
       } else {
         const route = mod.route || [system.name, mod.name]
-        const { version, main, alias, dir } = routeMap(route, this.tree)
+        const { version, main, alias, browserify, dir } = routeMap(route, this.tree)
         if (!mod.version) mod.version = version
         if (!mod.entry) mod.entry = main
         if (alias && alias[mod.entry]) mod.entry = alias[mod.entry]
         const result = await this.compileModule(mod, {
           paths: dir, sourceRoot,
-          enableTransform: transformNodeModules.includes(mod.name)
+          enableEnvify: browserify && browserify.transform && browserify.transform.includes('loose-envify'),
+          enableTransform: transformModuleNames.includes(mod.name)
         })
         for (const child of result.wildModules) {
           child.route = [...mod.route, child.name]

@@ -413,7 +413,8 @@
 
   global.process = {
     env: {
-      NODE_ENV: '${NODE_ENV}'
+      BROWSER: true,
+      NODE_ENV: process.env.NODE_ENV
     }
   }
 })(this)

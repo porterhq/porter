@@ -19,6 +19,8 @@ debug('compiling %s/%s/%s from %s into %s',
 porter.compileModule({ name, version, entry }, {
   paths,
   mangle: argv.mangle,
+  enableEnvify: argv.envify,
+  enableTransform: argv.transform,
   sourceRoot: argv['source-root'] || '/'
 })
   .catch(function(err) {
