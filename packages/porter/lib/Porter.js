@@ -485,7 +485,7 @@ class Porter {
     if (this.cacheExcept.length > 0) {
       (async () => {
         await this.parsePromise
-        if (await exists(this.dest)) {
+        if (await exists(this.cacheDest)) {
           await spawn('rm', ['-rf', this.system.name, ...this.cacheExcept], { cwd: this.cacheDest })
           debug(`Cache cleared (${path.relative(this.root, this.cacheDest)})`)
         }
