@@ -127,27 +127,11 @@
   /*
    * Resovle id with the version tree
    */
-  var RE_VERSION = /^\d+\.\d+\.\d+/
+  var rModuleId = /^((?:@[^\/]+\/)?[^\/]+)(?:\/(\d+\.\d+\.\d+[^\/]*))?(?:\/(.*))?$/
 
   function parseId(id) {
-    var parts = id.split('/')
-    var name = parts.shift()
-
-    if (name.charAt(0) === '@') {
-      name += '/' + parts.shift()
-    }
-
-    if (name in system.modules) {
-      var version = RE_VERSION.test(parts[0]) ? parts.shift() : ''
-      return {
-        name: name,
-        version: version,
-        entry: parts.join('/')
-      }
-    }
-    else {
-      return { name: id }
-    }
+    var m = id.match(rModuleId)
+    return { name: m[1], version: m[2], entry: m[3] }
   }
 
 
@@ -210,6 +194,7 @@
   function Module(id, opts) {
     opts = opts || {}
     this.id = id
+    Object.assign(this, parseId(id))
     this.deps = opts.deps
     this.children = []
     this.parents = []
@@ -219,12 +204,21 @@
     registry[id] = this
   }
 
-  Module.prototype.depends = function(dep) {
+  /**
+   * Check if current module is ancestor of dep. That is, current module requires dep either directly or indirectly.
+   * @param {Module} dep
+   * @returns {boolean}
+   */
+  Module.prototype.depends = function(dep, distance) {
     var mod = this
-    if (dep.parents.indexOf(mod) >= 0) return true
+    if (!distance) distance = 1
+    if (distance > 5) return false
+    // If current module is one of dep's cyclic dependencies already, no need to go any further.
+    if (dep.cycles.indexOf(mod) >= 0) return false
     for (var i = 0; i < dep.parents.length; i++) {
-      if (dep.cycles.indexOf(dep.parents[i]) >= 0) continue
-      if (mod.depends(dep.parents[i])) return true
+      var parent = dep.parents[i]
+      if (parent == mod) return true
+      if (parent.name == mod.name && mod.depends(parent, distance + 1)) return true
     }
     return false
   }
@@ -271,10 +265,10 @@
       return registry[depId] || new Module(depId)
     })
 
-    children.forEach(function(dep) {
-      if (dep.depends(mod)) mod.cycles.push(dep)
-      dep.parents.push(mod)
-      dep.fetch()
+    children.forEach(function(child) {
+      if (child.depends(mod)) mod.cycles.push(child)
+      if (child.parents.indexOf(mod) < 0) child.parents.push(mod)
+      child.fetch()
     })
 
     // No more children to resolve. Let's get the back track started.

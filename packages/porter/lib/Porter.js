@@ -84,7 +84,7 @@ async function closestModule(dir, name) {
  * @param {Object} tree            The dependencies tree of the app
  * @param {Array}  route           The route of the module required
  */
-function mergeMap(treeBranch, tree, route) {
+function mergeTree(treeBranch, tree, route) {
   const [appName, depName] = route
   const app = tree[appName]
 
@@ -117,9 +117,9 @@ function mergeMap(treeBranch, tree, route) {
  *
  * That's the problem this function aims to solve.
  *
- * @param {Array}  route           The route of the dependency
- * @param {Object} tree            The map of the dependencies tree
- * @param {Object} treeBranch      The map of the dependencies that are actually required
+ * @param {string[]} route The route of the dependency
+ * @param {Object} tree The dependencies tree
+ * @param {Object} treeBranch The actually required dependencies tree, which is a branch of the big tree
  *
  * @returns {Object} An object that contains information about the dependency
  */
@@ -140,7 +140,7 @@ function routeMap(route, tree, treeBranch) {
   }
 
   // If a slimmer map is requested, merge required info to requiredMap.
-  if (result && treeBranch) mergeMap(treeBranch, tree, route)
+  if (result && treeBranch) mergeTree(treeBranch, tree, route)
   return result
 }
 
@@ -181,12 +181,12 @@ function transform(code, opts) {
  * @param {string} opts.dest The folder to store js and map
  */
 async function compileScript(id, { dest, js, map }) {
-  const assetPath = path.join(dest, `${id}.js`)
+  const fpath = path.join(dest, `${id}.js`)
 
-  await mkdirp(path.dirname(assetPath))
+  await mkdirp(path.dirname(fpath))
   await Promise.all([
-    writeFile(assetPath, [js, `//# sourceMappingURL=./${path.basename(id)}.js.map`].join('\n')),
-    writeFile(`${assetPath}.map`, map)
+    writeFile(fpath, [js, `//# sourceMappingURL=./${path.basename(id)}.js.map`].join('\n')),
+    writeFile(`${fpath}.map`, map)
   ])
 
   debug('compiled %s', id)
@@ -260,99 +260,63 @@ function minifyScript(id, ast, opts) {
 }
 
 /**
- * Bundle a component or module, with its relative dependencies included by default. And if passed opts.tree, include all the dependencies. When bundling all the dependencies, `bundleScript` gets called recursively. The call stack might be something like:
- *
- *     bundleScript('app/0.0.1/index', {
- *       paths: path.join(root, 'components'),
- *       tree, treeBranch,
- *       toplevel: await parseLoader()
- *     })
- *
- *     // found out that the dependencies of main are ['ez-editor', './lib/foo']
- *     // `./lib/foo` can be appended directly but `ez-editor` needs `bundleScript`
- *     bundleScript('ez-editor/0.2.4/index', {
- *       paths: path.join(root, 'node_modules'),
- *       tree, treeBranch,
- *       toplevel,   // current toplevel ast,
- *       moduleIds: { 'app/0.0.1/index': true },
- *       moduleRoute: ['app', 'ez-editor']
- *     })
- *
- *     // found out that the dependencies of ez-editor are ['yen'] and so on.
- *     bundleScript('yen/1.2.4/index', {
- *       root: path.join(root, 'node_modules/ez-editor'),
- *       paths: path.join(root, 'node_modules/ez-editor/node_modules'),
- *       tree, treeBranch,
- *       toplevel,
- *       moduleIds: { 'app/0.0.1/index': true, 'ez-editor/0.2.4/index': true },
- *       moduleRoute: ['app', 'ez-editor', 'yen']
- *     })
- *
- * @param {string}   main
+ * Bundle a component or module, with its relative dependencies included by default.
+ * @param {Object}   mod
+ * @param {string}   mod.name
+ * @param {string}   mod.version
+ * @param {string}   mod.entry
  * @param {Object}   opts
- * @param {string}   opts.paths                 The components load paths
- * @param {string}   opts.root                  The system root
- * @param {Object}  [opts.tree=null]            Pass the dependencies tree if need to bundle modules too.
- * @param {Array}   [opts.moduleIds=[]]         The ids of the modules that are bundled already.
- * @param {boolean} [opts.includesComponents=false] If true, components will be bundled.
- * @param {boolean} [opts.includeModules=false] If true, all dependencies will be bundled.
- * @param {Object}  [opts.treeBranch=null]      If passed, tree branch gets filled with the actually used dependencies.
- * @param {Array}   [opts.route=[]]             The dependency route if called recursively.
- * @param {Object}  [opts.toplevel=null]        The toplevel ast that contains all the parsed code.
- *
- * @returns {Object} An ast that contains main and relative modules. If opts.includeModules is true, all the dependencies will be included.
+ * @param {string}   opts.paths                   The load paths
+ * @param {boolean} [opts.enableBundle=true]      Whether or not to bundle internal dependencies
+ * @param {boolean} [opts.enableAbsoluteId=false] Whether or not to allow require by absolute ids
+ * @param {boolean} [opts.enableTransform=false]  Whether or not to enable transformations on factory code
+ * @param {Object}  [opts.toplevel=null]          The toplevel ast that contains all the bundled scripts
+ * @returns {Object} { toplevel, sourceMaps, wildModules }
  */
-async function bundleScript(main, opts) {
-  opts = { moduleIds: {}, moduleRoute: [], ...opts }
+async function bundleScript({ name, version, entry: mainEntry }, opts) {
+  opts = {
+    doneIds: {},
+    enableBundle: true,
+    enableTransform: false,
+    enableAbsoluteId: false,
+    ...opts
+  }
   const paths = [].concat(opts.paths)
-  const isBundlingComponent = !paths[0].endsWith('node_modules')
-  const needTransform = isBundlingComponent || (opts.needTransform || false)
-  const { root, includeModules, includeComponents, tree, treeBranch } = opts
-  const { moduleIds, moduleRoute } = opts
-  const componentIds = {}
+  const { root, enableBundle, enableTransform, enableAbsoluteId, doneIds } = opts
+  if (!root) throw new Error('Please speicify script root')
+  const wildModules = []
   let toplevel = opts.toplevel
   let sourceMaps = []
 
   // `append()` could be call either when compiling components or when compiling modules.
-  async function append(id, dependencies, factory) {
-    if (componentIds[id]) return
-    // When compiling spare components, `includeComponents` is false, no need to bundle dependencies.
-    if (isBundlingComponent && id != main && !includeComponents) return
+  async function append(entry, dependencies, factory) {
+    const [fpath, ext] = factory ? [null] : await findScript(entry, paths)
 
-    let [, name, version, entry] = id.match(rModuleId)
-    const [fpath, ext] = isBundlingComponent
-      ? await findScript(entry, paths)
-      : await findScript(`${name}/${entry}`, paths)
+    if (!fpath && !factory) throw new Error(`Unable to locate '${entry}' in '${paths}'`)
+    if (fpath && ext != '.js') entry = (entry + ext).replace(rExt, '')
 
-    if (!fpath && !factory) {
-      throw new Error(`Unable to locate '${id}' in '${paths}'`)
+    const id = `${name}/${version}/${entry}`
+    if (doneIds[id]) return
+    if (entry !== mainEntry && enableBundle === false) {
+      return wildModules.push({ name, version, entry })
     }
 
-    if (ext != '.js') {
-      entry = (entry + ext).replace(rExt, '')
-      id = (id + ext).replace(rExt, '')
-    }
-
-    componentIds[id] = true
+    doneIds[id] = true
     factory = factory || (await readFile(fpath, 'utf8'))
     dependencies = dependencies || matchRequire.findAll(factory)
 
-    for (var i = dependencies.length - 1; i >= 0; i--) {
-      if (dependencies[i].endsWith('heredoc')) {
-        dependencies.splice(i, 1)
-      }
+    for (let i = dependencies.length - 1; i >= 0; i--) {
+      if (dependencies[i].endsWith('heredoc')) dependencies.splice(i, 1)
     }
 
     let result = { code: factory, map: null }
-    let babelrcPath = isBundlingComponent
-      ? await findBabelrc(fpath || path.join(paths[0], entry), { root })
-      : await findBabelrc(fpath, { root: paths[0] })
+    let babelrcPath
 
-    if (babelrcPath && needTransform) {
+    if (enableTransform && (babelrcPath = await findBabelrc(fpath || paths[0], { root }))) {
       result = transform(factory, {
         filename: `${id}.js`,
-        filenameRelative: fpath ? path.relative(root, fpath) : id,
-        sourceFileName: fpath ? path.relative(root, fpath) : id,
+        filenameRelative: fpath ? path.relative(root, fpath) : `${id}.js`,
+        sourceFileName: fpath ? path.relative(root, fpath) : `${id}.js`,
         extends: babelrcPath,
       })
       sourceMaps.push(result.map)
@@ -368,70 +332,36 @@ async function bundleScript(main, opts) {
       throw new Error(`${err.message} (${err.filename}:${err.line}:${err.col})`)
     }
 
-    await satisfy({ name, version, entry, id, dependencies })
+    await satisfy(entry, dependencies)
   }
 
-  async function satisfy(mod) {
-    for (const dep of mod.dependencies) {
+  async function satisfy(entry, dependencies) {
+    for (const dep of dependencies) {
       if (rURI.test(dep)) continue
-
       if (dep.startsWith('.')) {
-        await append(path.join(path.dirname(mod.id), dep))
+        await append(path.join(path.dirname(entry), dep))
         continue
       }
 
-      // When bundling components, it is possibel to require components by absolute path, such as `require('lib/foo')`. On the other hand, when bundling node_modules, this feature isn't provided.
-      if (isBundlingComponent) {
-        const [fpath, ext] = await findScript(dep, paths)
+      // Allow `require('lib/foo')`
+      let findResult
+      if (enableAbsoluteId && (findResult = await findScript(dep, paths))[0]) {
+        const [fpath, ext] = findResult
         if (fpath) {
-          const entry = ext != '.js' ? (dep + ext).replace(rExt, '') : dep
-          await append([mod.name, mod.version, entry].join('/'))
-          continue
+          const depEntry = ext != '.js' ? (dep + ext).replace(rExt, '') : dep
+          await append(depEntry)
         }
       }
-
-      // If dependencies tree is available, and we're now sure that `dep` is not an internal dependency, try append `dep` as a module. The module isn't always appended actually since includeModules could be false. Either way, the moduleIds shall contain the modules that are required.
-      if (tree) {
-        if (moduleRoute.length == 0) moduleRoute.push(Object.keys(tree).pop())
-        await appendModule(dep)
+      // External modules
+      else {
+        const [, depName, , depEntry] = dep.match(rModuleId)
+        wildModules.push({ name: depName, entry: depEntry })
       }
     }
   }
 
-  async function appendModule(dep) {
-    const [, name, , entry] = dep.match(rModuleId)
-    moduleRoute.push(name)
-    const map = routeMap(moduleRoute, tree, treeBranch)
-
-    if (!map) {
-      console.warn(`Cannot find module ${dep}`, main, moduleRoute)
-      moduleRoute.pop()
-      return
-    }
-
-    const realEntry = entry || map.main
-    const id = path.join(name, map.version, map.alias[realEntry] || realEntry)
-
-    if (includeModules && !moduleIds[id]) {
-      const pkgBase = name.split('/').reduce(function(result) {
-        return path.resolve(result, '..')
-      }, map.dir)
-
-      const result = await bundleScript(id, {
-        root, paths: pkgBase,
-        includeModules, tree, treeBranch,
-        moduleRoute, moduleIds,
-        toplevel
-      })
-      toplevel = result.toplevel
-    }
-
-    moduleIds[id] = true
-    moduleRoute.pop()
-  }
-
-  await append(main, opts.dependencies, opts.factory)
-  return { toplevel, sourceMaps, moduleIds, componentIds }
+  await append(mainEntry, opts.dependencies, opts.factory)
+  return { toplevel, sourceMaps, doneIds, wildModules }
 }
 
 /**
@@ -485,7 +415,7 @@ class Porter {
       dest: 'public',
       cacheExcept: [],
       cacheModuleQueue: Promise.resolve(),
-      cachingModules: {},
+      cacheModuleIds: {},
       mangleExcept: [],
       transformNodeModules: [],
       serveSource: false,
@@ -497,23 +427,28 @@ class Porter {
     this.paths = [].concat(this.paths).map(dir => path.resolve(this.root, dir))
     this.dest = path.resolve(this.root, this.dest)
     this.cacheExcept = [].concat(this.cacheExcept)
+    this.cacheDest = this.cacheDest ? path.resolve(this.root, this.cacheDest) : this.dest
     this.mangleExcept = [].concat(this.mangleExcept)
     this.transformNodeModules = [].concat(this.transformNodeModules)
 
     // ServiceWorker relies on this to invalidate cache.
     this.loaderConfig.cacheExcept = [...this.cacheExcept]
 
-    this.cache = new Cache({ root: this.root, dest: this.dest })
-    if (this.cacheExcept.length > 0) {
-      spawn('rm', ['-rf', ...this.cacheExcept], { cwd: this.dest })
-        .then(() => debug(`Cache cleared (${path.relative(this.root, this.dest)})`))
-        .catch(err => console.error(err.stack))
-    }
-
     this.systemScriptCache = {}
     this.parsePromise = this.parse().catch(err => {
       this.parseError = err
     })
+
+    this.cache = new Cache({ root: this.root, dest: this.cacheDest })
+    if (this.cacheExcept.length > 0) {
+      (async () => {
+        await this.parsePromise
+        if (await exists(this.dest)) {
+          await spawn('rm', ['-rf', this.system.name, ...this.cacheExcept], { cwd: this.cacheDest })
+          debug(`Cache cleared (${path.relative(this.root, this.cacheDest)})`)
+        }
+      })().catch(err => console.error(err.stack))
+    }
   }
 
   findMap({ name, version }) {
@@ -538,8 +473,9 @@ class Porter {
   async resolveModule({ name, entry }, { dir, parent }) {
     const pkgRoot = await closestModule(dir, name)
     const pkg = require(path.join(pkgRoot, 'package.json'))
-    const main = typeof pkg.browser == 'string' ? pkg.browser : (pkg.main || 'index').replace(rExt, '')
-    entry = (entry || main).replace(rExt, '').replace(/^\.\//, '')
+    const main = typeof pkg.browser == 'string' ? pkg.browser : pkg.main
+    const mainEntry = main ? main.replace(rExt, '').replace(/^\.\//, '') : 'index'
+    if (!entry) entry = mainEntry
     const existingModule = this.findMap({ name, version: pkg.version })
 
     if (existingModule && existingModule.entries[entry]) return existingModule
@@ -547,7 +483,7 @@ class Porter {
     // Re-use map if exists already.
     const result = name in parent.dependencies
       ? parent.dependencies[name]
-      : { dir: pkgRoot, dependencies: {}, main, version: pkg.version, alias: {}, entries: {}, parent }
+      : { dir: pkgRoot, dependencies: {}, main: mainEntry, version: pkg.version, alias: {}, entries: {}, parent }
 
     // https://github.com/erzu/porter/issues/1
     // https://github.com/browserify/browserify-handbook#browser-field
@@ -556,6 +492,12 @@ class Porter {
     await this.resolveDependency(entry, result)
     result.entries[entry] = true
     return result
+  }
+
+  isDependency(pkg, name) {
+    return (pkg.dependencies && name in pkg.dependencies) ||
+      (pkg.devDependencies && name in pkg.devDependencies) ||
+      (pkg.peerDependencies && name in pkg.peerDependencies)
   }
 
   async resolveDependency(entry, map) {
@@ -573,6 +515,7 @@ class Porter {
     if (ext != '.js') alias[entry] = `${entry}${ext}`.replace(rExt, '')
     if (resolved[fpath]) return
 
+    const pkg = require(`${dir}/package.json`)
     const content = await readFile(fpath, 'utf8')
     const deps = matchRequire.findAll(content)
     resolved[fpath] = true
@@ -587,10 +530,17 @@ class Porter {
 
       if (name in parent.dependencies) {
         dependencies[name] = parent.dependencies[name]
-      } else {
+      }
+      else if (this.isDependency(pkg, name)) {
         dependencies[name] = await this.resolveModule({ name, entry: depEntry }, {
           dir, parent: map
         })
+      }
+      else if (await this.isComponent(dep)) {
+        //
+      }
+      else {
+        console.warn("WARN unmet dependency '%s' of '%s'", dep, pkg.name)
       }
     }
   }
@@ -662,21 +612,21 @@ class Porter {
     }
   }
 
-  walkMap(func) {
-    const walk = (map, fn) => {
-      for (const name in map) {
-        fn(name, map[name])
-        walk(map[name].dependencies, fn)
+  walkTree(tree, func) {
+    const walk = (subtree, fn) => {
+      for (const name in subtree) {
+        fn(name, subtree[name])
+        walk(subtree[name].dependencies, fn)
       }
     }
-    walk(this.tree, func)
+    walk(tree, func)
   }
 
-  flatMap() {
+  flatTree(tree = this.tree) {
     const modules = {}
     const system = {}
 
-    this.walkMap((name, { alias, dependencies, main, version }) => {
+    this.walkTree(tree, (name, { alias, dependencies, main, version }) => {
       const copies = modules[name] || (modules[name] = {})
       const copy = copies[version] || (copies[version] = {})
 
@@ -696,8 +646,8 @@ class Porter {
       }
     })
 
-    for (const name in this.tree) {
-      const { version, main } = this.tree[name]
+    for (const name in tree) {
+      const { version, main } = tree[name]
       Object.assign(system, {
         name, version,
         main: main ? main.replace(rExt, '') : 'index',
@@ -734,7 +684,7 @@ class Porter {
     } else {
       await this.parseMap()
       this.resolved = {}
-      this.system = this.flatMap()
+      this.system = this.flatTree()
       Object.assign(this.loaderConfig, this.system)
     }
 
@@ -757,6 +707,16 @@ class Porter {
     }
 
     return false
+  }
+
+  /**
+   * Check if current module is actually a component
+   * @param {Object} mod
+   * @param {string} mod.name
+   * @param {string} [mod.entry]
+   */
+  async isComponent(entry) {
+    return (await findScript(entry, this.paths))[0] != null
   }
 
   async readSource(id) {
@@ -839,7 +799,7 @@ class Porter {
 
   async formatMain(id, content) {
     const { loaderConfig } = this
-    const loaderSource = await this.readSystemScript('loader.js')
+    const loaderSource = (await this.readSystemScript('loader.js'))[0]
 
     return [
       loaderSource,
@@ -896,14 +856,19 @@ class Porter {
 
   async cacheModule({ name, version, entry }) {
     entry = entry.replace(rExt, '')
-    const { dir, entries } = this.findMap({ name, version })
-    const { cachingModules, root } = this
+    const { dir, entries, alias } = this.findMap({ name, version })
+    const { cacheModuleIds, root } = this
 
+    let unaliasEntry = entry
+    for (const prop in alias) {
+      if (alias[prop] == entry) {
+        unaliasEntry = prop
+        break
+      }
+    }
     // Skip caching of internal entries.
-    if (!(entry in entries)) return
-
-    const id = `${name}/${version}/${entry}`
-    if (cachingModules[id]) return
+    if (!(unaliasEntry in entries)) return
+    if (cacheModuleIds[`${name}/${version}/${entry}`]) return
 
     // Modules might be linked with `npm link`. If dir is symbolic link, resolve it with `fs.realpath()`. If not, applying a `path.resolve()` here won't obfuscate the real directory path.
     const realDir = path.resolve(dir, '..', await realpath(dir))
@@ -918,19 +883,21 @@ class Porter {
   }
 
   async spawnCacheModule({ name, version, entry, dir }) {
-    const { cachingModules, dest, mangleExcept, root } = this
-    const id = `${name}/${version}/${entry}`
+    const { cacheModuleIds, cacheDest, mangleExcept, root } = this
+
     const args = [
       path.join(__dirname, '../bin/compileModule.js'),
-      '--id', id,
-      '--dest', dest,
+      '--name', name,
+      '--version', version,
+      '--entry', entry,
+      '--dest', cacheDest,
       '--paths', dir,
       '--root', root,
       '--source-root', '/'
     ]
     if (mangleExcept.includes(name)) args.push('--mangle')
     await spawn(process.argv[0], args, { stdio: 'inherit' })
-    cachingModules[id] = false
+    cacheModuleIds[`${name}/${version}/${entry}`] = false
   }
 
   async readModule(id, isMain) {
@@ -1106,100 +1073,124 @@ class Porter {
   }
 
   /**
-   * @param {string}           entry
-   * @param {Object}           opts
-   * @param {Array}           [opts.dependencies]         Dependencies of the entry module
-   * @param {string}          [opts.dest]
-   * @param {string}          [opts.factory]              Factory code of the entry module
-   * @param {boolean}         [opts.includeModules]       Whethor or not to include node_modules
-   * @param {string|string[]} [opts.paths=components]
-   * @param {string}          [opts.root=process.cwd()]
-   * @param {string}          [opts.sourceRoot]
-   *
-   * @await {ProcessResult}
+   * Compile component as a spare component or a bundle containing dependencies.
+   * @param {string}    entry
+   * @param {Object}    opts
+   * @param {string}   [opts.factory]              Factory code of the entry component.
+   * @param {string}   [opts.includeComponents]    Whether or not to include relative components.
+   * @param {string}   [opts.includeLoader]        Whether or not to include loader itself.
+   * @param {boolean}  [opts.includeModules=false]  Whether or not to include external modules.
+   * @param {string}   [opts.sourceRoot]
+   * @returns {Object} { js, map, wildModules }
+   * @example
+   * compileComponent('home', { includeLoader: true, includeModules: true })
    */
   async compileComponent(entry, opts) {
     await this.parsePromise
     opts = {
       includeLoader: false,
-      includeModules: true,
+      includeModules: false,
       includeComponents: true,
+      loaderConfig: this.loaderConfig,
+      save: true,
       ...opts
     }
-    const { dest, loaderConfig, paths, root, system, tree } = this
-    const { includeLoader, includeModules, includeComponents } = opts
+    const { dest, paths, root, system, tree } = this
+    const { includeLoader, includeModules, includeComponents, loaderConfig, sourceRoot } = opts
 
     const fpath = opts.factory ? null : (await findScript(entry, paths))[0]
-    const id = [system.name, system.version, entry].join('/')
+    const { name, version } = system
+    const id = `${name}/${version}/${entry}`
     const treeBranch = {}
 
-    let toplevel = includeLoader ? (await this.parseLoader()) : null
-    const bundleResult = await bundleScript(id, {
-      root, paths, tree, treeBranch,
+    let result = await bundleScript({ name, version, entry }, {
+      root, paths,
+      enableTransform: true, enableAbsoluteId: true, enableBundle: includeComponents,
+      dependencies: opts.dependencies,
       factory: opts.factory,
-      toplevel,
-      includeModules, includeComponents
+      toplevel: includeLoader ? (await this.parseLoader()) : null
     })
-    toplevel = bundleResult.toplevel
+    let { sourceMaps, toplevel, wildModules } = result
+
+    if (includeModules && wildModules.length > 0) {
+      result = await this.bundleModules(wildModules, { toplevel, treeBranch })
+      toplevel = result.toplevel
+      if (result.sourceMaps) sourceMaps.push(...result.sourceMaps)
+    }
 
     if (includeLoader) {
-      // If not all modules are included, use the full dependencies tree instead of
-      // the dependencies tree branch generated while bundling.
+      // If not all modules are included, use the whole tree instead of the tree branch generated while bundling.
       toplevel = UglifyJS.parse(`
-porter.config(${JSON.stringify({ ...loaderConfig, ...this.flatMap(includeModules ? treeBranch : tree) })})
+porter.config(${JSON.stringify({ ...loaderConfig, ...this.flatTree(includeModules ? treeBranch : tree) })})
 porter["import"](${JSON.stringify(id)})
 `, { filename: fpath ? path.relative(root, fpath) : `${entry}.js`, toplevel })
     }
+    const { js, map } = minifyScript(id, toplevel, { sourceMaps, sourceRoot })
+    if (opts.save) await compileScript(id, { dest, js, map })
+    return { js, map, wildModules }
+  }
 
-    const { js, map } = minifyScript(id, toplevel, {
-      sourceMaps: bundleResult.sourceMaps,
-      sourceRoot: opts.sourceRoot
-    })
+  async bundleModules(wildModules, opts) {
+    const { root, system } = this
+    const sourceMaps = []
 
-    if (!opts.buffer) await compileScript(id, { dest, js, map })
-    const { moduleIds, componentIds } = bundleResult
-    return { js, map, moduleIds, componentIds }
+    let toplevel = opts.toplevel
+    let mod
+    while ((mod = wildModules.shift())) {
+      const { name, entry } = mod
+      const route = mod.route || [system.name, name]
+      const { dir, version, main } = routeMap(route, this.tree, opts.treeBranch)
+      const enableTransform = this.transformNodeModules.includes(name)
+      const result = await bundleScript({ name, version, entry: entry || main }, {
+        root, paths: dir, enableTransform, toplevel
+      })
+      for (const m of result.wildModules) m.route = [...route, m.name]
+      wildModules.push(...result.wildModules)
+      if (enableTransform) sourceMaps.push(result.sourceMap)
+      toplevel = result.toplevel
+    }
+
+    return { sourceMaps, toplevel }
   }
 
   /**
-   * @param {string}  id
-   * @param {Object}  opts
-   * @param {Object} [opts.tree=null]             If passed, will include all the dependencies
-   * @param {string} [opts.dest]                  If passed, will write .js and .map files
-   * @param {string} [opts.paths=node_modules]    Actually only the first load path will be used
-   * @param {string} [opts.root=process.cwd()]
-   * @param {string} [opts.sourceRoot]
-   *
-   * @return {Object}
+   * @param {Object}   mod
+   * @param {string}   mod.name
+   * @param {string}   mod.version
+   * @param {string}   mod.entry
+   * @param {Object}   opts
+   * @param {string}   opts.paths       Path of the module, e.g. node_modules/jquery
+   * @param {boolean} [opts.save=true]  Whether or not to save result to files
+   * @param {string}  [opts.sourceRoot]
+   * @return {Object} { js, map, wildModules }
    */
-  async compileModule(id, opts) {
+  async compileModule({ name, version, entry }, opts) {
     await this.parsePromise
-    opts = { paths: 'node_modules', ...opts }
-    const { dest, root, tree } = this
-    const { paths, needTransform } = opts
-    const currentPath = path.resolve(root, Array.isArray(paths) ? paths[0] : paths)
+    opts = { save: true, ...opts }
+    const { dest, root, transformNodeModules } = this
+    const { paths } = opts
 
-    const { toplevel, sourceMaps, moduleIds } = await bundleScript(id, {
-      root, paths: currentPath, tree,
-      moduleRoute: opts.moduleRoute,
-      needTransform,
+    if (!paths) throw new Error(`Please provide paths of module '${name}/${version}'`)
+    const { toplevel, sourceMaps, wildModules } = await bundleScript({ name, version, entry }, {
+      root, paths,
+      enableTransform: transformNodeModules.includes(name)
     })
-
+    const id = `${name}/${version}/${entry}`
     const result = minifyScript(id, toplevel, {
       sourceMaps, sourceRoot: opts.sourceRoot,
       mangle: opts.mangle
     })
 
-    if (!opts.buffer) await compileScript(id, { dest, ...result })
-    return { moduleIds, ...result }
+    if (opts.save) await compileScript(id, { dest, ...result })
+    return { wildModules, ...result }
   }
 
   /**
    * Compile all components and modules within the root directory into dest folder.
-   * @param {Object}               opts
-   * @param {string|Array|RegExp} [opts.match]              The match pattern to find entry components to compile
-   * @param {string|Array|RegExp} [opts.spareMatch]         The match pattern to find spare components to compile
-   * @param {string}              [opts.sourceRoot]         The source root
+   * @param {Object}                  opts
+   * @param {string|string[]|RegExp} [opts.match]              The match pattern to find entry components to compile
+   * @param {string|string[]|RegExp} [opts.spareMatch]         The match pattern to find spare components to compile
+   * @param {string}                 [opts.sourceRoot]         The source root
    * @example
    * compileAll({ match: 'pages/*', spareMatch: 'frames/*' })
    */
@@ -1209,50 +1200,29 @@ porter["import"](${JSON.stringify(id)})
     }
     await this.parsePromise
     const { sourceRoot } = opts
-    const { paths, loaderConfig, transformNodeModules } = this
+    const { paths, system, loaderConfig, transformNodeModules } = this
     const matchFn = makeMatchFn(opts.match)
     const spareMatchFn = makeMatchFn(opts.spareMatch)
     const isPreloadFn = makeMatchFn([].concat(loaderConfig.preload))
-    const { name: appName, version: appVersion } = this.system
-    const doneModuleIds = {}
-    let wildModuleIds = {}
+    const doneIds = {}
+    const wildModules = []
 
-    const compileComponentWithoutBundling = async (id) => {
-      const [, , , entry] = id.match(rModuleId)
-      const { moduleIds, componentIds } = await this.compileComponent(entry, {
-        includeModules: false, includeComponents: false,
-        sourceRoot
-      })
-      doneModuleIds[id] = true
-      Object.assign(wildModuleIds, moduleIds, componentIds)
-    }
-
-    const compileComponentWithBundling = async (id) => {
-      const [, , , entry] = id.match(rModuleId)
-      const { moduleIds } = await this.compileComponent(entry, {
-        includeLoader: true, includeModules: false,
-        sourceRoot,
-      })
-      doneModuleIds[id] = true
-      Object.assign(wildModuleIds, moduleIds)
-    }
-
-    // Compile module with internal files bundled into entry, excluding external dependencies. Actually this is the default behavior of `Porter.compileModule()`.
-    const compileModuleWithBundling = async (id) => {
-      const [, name, version ] = id.match(rModuleId)
-      const map = this.findMap({ name, version })
-      const pkgBase = name.split('/').reduce(function(result) {
-        return path.resolve(result, '..')
-      }, map.dir)
-
-      const { moduleIds } = await this.compileModule(id, {
-        paths: pkgBase,
-        moduleRoute: [...map.route, name],
-        needTransform: transformNodeModules.includes(name),
-        sourceRoot
-      })
-      doneModuleIds[id] = true
-      Object.assign(wildModuleIds, moduleIds)
+    const queueModule = async mod => {
+      if (mod.name !== system.name) {
+        if (!mod.route) mod.route = [system.name, mod.name]
+        const map = routeMap(mod.route, this.tree)
+        if (!map) {
+          // #38 cyclic dependencies between components and modules
+          if (await this.isComponent(mod.entry ? `${mod.name}/${mod.entry}` : mod.name)) return
+          throw new Error(`Unable to compile module ${mod.name}/${mod.entry}`)
+        }
+        const { version, main } = map
+        if (!mod.version) mod.version = version
+        if (!mod.entry) mod.entry = main
+      }
+      if (!doneIds[`${mod.name}/${mod.version}/${mod.entry}`]) {
+        wildModules.push(mod)
+      }
     }
 
     for (const currentPath of paths) {
@@ -1260,33 +1230,44 @@ porter["import"](${JSON.stringify(id)})
 
       for (const entryPath of entries) {
         const entry = entryPath.replace(rExt, '')
-        const id = [appName, appVersion, entry].join('/')
-
-        if (matchFn(entryPath)) {
-          await compileComponentWithBundling(id)
-        }
-        else if (isPreloadFn(entry) || spareMatchFn(entryPath)) {
-          await compileComponentWithoutBundling(id)
+        const isMainEntry = matchFn(entryPath)
+        const isSpareEntry = isPreloadFn(entry) || spareMatchFn(entryPath)
+        if (isMainEntry || isSpareEntry) {
+          const result = await this.compileComponent(entry, {
+            includeLoader: isMainEntry,
+            includeComponents: isMainEntry,
+            sourceRoot
+          })
+          doneIds[`${system.name}/${system.version}/${entry}`] = true
+          for (const mod of result.wildModules) await queueModule(mod)
         }
       }
     }
 
-    while (Object.keys(wildModuleIds).length > 0) {
-      for (const id in wildModuleIds) {
-        if (doneModuleIds[id]) continue
-        const [, name] = id.match(rModuleId)
-
-        if (name === appName) {
-          await compileComponentWithoutBundling(id)
-        } else {
-          await compileModuleWithBundling(id)
+    let mod
+    while ((mod = wildModules.shift())) {
+      if (doneIds[`${mod.name}/${mod.version}/${mod.entry}`]) continue
+      if (mod.name === system.name) {
+        const result = await this.compileComponent(mod.entry, {
+          includeComponents: false, sourceRoot
+        })
+        for (const child of result.wildModules) await queueModule(child)
+      } else {
+        const route = mod.route || [system.name, mod.name]
+        const { version, main, alias, dir } = routeMap(route, this.tree)
+        if (!mod.version) mod.version = version
+        if (!mod.entry) mod.entry = main
+        if (alias && alias[mod.entry]) mod.entry = alias[mod.entry]
+        const result = await this.compileModule(mod, {
+          paths: dir, sourceRoot,
+          enableTransform: transformNodeModules.includes(mod.name)
+        })
+        for (const child of result.wildModules) {
+          child.route = [...mod.route, child.name]
+          await queueModule(child)
         }
       }
-
-      wildModuleIds = Object.keys(wildModuleIds).reduce(function(result, id) {
-        if (!doneModuleIds[id]) result[id] = false
-        return result
-      }, {})
+      doneIds[`${mod.name}/${mod.version}/${mod.entry}`] = true
     }
   }
 

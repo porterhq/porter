@@ -31,11 +31,26 @@ describe('.compileAll()', function() {
     expect(content).to.contain('porter.config(')
   })
 
-  it('should compile external dependencies separately', async function () {
+  it('should compile modules separately', async function () {
     const name = 'chart.js'
     const { version, main } = porter.findMap({ name })
     expect(entries).to.contain(`public/${name}/${version}/${main}.js`)
     expect(entries).to.contain(`public/${name}/${version}/${main}.js.map`)
+  })
+
+  it('should compile modules that have directory as main', async function() {
+    const name = 'react-datepicker'
+    const { version, main, alias } = porter.findMap({ name })
+    expect(entries).to.contain(`public/${name}/${version}/${alias[main]}.js`)
+    expect(entries).to.contain(`public/${name}/${version}/${alias[main]}.js.map`)
+  })
+
+  it('should compile modules with browser field', async function() {
+    const name = 'cropper'
+    const { version, main, dir } = porter.findMap({ name })
+    expect(entries).to.contain(`public/${name}/${version}/${main}.js`)
+    expect(entries).to.contain(`public/${name}/${version}/${main}.js.map`)
+    expect(require(`${dir}/package.json`).browser).to.eql(`${main}.js`)
   })
 
   it('should compile components in all paths', async function () {
@@ -63,7 +78,7 @@ describe('.compileAll()', function() {
     expect(map.sources).to.contain('browser_modules/require-directory/convert/index.js')
   })
 
-  it('should generate source map of external dependencies as well', async function() {
+  it('should generate source map of modules as well', async function() {
     const name = 'react'
     const { version, main } = porter.findMap({ name })
     const fpath = path.join(root, 'public', `${name}/${version}/${main}.js.map`)

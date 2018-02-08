@@ -4,15 +4,20 @@
 
 const debug = require('debug')('porter')
 const minimist = require('minimist')
+const path = require('path')
 const Porter = require('..')
 
-// argv.paths should be a path ends with `node_modules`.
+// argv.paths should be the path of the module to compile
 const argv = minimist(process.argv.slice(2))
-const { root, paths, dest } = argv
+const { root, paths, dest, name, version, entry } = argv
 const porter = new Porter({ root, paths, dest })
 
-debug('Compiling %s from %s into %s', argv.id, argv.paths, argv.dest)
-porter.compileModule(argv.id, {
+debug('compiling %s/%s/%s from %s into %s',
+  name, version, entry, path.relative(root, argv.paths), path.relative(root, argv.dest)
+)
+
+porter.compileModule({ name, version, entry }, {
+  paths,
   mangle: argv.mangle,
   sourceRoot: argv['source-root'] || '/'
 })

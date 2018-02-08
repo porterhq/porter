@@ -19,9 +19,12 @@ describe('.compileModule()', function () {
 
   it('should compile specified module', async function () {
     const name = 'yen'
-    const { version, main } = porter.findMap({ name })
-    const id = [name, version, main].join('/')
-    await porter.compileModule(id)
-    expect(await exists(path.join(root, 'public', `${id}.js`))).to.be.ok()
+    const { version, main, dir } = porter.findMap({ name })
+    await porter.compileModule({ name, version, entry: main }, {
+      root: porter.root, paths: dir
+    })
+    const fpath = path.join(root, 'public', name, version, `${main}.js`)
+
+    expect(await exists(fpath)).to.be.ok()
   })
 })

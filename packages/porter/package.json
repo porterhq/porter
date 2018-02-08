@@ -11,7 +11,7 @@
     "access": "public"
   },
   "dependencies": {
-    "autoprefixer": "^7.1.2",
+    "autoprefixer": "^7.2.5",
     "babel-core": "^6.26.0",
     "debug": "^1.0.4",
     "glob": "^7.0.5",
