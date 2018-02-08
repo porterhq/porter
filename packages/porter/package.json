@@ -40,7 +40,7 @@
     "test": "DEBUG=porter mocha --timeout 30000"
   },
   "engines": {
-    "node": ">= 7.6.0"
+    "node": ">= 8.6.0"
   },
   "license": "BSD-3-Clause"
 }
