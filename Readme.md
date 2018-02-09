@@ -1,5 +1,5 @@
-[![NPM Downloads](https://img.shields.io/npm/dm/porter.svg?style=flat)](https://www.npmjs.com/package/porter)
-[![NPM Version](http://img.shields.io/npm/v/porter.svg?style=flat)](https://www.npmjs.com/package/porter)
+[![NPM Downloads](https://img.shields.io/npm/dm/@cara/porter.svg?style=flat)](https://www.npmjs.com/package/@cara/porter)
+[![NPM Version](http://img.shields.io/npm/v/@cara/porter.svg?style=flat)](https://www.npmjs.com/package/@cara/porter)
 [![Build Status](https://travis-ci.org/erzu/porter.svg)](https://travis-ci.org/erzu/porter)
 
 Porter is a consolidated browser modules framework featuring module transformation on the fly.
