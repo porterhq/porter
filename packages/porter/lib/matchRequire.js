@@ -57,7 +57,7 @@ exports.findAll = function(content) {
 
   function findRequireInBlock() {
     if (part == '{') {
-      while (part != '}' && part != 'require') next()
+      while (part && part != '}' && part != 'require') next()
       if (part == 'require') findRequire()
       space()
     }
@@ -74,6 +74,8 @@ exports.findAll = function(content) {
       }
       if (temp.length == 3 && (rEqualOp.test(temp[1]) || rNotEqualOp.test(temp[1])) && rString.test(temp[0]) && rString.test(temp[2])) {
         space()
+        // 'production' == 'production'
+        // 'development' != 'production'
         if ((temp[0].match(rString)[2] == temp[2].match(rString)[2]) == rEqualOp.test(temp[1])) {
           findRequireInBlock()
           space()
@@ -84,10 +86,10 @@ exports.findAll = function(content) {
             while (part != '}') next()
           } else {
             space()
-            while (part != ';' && part != '\n') next()
+            while (part && part != ';' && part != '\n') next()
           }
         } else {
-          while (part != 'else') next()
+          while (part && part != 'else') next()
           findRequireInBlock()
         }
       }

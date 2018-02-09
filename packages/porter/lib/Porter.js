@@ -340,12 +340,7 @@ async function bundleScript({ name, version, entry: mainEntry }, opts) {
   let sourceMaps = []
 
   // `append()` could be call either when compiling components or when compiling modules.
-  async function append(entry, dependencies, factory) {
-    const [fpath, ext] = factory ? [null] : await findScript(entry, paths)
-
-    if (!fpath && !factory) throw new Error(`Unable to locate '${entry}' in '${paths}'`)
-    if (fpath && ext != '.js') entry = (entry + ext).replace(rExt, '')
-
+  async function append(entry, { dependencies, factory, fpath }) {
     const id = `${name}/${version}/${entry}`
     if (doneIds[id]) return
     if (entry !== mainEntry && enableBundle === false) {
@@ -353,13 +348,8 @@ async function bundleScript({ name, version, entry: mainEntry }, opts) {
     }
 
     doneIds[id] = true
-    if (!factory) {
-      const result = await transformScript(id, { fpath, enableEnvify, enableTransform, root })
-      factory = result.code
-      if (result.map) sourceMaps.push(result.map)
-    }
-    dependencies = dependencies || matchRequire.findAll(factory)
 
+    if (!dependencies) dependencies = matchRequire.findAll(factory)
     for (let i = dependencies.length - 1; i >= 0; i--) {
       if (dependencies[i].endsWith('heredoc')) dependencies.splice(i, 1)
     }
@@ -377,32 +367,46 @@ async function bundleScript({ name, version, entry: mainEntry }, opts) {
     await satisfy(entry, dependencies)
   }
 
+  async function appendFile(entry, { fpath, ext }) {
+    if (ext != '.js') entry = (entry + ext).replace(rExt, '')
+    const { code: factory, map } = await transformScript(entry, { fpath, enableEnvify, enableTransform, root })
+    if (map) sourceMaps.push(map)
+    await append(entry, { factory, fpath })
+  }
+
   async function satisfy(entry, dependencies) {
     for (const dep of dependencies) {
+      // Ignore require('//example.com/foo.js')
       if (rURI.test(dep)) continue
-      if (dep.startsWith('.')) {
-        await append(path.join(path.dirname(entry), dep))
-        continue
-      }
 
-      // Allow `require('lib/foo')`
-      let findResult
-      if (enableAbsoluteId && (findResult = await findScript(dep, paths))[0]) {
-        const [fpath, ext] = findResult
+      // Allow both `require('./foo')` and `require('lib/foo')`
+      if (dep.startsWith('.') || enableAbsoluteId) {
+        const id = dep.startsWith('.') ? path.join(path.dirname(entry), dep) : dep
+        const [fpath, ext] = await findScript(id, paths)
         if (fpath) {
-          const depEntry = ext != '.js' ? (dep + ext).replace(rExt, '') : dep
-          await append(depEntry)
+          await appendFile(id, { fpath, ext })
+          continue
         }
       }
-      // External modules
-      else {
-        const [, depName, , depEntry] = dep.match(rModuleId)
-        wildModules.push({ name: depName, entry: depEntry })
-      }
+
+      // External modules or missing comonents
+      const [, depName, , depEntry] = dep.match(rModuleId)
+      wildModules.push({ name: depName, entry: depEntry })
     }
   }
 
-  await append(mainEntry, opts.dependencies, opts.factory)
+  if (opts.factory) {
+    const { dependencies, factory } = opts
+    await append(mainEntry, { dependencies, factory })
+  } else {
+    const [fpath, ext] = await findScript(mainEntry, paths)
+    if (fpath) {
+      await appendFile(mainEntry, { fpath, ext })
+    } else {
+      throw new Error(`missing entry '${mainEntry}' in ${paths}`)
+    }
+  }
+
   return { toplevel, sourceMaps, doneIds, wildModules }
 }
 
@@ -446,6 +450,12 @@ function makeMatchFn(pattern) {
   }
 }
 
+class ParseError extends Error {
+  constructor(message) {
+    super(message)
+  }
+}
+
 /**
  * The middleware and the compiler.
  */
@@ -484,9 +494,8 @@ class Porter {
     this.cache = new Cache({ root: this.root, dest: this.cacheDest })
     if (this.cacheExcept.length > 0) {
       (async () => {
-        await this.parsePromise
         if (await exists(this.cacheDest)) {
-          await spawn('rm', ['-rf', this.system.name, ...this.cacheExcept], { cwd: this.cacheDest })
+          await spawn('rm', ['-rf', ...this.cacheExcept], { cwd: this.cacheDest })
           debug(`Cache cleared (${path.relative(this.root, this.cacheDest)})`)
         }
       })().catch(err => console.error(err.stack))
@@ -554,13 +563,7 @@ class Porter {
     const resolved = this.resolved || (this.resolved = {})
     const [fpath, ext] = await findScript(entry, dir)
 
-    // We do allow requiring components from node_modules. Hence give `findScript()` another try here.
-    if (!fpath) {
-      const [componentPath] = await findScript(entry, this.paths)
-      if (componentPath == null) {
-        throw new Error(`Unable to find '${entry}' in ${dir}`)
-      }
-    }
+    if (!fpath) throw new ParseError(`missing file ${dir}/${entry}.js`)
     if (ext != '.js') alias[entry] = `${entry}${ext}`.replace(rExt, '')
     if (resolved[fpath]) return
 
@@ -589,63 +592,50 @@ class Porter {
         // #38 cyclic dependencies between components and modules
       }
       else {
-        console.warn("WARN unmet dependency '%s' of '%s'", dep, pkg.name)
+        throw new ParseError(`unmet dependency ${dir}/${entry}.js requires '${dep}'`)
       }
     }
   }
 
-  async resolveComponent(map, component) {
+  async resolveComponent(entry, { fpath, map }) {
     const { alias, dependencies } = map
+    const deps = matchRequire.findAll(await readFile(fpath, 'utf8'))
 
-    for (const dep of component.dependencies) {
+    for (const dep of deps) {
       const id = dep.startsWith('.')
-        ? path.join(path.dirname(component.id), dep)
+        ? path.join(path.dirname(entry), dep)
         : dep
 
-      const [fpath, ext] = await findScript(id, this.paths)
+      const [depPath, ext] = await findScript(id, this.paths)
       // Skip fellow components because they've been listed already.
-      if (fpath) {
+      if (depPath) {
         if (ext != '.js') alias[id] = `${id}${ext}`.replace(rExt, '')
         continue
       }
 
       // A component is asked specifically, yet it cannot be found.
-      if (!fpath && dep.startsWith('.')) {
-        throw new Error(`Unable to resolve '${dep}' in component '${component.id}.js'`)
+      if (!depPath && dep.startsWith('.')) {
+        throw new ParseError(`unmet dependency ${fpath} requires '${dep}'`)
       }
 
-      const [, name, , entry] = id.match(rModuleId)
+      const [, name, , depEntry] = id.match(rModuleId)
       // require('//example.com/foo.js')
       if (rURI.test(name)) continue
-      if (name in dependencies && dependencies[name].entries[entry]) continue
+      // current dep is parsed already.
+      if (name in dependencies && dependencies[name].entries[depEntry]) continue
 
       try {
         await closestModule(this.root, name)
       } catch (err) {
-        throw new Error(`Unable to resolve '${id}' in component '${component.id}.js'`)
+        throw new ParseError(`unmet dependency ${fpath} requires '${dep}'`)
       }
 
-      dependencies[name] = await this.resolveModule({ name, entry }, { dir: this.root, parent: map })
+      dependencies[name] = await this.resolveModule({ name, depEntry }, { dir: this.root, parent: map })
     }
   }
 
   async parseMap() {
     const pkg = require(path.join(this.root, 'package.json'))
-    const components = []
-
-    // Glob all components within current path. Scripts within node_modules shall be ignored because a component shall never reside in that. Paths like `foo/node_modules` cannot be ruled out by current approach.
-    for (const dir of this.paths) {
-      const entries = await glob('{*.js,!(node_modules)/**/*.js}', { cwd: dir })
-      for (const entry of entries) {
-        const fpath = path.join(dir, entry)
-        if ((await lstat(fpath)).isFile()) {
-          components.push({
-            id: entry.replace(rExt, ''),
-            dependencies: matchRequire.findAll(await readFile(fpath, 'utf8'))
-          })
-        }
-      }
-    }
 
     this.tree = {
       [pkg.name]: {
@@ -656,8 +646,25 @@ class Porter {
       }
     }
 
-    for (const component of components) {
-      await this.resolveComponent(this.tree[pkg.name], component)
+    const resolveEntry = async (dir, entry) => {
+      const fpath = path.join(dir, entry)
+      // Might glob paths like `/foo/bar/chart.js`, which is a directory actually.
+      if (!(await lstat(fpath)).isFile()) return
+      try {
+        await this.resolveComponent(entry.replace(rExt, ''), { fpath, map: this.tree[pkg.name] })
+      } catch (err) {
+        if (err instanceof ParseError) {
+          console.warn(`WARN ${err.message}`)
+        } else {
+          throw err
+        }
+      }
+    }
+
+    // Glob all components within current path. Scripts within node_modules shall be ignored because a component shall never reside in that. Paths like `foo/node_modules` cannot be ruled out by current approach.
+    for (const dir of this.paths) {
+      const entries = await glob('{*.js,!(node_modules)/**/*.js}', { cwd: dir })
+      await Promise.all(entries.map(entry => resolveEntry(dir, entry)))
     }
   }
 
@@ -737,6 +744,7 @@ class Porter {
       Object.assign(this.loaderConfig, this.system)
     }
 
+    this.cacheExcept.push(this.system.name)
     this.importer = postcss().use(this.atImport())
     this.prefixer = postcss().use(autoprefixer())
   }
@@ -1236,15 +1244,23 @@ porter["import"](${JSON.stringify(id)})
     const doneIds = {}
     const wildModules = []
 
+    const queuePossibleComponent = async mod => {
+      // #38 cyclic dependencies between components and modules
+      const id = mod.entry ? `${mod.name}/${mod.entry}` : mod.name
+      if (await this.isComponent(id)) {
+        await queueModule({ name: system.name, version: system.version, entry: id })
+      } else {
+        console.warn(`WARN unmet dependency ${id}`)
+      }
+    }
+
     const queueModule = async mod => {
-      if (mod.name !== system.name) {
+      if (mod.name === system.name) {
+        mod.version = system.version
+      } else {
         if (!mod.route) mod.route = [system.name, mod.name]
         const map = routeMap(mod.route, this.tree)
-        if (!map) {
-          // #38 cyclic dependencies between components and modules
-          if (await this.isComponent(mod.entry ? `${mod.name}/${mod.entry}` : mod.name)) return
-          throw new Error(`Unable to compile module ${mod.name}/${mod.entry}`)
-        }
+        if (!map) return await queuePossibleComponent(mod)
         const { version, main } = map
         if (!mod.version) mod.version = version
         if (!mod.entry) mod.entry = main

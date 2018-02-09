@@ -5,4 +5,5 @@
 mocha.setup('bdd')
 require('./require-directory/suite')
 require('./cyclic-modules/suite')
+require('./missing-dep/suite')
 mocha.run()

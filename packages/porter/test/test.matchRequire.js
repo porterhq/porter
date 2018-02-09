@@ -42,4 +42,13 @@ describe('matchRequire', function() {
     `)
     expect(deps).to.eql(['jquery'])
   })
+
+  it('should not hang while parsing following code', async function() {
+    const deps = matchRequire.findAll(`
+    if ('production' !== 'production') {
+      Object.freeze(emptyObject);
+    }
+    `)
+    expect(deps).to.eql([])
+  })
 })
