@@ -912,7 +912,7 @@ class Porter {
   async cacheModule({ name, version, entry }) {
     entry = entry.replace(rExt, '')
     const { dir, entries, alias, browserify } = this.findMap({ name, version })
-    const { cacheModuleIds, root } = this
+    const { root } = this
 
     let unaliasEntry = entry
     for (const prop in alias) {
@@ -923,7 +923,6 @@ class Porter {
     }
     // Skip caching of internal entries.
     if (!(unaliasEntry in entries)) return
-    if (cacheModuleIds[`${name}/${version}/${entry}`]) return
 
     // Modules might be linked with `npm link`. If dir is symbolic link, resolve it with `fs.realpath()`. If not, applying a `path.resolve()` here won't obfuscate the real directory path.
     const realDir = path.resolve(dir, '..', await realpath(dir))
@@ -942,7 +941,8 @@ class Porter {
 
   async spawnCacheModule({ name, version, entry }, { dir, enableEnvify }) {
     const { cacheModuleIds, cacheDest, mangleExcept, root, transformModuleNames } = this
-
+    if (cacheModuleIds[`${name}/${version}/${entry}`]) return
+    cacheModuleIds[`${name}/${version}/${entry}`] = true
     const args = [
       path.join(__dirname, '../bin/compileModule.js'),
       '--name', name,
@@ -957,7 +957,6 @@ class Porter {
     if (transformModuleNames.includes(name)) args.push('--transform')
     if (enableEnvify) args.push('--envify')
     await spawn(process.argv[0], args, { stdio: 'inherit' })
-    cacheModuleIds[`${name}/${version}/${entry}`] = false
   }
 
   async readModule(id, isMain) {
