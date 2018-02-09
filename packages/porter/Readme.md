@@ -1,7 +1,7 @@
 # Porter
 
-[![NPM Downloads](https://img.shields.io/npm/dm/porter.svg?style=flat)](https://www.npmjs.com/package/porter)
-[![NPM Version](http://img.shields.io/npm/v/porter.svg?style=flat)](https://www.npmjs.com/package/porter)
+[![NPM Downloads](https://img.shields.io/npm/dm/@cara/porter.svg?style=flat)](https://www.npmjs.com/package/@cara/porter)
+[![NPM Version](http://img.shields.io/npm/v/@cara/porter.svg?style=flat)](https://www.npmjs.com/package/@cara/porter)
 [![Build Status](https://travis-ci.org/erzu/porter.svg)](https://travis-ci.org/erzu/porter)
 
 porter is a JS/CSS module loader featuring module transformation on the fly.
@@ -203,7 +203,7 @@ define(id, deps, function(require, exports, module) {
 ```
 
 - `id` is deducted from the file path.
-- `dependencies` is parsed from the factory code thanks to the [match-require](https://github.com/yiminghe/match-require) module.
+- `dependencies` is parsed from the factory code with [js-tokens](https://github.com/lydell/js-tokens) module.
 - `factory` (the anonymouse function) body is left untouched or transformed with babel depending on whether `.babelrc` exists or not.
 
 If ES Module is preferred, you'll need two things:
