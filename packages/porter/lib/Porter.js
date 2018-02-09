@@ -526,29 +526,34 @@ class Porter {
     const pkg = require(path.join(pkgRoot, 'package.json'))
     const main = typeof pkg.browser == 'string' ? pkg.browser : pkg.main
     const mainEntry = main ? main.replace(rExt, '').replace(/^\.\//, '') : 'index'
+
     if (!entry) entry = mainEntry
-    const existingModule = this.findMap({ name, version: pkg.version })
 
-    if (existingModule && existingModule.entries[entry]) return existingModule
+    const id = `${name}/${pkg.version}/${entry}`
+    const { resolvingIds } = this
 
-    // Re-use map if exists already.
-    const result = parent.dependencies[name] || {
-      dir: pkgRoot,
-      dependencies: {},
-      main: mainEntry,
-      version: pkg.version,
-      alias: {},
-      browserify: pkg.browserify,
-      entries: {},
-      parent
+    if (resolvingIds[id]) {
+      // Copy the resolved module to current parent's dependencies.
+      parent.dependencies[name] = await resolvingIds[id]
+    } else {
+      await (resolvingIds[id] = this.doResolveModule({ name, entry }, {
+        dir: pkgRoot, parent, main: mainEntry, pkg
+      }))
     }
+  }
+
+  async doResolveModule({ name, entry }, { dir, parent, main, pkg }) {
+    const result = parent.dependencies[name] || (parent.dependencies[name] = {
+      name, version: pkg.version, main, dir, parent,
+      alias: {}, dependencies: {}, entries: {}, browserify: pkg.browserify
+    })
 
     // https://github.com/erzu/porter/issues/1
     // https://github.com/browserify/browserify-handbook#browser-field
     if (typeof pkg.browser == 'object') Object.assign(result.alias, pkg.browser)
-
     await this.resolveDependency(entry, result)
     result.entries[entry] = true
+
     return result
   }
 
@@ -560,17 +565,19 @@ class Porter {
 
   async resolveDependency(entry, map) {
     const { alias, dir, dependencies, parent } = map
-    const resolved = this.resolved || (this.resolved = {})
     const [fpath, ext] = await findScript(entry, dir)
 
     if (!fpath) throw new ParseError(`missing file ${dir}/${entry}.js`)
     if (ext != '.js') alias[entry] = `${entry}${ext}`.replace(rExt, '')
-    if (resolved[fpath]) return
 
     const pkg = require(`${dir}/package.json`)
     const content = await readFile(fpath, 'utf8')
     const deps = matchRequire.findAll(content)
-    resolved[fpath] = true
+
+    // Prevent from falling into dead loop if cyclic dependencies happens.
+    const { resolvingPaths } = this
+    if (resolvingPaths[fpath]) return
+    resolvingPaths[fpath] = true
 
     for (const dep of deps) {
       if (dep.startsWith('.')) {
@@ -584,7 +591,7 @@ class Porter {
         dependencies[name] = parent.dependencies[name]
       }
       else if (this.isDependency(pkg, name)) {
-        dependencies[name] = await this.resolveModule({ name, entry: depEntry }, {
+        await this.resolveModule({ name: name, entry: depEntry }, {
           dir, parent: map
         })
       }
@@ -630,13 +637,15 @@ class Porter {
         throw new ParseError(`unmet dependency ${fpath} requires '${dep}'`)
       }
 
-      dependencies[name] = await this.resolveModule({ name, depEntry }, { dir: this.root, parent: map })
+      await this.resolveModule({ name, depEntry }, { dir: this.root, parent: map })
     }
   }
 
   async parseMap() {
     const pkg = require(path.join(this.root, 'package.json'))
 
+    this.resolvingIds = {}
+    this.resolvingPaths = {}
     this.tree = {
       [pkg.name]: {
         version: pkg.version,
