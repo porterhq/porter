@@ -89,8 +89,11 @@ exports.findAll = function(content) {
             while (part && part != ';' && part != '\n') next()
           }
         } else {
-          while (part && part != 'else') next()
-          findRequireInBlock()
+          while (part && part != ';' && part != '\n' && part != 'else') next()
+          if (part == 'else') {
+            space()
+            findRequireInBlock()
+          }
         }
       }
     }
