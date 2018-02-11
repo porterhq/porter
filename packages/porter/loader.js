@@ -190,11 +190,19 @@
     }
   }
 
-
+  /**
+   * The Module class
+   * @param {string} id
+   * @param {Object} opts
+   * @param {string[]} opts.deps
+   * @param {function} opts.factory
+   * @example
+   * new Module('jquery/3.3.1/dist/jquery')
+   * new Module('//g.alicdn.com/alilog/mlog/aplus_v2.js')
+   */
   function Module(id, opts) {
     opts = opts || {}
     this.id = id
-    Object.assign(this, parseId(id))
     this.deps = opts.deps
     this.children = []
     this.parents = []
@@ -218,7 +226,7 @@
     for (var i = 0; i < dep.parents.length; i++) {
       var parent = dep.parents[i]
       if (parent == mod) return true
-      if (parent.name == mod.name && mod.depends(parent, distance + 1)) return true
+      if (mod.depends(parent, distance + 1)) return true
     }
     return false
   }

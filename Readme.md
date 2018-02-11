@@ -82,7 +82,7 @@ When it's time to be production ready, simply run:
 const Porter = require('@cara/porter')
 const porter = new Porter()
 
-Promise.all[
+Promise.all([
   porter.compileAll({ match: 'app.js' }),           // js components and modules
   porter.compileStyleSheets({ match: 'app.css' })   // css files
 ])

@@ -35,6 +35,7 @@ exports.findAll = function(content) {
     }
   }
 
+  // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/import
   function findImport() {
     space()
     // import "foo"
@@ -63,38 +64,56 @@ exports.findAll = function(content) {
     }
   }
 
+  // if ('production' == 'production')
+  // if ('development' != 'production')
+  // if ("development" == "production")
+  // if (true)
+  // if (false)
+  function sillyEval(temp) {
+    if (temp.length == 3 && (rEqualOp.test(temp[1]) || rNotEqualOp.test(temp[1]))) {
+      if (rString.test(temp[0]) && rString.test(temp[2])) {
+        return (temp[0].match(rString)[2] == temp[2].match(rString)[2]) == rEqualOp.test(temp[1])
+      }
+      else if (temp[0] == 'true' || temp[0] == 'false') {
+        return temp[0] == temp[2]
+      }
+    }
+    else if (temp.length == 1 && (temp[0] == 'true' || temp[0] == 'false')) {
+      return temp[0] == 'true'
+    }
+  }
+
   function findConditionalRequire() {
     space()
-    if (part == '(') {
+    if (part != '(') return
+
+    space()
+    const temp = []
+    while (part != ')') {
+      if (!rSpace.test(part)) temp.push(part)
+      next()
+    }
+    space()
+
+    let result = sillyEval(temp)
+    if (result === true) {
+      findRequireInBlock()
       space()
-      const temp = []
-      while (part != ')') {
-        if (!rSpace.test(part)) temp.push(part)
-        next()
-      }
-      if (temp.length == 3 && (rEqualOp.test(temp[1]) || rNotEqualOp.test(temp[1])) && rString.test(temp[0]) && rString.test(temp[2])) {
+      // Skip over the else branch
+      if (part == 'else') space()
+      if (part == '{') {
         space()
-        // 'production' == 'production'
-        // 'development' != 'production'
-        if ((temp[0].match(rString)[2] == temp[2].match(rString)[2]) == rEqualOp.test(temp[1])) {
-          findRequireInBlock()
-          space()
-          // Skip over the else branch
-          if (part == 'else') space()
-          if (part == '{') {
-            space()
-            while (part != '}') next()
-          } else {
-            space()
-            while (part && part != ';' && part != '\n') next()
-          }
-        } else {
-          while (part && part != ';' && part != '\n' && part != 'else') next()
-          if (part == 'else') {
-            space()
-            findRequireInBlock()
-          }
-        }
+        while (part != '}') next()
+      } else {
+        space()
+        while (part && part != ';' && part != '\n') next()
+      }
+    }
+    else if (result === false) {
+      while (part && part != ';' && part != '\n' && part != 'else') next()
+      if (part == 'else') {
+        space()
+        findRequireInBlock()
       }
     }
   }

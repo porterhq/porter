@@ -613,6 +613,9 @@ class Porter {
         ? path.join(path.dirname(entry), dep)
         : dep
 
+      // require('https://example.com/foo.js')
+      if (rURI.test(dep)) continue
+
       const [depPath, ext] = await findScript(id, this.paths)
       // Skip fellow components because they've been listed already.
       if (depPath) {

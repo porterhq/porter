@@ -89,25 +89,47 @@ describe('matchRequire', function() {
     expect(deps).to.eql([])
   })
 
-  // it('should match boolean condition', async function() {
-  //   const deps = matchRequire.findAll(`
-  //     if (true) {
-  //       require('jquery')
-  //     } else {
-  //       require('yen')
-  //     }
-  //   `)
-  //   expect(deps).to.eql(['jquery'])
-  // })
+  it('should match boolean condition', async function() {
+    const deps = matchRequire.findAll(`
+      if (true) {
+        require('jquery')
+      } else {
+        require('yen')
+      }
+    `)
+    expect(deps).to.eql(['jquery'])
+  })
 
-  // it('should match else branch of the boolean condition if the condition is false', async function() {
-  //   const deps = matchRequire.findAll(`
-  //     if (false) {
-  //       require('jquery')
-  //     } else {
-  //       require('yen')
-  //     }
-  //   `)
-  //   expect(deps).to.eql(['yen'])
-  // })
+  it('should match else branch of the boolean condition if the condition is false', async function() {
+    const deps = matchRequire.findAll(`
+      if (false) {
+        require('jquery')
+      } else {
+        require('yen')
+      }
+    `)
+    expect(deps).to.eql(['yen'])
+  })
+
+  it('should match detailed boolean condition', async function() {
+    const deps = matchRequire.findAll(`
+      if (true == true) {
+        require('jquery')
+      } else {
+        require('yen')
+      }
+    `)
+    expect(deps).to.eql(['jquery'])
+  })
+
+  it('shoud match both if condition is not always true or false', async function() {
+    const deps = matchRequire.findAll(`
+      if (a) {
+        require('jquery')
+      } else {
+        require('yen')
+      }
+    `)
+    expect(deps).to.eql(['jquery', 'yen'])
+  })
 })
