@@ -2,8 +2,3 @@ language: node_js
 node_js:
   - node
   - lts/*
-
-install:
-  - npm install
-  - cd examples/default; npm install ; cd -
-  - cd examples/express; npm install ; cd -
