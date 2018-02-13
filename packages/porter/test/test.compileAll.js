@@ -17,7 +17,7 @@ describe('.compileAll()', function() {
   before(async function() {
     exec('rm -rf ' + path.join(root, 'public'))
     await porter.compileAll({
-      match: ['home.js', 'runner.js'],
+      match: ['home.js', 'test/suite.js'],
       spareMatch: ['i18n/index.js']
     })
     entries = await glob('public/**/*.{js,map}', { cwd: root })
@@ -54,8 +54,8 @@ describe('.compileAll()', function() {
   })
 
   it('should compile components in all paths', async function () {
-    expect(entries).to.contain(`public/${system.name}/${system.version}/runner.js`)
-    expect(entries).to.contain(`public/${system.name}/${system.version}/runner.js.map`)
+    expect(entries).to.contain(`public/${system.name}/${system.version}/test/suite.js`)
+    expect(entries).to.contain(`public/${system.name}/${system.version}/test/suite.js.map`)
   })
 
   it('should compile spare components if `spareMatch` is set', async function () {
@@ -71,9 +71,9 @@ describe('.compileAll()', function() {
   })
 
   it('should generate source map of components from other paths', async function() {
-    const fpath = path.join(root, `public/${system.name}/${system.version}/runner.js.map`)
+    const fpath = path.join(root, `public/${system.name}/${system.version}/test/suite.js.map`)
     const map = JSON.parse(await readFile(fpath, 'utf8'))
-    expect(map.sources).to.contain('browser_modules/runner.js')
+    expect(map.sources).to.contain('browser_modules/test/suite.js')
     expect(map.sources).to.contain('browser_modules/cyclic-modules/suite.js')
     expect(map.sources).to.contain('browser_modules/require-directory/convert/index.js')
   })

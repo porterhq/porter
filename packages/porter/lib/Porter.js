@@ -629,10 +629,10 @@ class Porter {
       }
 
       const [, name, , depEntry] = id.match(rModuleId)
-      // require('//example.com/foo.js')
-      if (rURI.test(name)) continue
-      // current dep is parsed already.
+      // Current dep is parsed already.
       if (name in dependencies && dependencies[name].entries[depEntry]) continue
+      // Requiring a component by fullname, which is rare but convenient in isolated component development. See packages/porter-component for example.
+      if (name == map.name) continue
 
       try {
         await closestModule(this.root, name)
@@ -651,6 +651,7 @@ class Porter {
     this.resolvingPaths = {}
     this.tree = {
       [pkg.name]: {
+        name: pkg.name,
         version: pkg.version,
         dependencies: {},
         main: pkg.main ? pkg.main.replace(rExt, '') : 'index',

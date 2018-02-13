@@ -2,10 +2,21 @@
 
 'use strict'
 
-const porter = require('../../..')
+const path = require('path')
+const Porter = require('@cara/porter')
+const porter = new Porter({
+  root: path.join(__dirname, '..'),
+  paths: ['components', 'browser_modules'],
+  dest: 'public',
+  loaderConfig: {
+    map: {
+      'i18n': '/i18n'
+    }
+  }
+})
 
 Promise.all([
-  porter.compileAll(),
+  porter.compileAll({ match: ['home.js','test/suite.js'] }),
   porter.compileStyleSheets({ match: 'stylesheets/app.css' })
 ])
   .then(function() {

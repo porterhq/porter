@@ -13,6 +13,7 @@
     "mocha": "^3.5.3"
   },
   "scripts": {
-    "start": "porter serve"
+    "start": "porter serve",
+    "test": "porter serve --headless"
   }
 }

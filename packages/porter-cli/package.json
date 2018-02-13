@@ -13,7 +13,9 @@
     "@cara/porter": "^1.0.0",
     "commander": "^2.8.1",
     "koa": "^2.4.0",
-    "koa-static": "^4.0.2"
+    "koa-static": "^4.0.2",
+    "mocha": "^5.0.0",
+    "puppeteer": "^1.0.0"
   },
   "bin": {
     "porter": "./bin/porter.js",
@@ -23,5 +25,11 @@
   "engines": {
     "node": ">= 8.6.0"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "expect.js": "^0.3.1"
+  },
+  "scripts": {
+    "test": "mocha --timeout 5000"
+  }
 }
