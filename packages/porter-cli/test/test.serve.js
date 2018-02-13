@@ -21,7 +21,10 @@ describe('porter-serve --port', function() {
     const res = await new Promise(resolve => http.get('http://localhost:9527/loader.js', resolve))
     expect(res.statusCode).to.eql(200)
     expect(res.headers['content-type']).to.contain('application/javascript')
-    proc.kill()
+    await new Promise(resolve => {
+      proc.on('exit', resolve)
+      proc.kill()
+    })
   })
 })
 
@@ -38,8 +41,11 @@ describe('porter-serve component', function() {
     })
   })
 
-  after(function() {
-    proc.kill()
+  after(async function() {
+    await new Promise(resolve => {
+      proc.on('exit', resolve)
+      proc.kill()
+    })
   })
 
   it('should serve loader', async function() {
@@ -103,8 +109,11 @@ describe('porter-serve web application', function() {
     })
   })
 
-  after(function() {
-    proc.kill()
+  after(async function() {
+    await new Promise(resolve => {
+      proc.on('exit', resolve)
+      proc.kill()
+    })
   })
 
   it('should be able to serve as a full webapp development environment', async function() {

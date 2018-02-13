@@ -26,6 +26,7 @@ program.parse(process.argv)
 
 // const debug = require('debug')('porter')
 const fs = require('fs')
+const http = require('http')
 const Koa = require('koa')
 const path = require('path')
 const puppeteer = require('puppeteer')
@@ -42,7 +43,7 @@ if (!exists(pkgPath)) {
 
 serve()
 
-async function test() {
+async function test({ port }) {
   const browser = await puppeteer.launch()
   const page = await browser.newPage()
 
@@ -95,7 +96,7 @@ async function test() {
   }
 
   page.on('console', onConsoleMessage)
-  page.goto(`http://localhost:${program.port}/runner.html?reporter=json-stream&suite=${program.suite}`)
+  page.goto(`http://localhost:${port}/runner.html?reporter=json-stream&suite=${program.suite}`)
 }
 
 function serve() {
@@ -116,10 +117,12 @@ function serve() {
   })
   app.use(porter.async())
 
-  app.listen(program.port, function() {
-    console.log('Server started at', program.port)
+  const server = http.createServer(app.callback())
+  const port = program.headless ? 0 : program.port
+  server.listen({ port }, function() {
+    console.log('Server started at', port)
     if (program.headless) {
-      test().catch(err => console.error(err.stack))
+      test({ port: server.address().port }).catch(err => console.error(err.stack))
     }
   })
 }

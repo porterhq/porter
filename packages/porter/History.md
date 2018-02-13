@@ -1,3 +1,8 @@
+1.0.1 / 2018-02-12
+==================
+
+  * Fix: allow require components of current app by fullname, such as `require('@cara/porter-component')`
+
 1.0.0 / 2018-02-11
 ==================
 
