@@ -496,7 +496,7 @@ class Porter {
       (async () => {
         if (await exists(this.cacheDest)) {
           await spawn('rm', ['-rf', ...this.cacheExcept], { cwd: this.cacheDest })
-          debug(`Cache cleared (${path.relative(this.root, this.cacheDest)})`)
+          debug(`Cache cleared (${this.cacheDest})`)
         }
       })().catch(err => console.error(err.stack))
     }
@@ -667,7 +667,7 @@ class Porter {
         await this.resolveComponent(entry.replace(rExt, ''), { fpath, map: this.tree[pkg.name] })
       } catch (err) {
         if (err instanceof ParseError) {
-          console.warn(`WARN ${err.message}`)
+          console.warn(`WARN ${err.message}`, pkg.name, this.root)
         } else {
           throw err
         }
@@ -762,7 +762,7 @@ class Porter {
     this.prefixer = postcss().use(autoprefixer())
   }
 
-  isSource(id) {
+  async isSource(id) {
     if (!this.serveSource) return false
 
     if (id.startsWith('node_modules')) {
@@ -773,7 +773,7 @@ class Porter {
 
     const fpath = path.join(this.root, id)
     for (const dir of this.paths) {
-      if (fpath.startsWith(dir)) return true
+      if (fpath.startsWith(dir) && (await exists(fpath))) return true
     }
 
     return false
@@ -975,7 +975,7 @@ class Porter {
     const fpath = path.join(dir, entry)
 
     if (!fpath) return
-    if (!cacheExcept.includes(name)) {
+    if (!cacheExcept.includes('*') || cacheExcept.includes(name)) {
       this.cacheModule({ name, version, entry }).catch(err => console.error(err.stack))
     }
 
@@ -1012,7 +1012,7 @@ class Porter {
     else if (id === 'porter-sw.js') {
       result = await this.readSystemScript(id)
     }
-    else if (this.isSource(id)) {
+    else if (await this.isSource(id)) {
       result = await this.readSource(id)
     }
     else if (ext === '.js') {
@@ -1255,6 +1255,7 @@ porter["import"](${JSON.stringify(id)})
     const isPreloadFn = makeMatchFn([].concat(loaderConfig.preload))
     const doneIds = {}
     const wildModules = []
+    let queueModule
 
     const queuePossibleComponent = async mod => {
       // #38 cyclic dependencies between components and modules
@@ -1266,7 +1267,7 @@ porter["import"](${JSON.stringify(id)})
       }
     }
 
-    const queueModule = async mod => {
+    queueModule = async mod => {
       if (mod.name === system.name) {
         mod.version = system.version
       } else {

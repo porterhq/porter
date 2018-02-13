@@ -14,6 +14,6 @@
   },
   "scripts": {
     "start": "porter serve",
-    "test": "porter serve --headless"
+    "test": "DEBUG=porter,$DEBUG porter serve --headless"
   }
 }

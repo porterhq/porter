@@ -14,6 +14,7 @@ program
   .option('-p --port [port]', 'port to listen on', 5000)
   .option('-P --paths [paths]', 'components load path', collectPath, [])
   .option('-s --suite [suite]', 'run suites right after server is started', 'test/suite')
+  .option('-t --timeout [timeout]', 'timeout on headless tests', 15000)
 
 program.on('--help', function() {
   console.log('  Examples:')
@@ -41,7 +42,7 @@ if (!exists(pkgPath)) {
   process.exit()
 }
 
-serve()
+serve().catch(err => console.error(err.stack))
 
 async function test({ port }) {
   const browser = await puppeteer.launch()
@@ -77,7 +78,6 @@ async function test({ port }) {
     const args = await Promise.all(msg.args().map(arg => arg.jsonValue()))
     switch (msg.type()) {
       case 'warning':
-      console.log('!', args[0])
         console.warn(...args)
         break
       case 'log':
@@ -96,14 +96,19 @@ async function test({ port }) {
   }
 
   page.on('console', onConsoleMessage)
-  page.goto(`http://localhost:${port}/runner.html?reporter=json-stream&suite=${program.suite}`)
+  await page.goto(`http://localhost:${port}/runner.html?reporter=json-stream&suite=${program.suite}`, {
+    timeout: program.timeout
+  })
+  await new Promise((resolve, reject) => {
+    page.on('error', reject)
+    page.on('pageerror', reject)
+  })
 }
 
-function serve() {
+async function serve() {
   const app = new Koa()
 
   const serveStatic = require('koa-static')
-  app.use(serveStatic(cwd))
   app.use(serveStatic(path.join(cwd, 'tmp')))
   app.use(serveStatic(path.join(__dirname, '../public')))
 
@@ -111,18 +116,23 @@ function serve() {
   const Porter = require('@cara/porter')
   const porter = new Porter({
     paths: [...program.paths, path.join(__dirname, '../public')],
-    cachePersist: true,
-    // If running in headless mode, disable cache by setting `cacheDest` to non-existent directory.
+    serveSource: true,
+    // If running in headless mode, cache no module
+    cacheExcept: '*',
+    // but keep from purging exisitng caches by setting `cacheDest` to non-existent path.
     cacheDest: program.headless ? '/tmp/noop' : 'tmp'
   })
   app.use(porter.async())
 
   const server = http.createServer(app.callback())
   const port = program.headless ? 0 : program.port
-  server.listen({ port }, function() {
-    console.log('Server started at', port)
-    if (program.headless) {
-      test({ port: server.address().port }).catch(err => console.error(err.stack))
-    }
+  await new Promise((resolve, reject) => {
+    server.listen({ port }, resolve)
+    server.on('error', reject)
   })
+  console.log('Server started at', server.address().port)
+  if (program.headless) {
+    server.unref()
+    await test({ port: server.address().port })
+  }
 }

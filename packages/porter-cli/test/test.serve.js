@@ -141,7 +141,7 @@ describe('porter-serve web application --headless', function() {
     await new Promise((resolve, reject) => {
       proc.on('exit', code => {
         if (code > 0) {
-          reject(new Error(`${cmd} existed with non-zero code: ${code}`))
+          reject(new Error(`${cmd} exits with non-zero code: ${code}`))
         } else {
           resolve()
         }
