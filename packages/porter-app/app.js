@@ -10,7 +10,10 @@ const porter = new Porter({
   root: __dirname,
   paths: ['components', 'browser_modules'],
   dest: path.join(__dirname, 'public'),
-  serveSource: true,
+  source: {
+    serve: true
+  },
+  preload: 'preload',
   loaderConfig: {
     map: {
       'i18n': '/i18n'

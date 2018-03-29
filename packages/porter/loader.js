@@ -5,13 +5,6 @@
   // do not override
   if (global.porter) return
 
-  var system = {
-    preload: [],
-    registry: {}
-  }
-  var registry = system.registry
-
-
   var ArrayFn = Array.prototype
 
   if (!Object.assign) {
@@ -42,25 +35,13 @@
   }
 
 
-  var doc = document
-  var head = doc.head || doc.getElementsByTagName('head')[0] || doc.documentElement
-  var baseElement = head.getElementsByTagName('base')[0] || null
+  var system = { lock: {}, registry: {} }
+  var lock = system.lock
+  var registry = system.registry
+  Object.assign(system, process.env.loaderConfig)
+  var baseUrl = system.baseUrl
+  var pkg = system.package
 
-  function request(url, callback) {
-    var el = doc.createElement('script')
-
-    onload(el, function(err) {
-      el.onload = el.onerror = el.onreadystatechange = null
-      // head.removeChild(el)
-      el = null
-      callback(err)
-    })
-    el.async = true
-    el.src = url
-
-    // baseElement cannot be undefined in IE8-.
-    head.insertBefore(el, baseElement)
-  }
 
   function onload(el, callback) {
     if ('onload' in el) {
@@ -79,6 +60,40 @@
           callback()
         }
       }
+    }
+  }
+
+  var request
+
+  if (typeof importScripts == 'function') {
+    /* eslint-env worker */
+    request = function loadScript(url, callback) {
+      try {
+        importScripts(url)
+      } catch (err) {
+        return callback(err)
+      }
+      callback()
+    }
+  }
+  else {
+    var doc = document
+    var head = doc.head || doc.getElementsByTagName('head')[0] || doc.documentElement
+    var baseElement = head.getElementsByTagName('base')[0] || null
+
+    request = function loadScript(url, callback) {
+      var el = doc.createElement('script')
+
+      onload(el, function(err) {
+        el = el.onload = el.onerror = el.onreadystatechange = null
+        // head.removeChild(el)
+        callback(err)
+      })
+      el.async = true
+      el.src = url
+
+      // baseElement cannot be undefined in IE8-.
+      head.insertBefore(el, baseElement)
     }
   }
 
@@ -124,6 +139,11 @@
   }
 
 
+  function suffix(id) {
+    return /\.(?:css|js)$/.test(id) ? id : id + '.js'
+  }
+
+
   /*
    * Resovle id with the version tree
    */
@@ -131,7 +151,7 @@
 
   function parseId(id) {
     var m = id.match(rModuleId)
-    return { name: m[1], version: m[2], entry: m[3] }
+    return { name: m[1], version: m[2], file: m[3] }
   }
 
 
@@ -151,44 +171,41 @@
   }
 
 
-  function parseBase(main) {
-    var scripts = doc.scripts || doc.getElementsByTagName('script')
-    var script = scripts[scripts.length - 1]
-    var src = script.src.split('?')[0].replace(/\.js$/, '')
-    var rmain = new RegExp(main + '$', '')
+  /**
+   * To match against following uris:
+   * - https://example.com/foo.js
+   * - http://example.com/bar.js
+   * - //example.com/baz.js
+   * - /qux.js
+   */
+  var rUri = /^(?:https?:)?\//
 
-    system.base = script.getAttribute('data-base') ||
-      (src && rmain.test(src) && src.replace(rmain, '')) ||
-      '/'
+  function parseUri(id) {
+    var id = parseMap(id)
+
+    if (rUri.test(id)) return id
+
+    var obj = parseId(id)
+    var name = obj.name
+    var version = obj.version
+
+    if (name !== pkg.name) {
+      if (lock[name][version].bundle) {
+        return resolve(baseUrl, name, version, '~bundle.js')
+      }
+    }
+
+    var url = resolve(baseUrl, id)
+    if (pkg.entries[obj.file]) url += '?entry'
+    return url
   }
 
 
   var MODULE_INIT = 0
   var MODULE_FETCHING = 1
   var MODULE_FETCHED = 2
-  var MODULE_RESOLVING = 3
-  var MODULE_RESOLVED = 4
-  var MODULE_EXECUTED = 5
-  var MODULE_ERROR = 6
-
-
-  function importFactory(context) {
-    var entryId = 'import-' + (+new Date()).toString(36)
-
-    return function(ids, fn) {
-      if (!system.base) parseBase(ids[ids.length - 1])
-      if (typeof ids === 'string') ids = [ids]
-      var mod = new Module(resolve(context, entryId))
-
-      mod.deps = ids
-      mod.factory = function(require) {
-        var mods = ids.map(function(id) { return require(id) })
-        if (fn) fn.apply(null, mods)
-      }
-      mod.status = MODULE_FETCHED
-      mod.resolve()
-    }
-  }
+  var MODULE_LOADED = 3
+  var MODULE_ERROR = 4
 
   /**
    * The Module class
@@ -197,7 +214,7 @@
    * @param {string[]} opts.deps
    * @param {function} opts.factory
    * @example
-   * new Module('jquery/3.3.1/dist/jquery')
+   * new Module('jquery/3.3.1/dist/jquery.js')
    * new Module('//g.alicdn.com/alilog/mlog/aplus_v2.js')
    */
   function Module(id, opts) {
@@ -205,140 +222,98 @@
     this.id = id
     this.deps = opts.deps
     this.children = []
-    this.parents = []
-    this.cycles = []
     this.factory = opts.factory
+    this.exports = {}
     this.status = MODULE_INIT
     registry[id] = this
   }
 
-  /**
-   * Check if current module is ancestor of dep. That is, current module requires dep either directly or indirectly.
-   * @param {Module} dep
-   * @returns {boolean}
-   */
-  Module.prototype.depends = function(dep, distance) {
-    var mod = this
-    if (!distance) distance = 1
-    if (distance > 5) return false
-    // If current module is one of dep's cyclic dependencies already, no need to go any further.
-    if (dep.cycles.indexOf(mod) >= 0) return false
-    for (var i = 0; i < dep.parents.length; i++) {
-      var parent = dep.parents[i]
-      if (parent == mod) return true
-      if (mod.depends(parent, distance + 1)) return true
-    }
-    return false
-  }
-
-  /**
-   * To match against following uris:
-   * - https://example.com/foo.js
-   * - http://example.com/bar.js
-   * - //example.com/ham.js
-   * - /egg.js
-   */
-  var RE_URI = /^(?:https?:)?\//
+  var fetching = {}
 
   Module.prototype.fetch = function() {
     var mod = this
 
     if (mod.status < MODULE_FETCHING) {
       mod.status = MODULE_FETCHING
-      var id = parseMap(mod.id)
-      var uri = RE_URI.test(id)
-        ? id
-        : resolve(system.base, mod.id)
-
-      if (!(uri.indexOf('?') > 0 || /\.js$/.test(uri))) {
-        uri = uri + '.js'
-      }
-
+      var uri = parseUri(mod.id)
+      if (fetching[uri]) return
+      fetching[uri] = true
       request(uri, function(err) {
-        mod.status = err ? MODULE_ERROR : MODULE_FETCHED
+        if (err) mod.status = MODULE_ERROR
+        if (mod.status < MODULE_FETCHED) mod.status = MODULE_FETCHED
         mod.uri = uri
-        mod.resolve()
+        mod.ignite()
       })
     }
-    else if (mod.status === MODULE_FETCHED) {
-      mod.resolve()
-    }
   }
+
+  var rWorkerLoader = /^worker-loader[?!]/
 
   Module.prototype.resolve = function() {
     var mod = this
-    mod.status = MODULE_RESOLVING
-    var children = mod.children = (mod.deps || []).map(function(depName) {
-      var depId = Module.resolve(depName, mod.id)
-      return registry[depId] || new Module(depId)
-    })
+    var children = mod.children = []
+
+    if (mod.deps) {
+      mod.deps.forEach(function(depName) {
+        if (rWorkerLoader.test(depName)) return
+        var depId = Module.resolve(depName, mod.id)
+        children.push(registry[depId] || new Module(depId))
+      })
+    }
 
     children.forEach(function(child) {
-      if (child.depends(mod)) mod.cycles.push(child)
-      if (child.parents.indexOf(mod) < 0) child.parents.push(mod)
+      if (!child.parent) child.parent = mod
       child.fetch()
     })
-
-    // No more children to resolve. Let's get the back track started.
-    var resolved = children.length === 0 || !children.some(function(dep) {
-      return mod.cycles.indexOf(dep) < 0 && dep.status < MODULE_RESOLVED
-    })
-
-    if (resolved) mod.resolved()
   }
 
-  Module.prototype.resolved = function() {
+  Module.prototype.ignite = function() {
     var mod = this
-    var parents = mod.parents
+    var allset = true
 
-    if (mod.status < MODULE_RESOLVED) {
-      mod.status = MODULE_RESOLVED
-    }
-
-    for (var i = 0, len = parents.length; i < len; i++) {
-      var parent = parents[i]
-      var siblings = parent.children
-      var allset = true
-
-      for (var j = 0; j < siblings.length; j++) {
-        var sibling = siblings[j]
-        if (parent.cycles.length > 0 && parent.cycles.indexOf(sibling) >= 0) continue
-        if (sibling.status < MODULE_RESOLVED) {
-          allset = false
-          break
-        }
+    for (var id in registry) {
+      if (registry[id].status < MODULE_FETCHED) {
+        allset = false
+        break
       }
-
-      if (allset && parent.status < MODULE_RESOLVED) parent.resolved()
     }
 
-    // We've reached the root module. Start the execution.
-    if (!parents.length) mod.execute()
+    if (allset) {
+      var ancestor = mod
+      while (ancestor.parent) {
+        ancestor = ancestor.parent
+      }
+      ancestor.execute()
+    }
   }
 
   Module.prototype.execute = function() {
     var factory = this.factory
     var mod = this
+    var context = dirname(mod.id)
 
-    if (mod.status >= MODULE_EXECUTED) return
+    if (mod.status >= MODULE_LOADED) return
 
     function require(id) {
+      if (rWorkerLoader.test(id)) {
+        return workerFactory(context)(id.split('!').pop())
+      }
       id = Module.resolve(id, mod.id)
       var dep = registry[id]
 
-      if (dep.status < MODULE_RESOLVED) {
-        throw new Error('Module ' + id + ' should be resolved by now')
+      if (dep.status < MODULE_FETCHED) {
+        throw new Error('Module ' + id + ' is not ready')
       }
-      else if (dep.status < MODULE_EXECUTED) {
+      else if (dep.status < MODULE_LOADED) {
         dep.execute()
       }
 
       return dep.exports
     }
 
-    require.async = importFactory(dirname(mod.id))
-    mod.exports = mod.exports || {}
-    mod.status = MODULE_EXECUTED
+    require.async = importFactory(context)
+    require.worker = workerFactory(context)
+    mod.status = MODULE_LOADED
 
     var exports = typeof factory === 'function'
       ? factory.call(null, require, mod.exports, mod)
@@ -353,70 +328,87 @@
    * @example
    * Module.resolve('./lib/foo', 'app/1.0.0/home')
    * Module.resolve('lib/foo', 'app/1.0.0/home')
-   * Module.resolve('react', 'app/1.0.0)
+   * Module.resolve('react', 'app/1.0.0')
    */
   Module.resolve = function(id, context) {
-    if (!system.modules || RE_URI.test(id)) return id
+    if (rUri.test(id)) return id
     if (id.charAt(0) === '.') id = resolve(dirname(context), id)
 
-    var modules = system.modules
+    // if lock is not configured yet (which happens if the app is a work in progress)
+    if (!lock[pkg.name]) return suffix(resolve(pkg.name, pkg.version, id))
+
     var parent = parseId(context)
-    var parentMap = modules[parent.name][parent.version]
-    var systemMap = modules[system.name][system.version]
+    var opts = lock[parent.name][parent.version]
 
     var mod = parseId(id)
-    if (!(mod.name in modules)) {
-      mod = { name: system.name, version: system.version, entry: id }
+    if (!(mod.name in lock)) {
+      mod = { name: pkg.name, version: pkg.version, file: id }
     }
     var name = mod.name
     var version = mod.version
     var map
 
     if (version) {
-      map = modules[name][version]
+      map = lock[name][version]
     }
-    else if (parentMap && parentMap.dependencies && (name in parentMap.dependencies)) {
-      if (!version) version = parentMap.dependencies[name]
-      map = modules[name][version]
-    }
-    else if (name in systemMap.dependencies) {
-      if (!version) version = systemMap.dependencies[name]
-      map = modules[name][version]
-    }
-    else {
-      version = system.version
-      map = systemMap
+    else if (opts && opts.dependencies && (name in opts.dependencies)) {
+      if (!version) version = opts.dependencies[name]
+      map = lock[name][version]
     }
 
-    var entry = mod.entry || map.main || 'index'
-    if (map.alias && entry in map.alias) entry = map.alias[entry]
-    return resolve(name, version, entry.replace(/\.js$/, ''))
+    var file = mod.file || map.main
+    if (map.alias) file = map.alias[file] || file
+    return resolve(name, version, suffix(file || 'index.js'))
   }
 
-  Object.assign(system, {
-    'import': function(ids, fn) {
-      importFactory([system.name, system.version].join('/'))([].concat(system.preload, ids), fn)
-    },
 
-    config: function(opts) {
-      return Object.assign(system, opts)
-    }
-  })
-
-
-  global.define = function define(id, deps, factory) {
+  function define(id, deps, factory) {
     if (!factory) {
       factory = deps
       deps = []
     }
-
-    var mod = registry[id] || registry[id + '.js'] || new Module(id)
+    id = suffix(id)
+    var mod = registry[id] || new Module(id)
 
     mod.deps = deps
     mod.factory = factory
     mod.status = MODULE_FETCHED
+    mod.resolve()
   }
 
+  function importFactory(context) {
+    var entryId = 'import-' + (+new Date()).toString(36) + '.js'
+
+    return function(ids, fn) {
+      ids = [].concat(ids)
+      ids.forEach(function(id) { pkg.entries[suffix(id)] = true })
+      define(resolve(context, entryId), ids, function(require) {
+        var mods = ids.map(function(id) { return require(id) })
+        if (fn) fn.apply(null, mods)
+      })
+    }
+  }
+
+  function workerFactory(context) {
+    return function(id) {
+      var url = resolve(baseUrl, context, id).replace(/(?:\.js)?$/, '.js')
+      return function createWorker() {
+        return new Worker([url, 'main'].join(url.indexOf('?') > 0 ? '&' : '?'))
+      }
+    }
+  }
+
+  Object.assign(system, {
+    'import': function Porter_import(entry, fn) {
+      entry = suffix(entry)
+      var mod = parseId(entry)
+      if (mod.version) entry = mod.file
+      var context = pkg.name + '/' + pkg.version
+      importFactory(context)(entry, fn)
+    }
+  })
+
+  global.define = define
   global.porter = system
 
   global.process = {
@@ -431,14 +423,11 @@ if (process.env.NODE_ENV != 'production' && 'serviceWorker' in navigator && (loc
   navigator.serviceWorker.register('/porter-sw.js', { scope: '/' }).then(function(registration) {
     if (registration.waiting || registration.active) {
       var worker = registration.waiting || registration.active
-      var system = window.porter
+      var porter = self.porter
+
       worker.postMessage({
         type: 'loaderConfig',
-        data: {
-          name: system.name,
-          version: system.version,
-          cacheExcept: system.cacheExcept
-        }
+        data: { cache: porter.cache }
       })
     }
   })
