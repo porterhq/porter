@@ -7,6 +7,11 @@ const rNotEqualOp = /^!==?$/
 const rSpace = /^\s+$/
 const rString = /^(['"'])([^\1]+)\1$/
 
+/**
+ * Finds all of the dependencies `require`d or `import`ed in the code passed in.
+ * @param {string} content
+ * @returns {Array}
+ */
 exports.findAll = function(content) {
   const parts = content.match(jsTokens)
   const deps = []
@@ -61,17 +66,33 @@ exports.findAll = function(content) {
 
   function findRequireInBlock() {
     if (part == '{') {
-      while (part && part != '}' && part != 'require') next()
-      if (part == 'require') findRequire()
-      space()
+      while (part && part != '}') {
+        if (part == 'require') findRequire()
+        next()
+      }
+    } else {
+      // when comes to spaces, `part` can be something like `"\n  "`.
+      while (part && part != ';' && part[0] != '\n') {
+        if (part == 'require') findRequire()
+        next()
+      }
     }
   }
 
-  // if ('production' == 'production')
-  // if ('development' != 'production')
-  // if ("development" == "production")
-  // if (true)
-  // if (false)
+  /**
+   * A silly eval to determine whether the value of an expression is already determined (true/false) or undefined yet. It returns boolean if conditions were like following ones with the environment variables interpolated by loose-envify:
+   *
+   *     if (process.env.NODE_ENV == 'production')
+   *     if (process.env.NODE_ENV != 'production')
+   *     if (process.env.NODE_ENV == "production")
+   *     if (process.env.BROWSER == true)
+   *     if (process.env.BROWSER)
+   *
+   * @returns {(boolean|void)}
+   * @example
+   * sillyEval(['true'])
+   * sillyEval(['false', '!=', 'true'])
+   */
   function sillyEval(temp) {
     if (temp.length == 3 && (rEqualOp.test(temp[1]) || rNotEqualOp.test(temp[1]))) {
       if (rString.test(temp[0]) && rString.test(temp[2])) {
@@ -83,6 +104,16 @@ exports.findAll = function(content) {
     }
     else if (temp.length == 1 && (temp[0] == 'true' || temp[0] == 'false')) {
       return temp[0] == 'true'
+    }
+  }
+
+  function skipBlock() {
+    if (part == '{') {
+      space()
+      while (part != '}') next()
+    } else {
+      space()
+      while (part && part != ';' && part[0] != '\n') next()
     }
   }
 
@@ -102,21 +133,40 @@ exports.findAll = function(content) {
     if (result === true) {
       findRequireInBlock()
       space()
-      // Skip over the else branch
-      if (part == 'else') space()
-      if (part == '{') {
+      if (part == 'else') {
         space()
-        while (part != '}') next()
-      } else {
-        space()
-        while (part && part != ';' && part != '\n') next()
+        skipBlock()
       }
     }
     else if (result === false) {
-      while (part && part != ';' && part != '\n' && part != 'else') next()
+      skipBlock()
+      space()
       if (part == 'else') {
         space()
         findRequireInBlock()
+      }
+    }
+  }
+
+  function findTernaryRequire() {
+    let prev
+    for (let j = i - 2; j >= 0; j--) {
+      prev = parts[j]
+      if (!rSpace.test(prev)) break
+    }
+
+    if (prev == 'true') {
+      while (part && part != ':') {
+        if (part == 'require') findRequire()
+        next()
+      }
+      while (part && part != ';' && part != ')' && part[0] != '\n') next()
+    }
+    else if (prev == 'false') {
+      while (part && part != ':') next()
+      while (part && part != ';' && part != ')' && part[0] != '\n') {
+        if (part == 'require') findRequire()
+        next()
       }
     }
   }
@@ -125,6 +175,9 @@ exports.findAll = function(content) {
   while (part) {
     if (part == 'if') {
       findConditionalRequire()
+    }
+    else if (part == '?') {
+      findTernaryRequire()
     }
     else if (part == 'require') {
       findRequire()

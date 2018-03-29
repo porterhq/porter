@@ -35,7 +35,7 @@ describe('matchRequire', function() {
   it('match conditional require call statements', async function() {
     const deps = matchRequire.findAll(`
       if ("development" == "development") {
-        require('jquery')
+        require("jquery")
       } else {
         require('yen')
       }
@@ -138,5 +138,64 @@ describe('matchRequire', function() {
       var types = freeModule && freeModule.require && freeModule.require('util').types;
     `)
     expect(deps).to.eql([])
+  })
+  
+  it('should skip multiple statements if negative', async function() {
+    const deps = matchRequire.findAll(`
+      var $
+      var Canvas = window.Canvas
+
+      if (true) {
+        $ = require('jquery')
+      } else {
+        $ = require('cheerio)
+        Canvas = require('canvas')
+      }
+    `)
+    expect(deps).to.eql(['jquery'])
+  })
+
+  it('should match multiple statements if positive', async function() {
+    const deps = matchRequire.findAll(`
+      var $
+      var Canvas = window.Canvas
+
+      if (false) {
+        $ = require('jquery')
+      } else {
+        $ = require('cheerio')
+        Canvas = require('canvas')
+      }
+    `)
+    expect(deps).to.eql(['cheerio', 'canvas'])
+  })
+
+  it('should match one liners with asi', async function() {
+    const deps = matchRequire.findAll(`
+      if (true) ColorExtactor = require('color-extractor/lib/color-extractor-canvas')
+      else ColorExtactor = require('color-extractor/lib/color-extractor-im')
+    `)
+    expect(deps).to.eql(['color-extractor/lib/color-extractor-canvas'])
+  })
+
+  it('should match one liners with semicolon', async function() {
+    const deps = matchRequire.findAll(`
+      if (true) ColorExtactor = require('color-extractor/lib/color-extractor-canvas');else ColorExtactor = require('color-extractor/lib/color-extractor-im');
+    `)
+    expect(deps).to.eql(['color-extractor/lib/color-extractor-canvas'])
+  })
+
+  it ('should match one liners with ternary operator', async function() {
+    const deps = matchRequire.findAll(`
+      const foo = (true ? require('./foo') : require('./bar')) || 'foo'
+    `)
+    expect(deps).to.eql(['./foo'])
+  })
+
+  it('should match negative ternary one liner', async function() {
+    const deps = matchRequire.findAll(`
+      const foo = false ? require('./foo') : require('./bar')
+    `)
+    expect(deps).to.eql(['./bar'])
   })
 })

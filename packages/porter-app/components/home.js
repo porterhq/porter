@@ -6,9 +6,6 @@ const $ = require('jquery')
 require('cropper')
 const Prism = require('prismjs')
 
-// #34
-require('react-datepicker')
-
 function htmlSafe(code) {
   return code
     .replace(/&/g, '&amp;')

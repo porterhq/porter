@@ -116,11 +116,13 @@ async function serve() {
   const Porter = require('@cara/porter')
   const porter = new Porter({
     paths: [...program.paths, path.join(__dirname, '../public')],
-    serveSource: true,
-    // If running in headless mode, cache no module
-    cacheExcept: '*',
-    // but keep from purging exisitng caches by setting `cacheDest` to non-existent path.
-    cacheDest: program.headless ? '/tmp/noop' : 'tmp'
+    source: { serve: true },
+    cache: {
+      // If running in headless mode, cache no module
+      except: ['*'],
+      // but keep from purging exisitng caches by setting `cache.dest` to non-existent path.
+      dest: program.headless ? '/tmp/noop' : 'tmp'
+    }
   })
   app.use(porter.async())
 

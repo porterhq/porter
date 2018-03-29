@@ -9,12 +9,12 @@ let cacheDisabled = false
 self.addEventListener('message', function(e) {
   const message = e.data
   if (message.type == 'loaderConfig') {
-    if (Array.isArray(message.data.cacheExcept)) {
-      if (message.data.cacheExcept[0] == '*') {
+    const cacheOpts = message.data.cache
+    if (Array.isArray(cacheOpts.except)) {
+      if (cacheOpts.except[0] == '*') {
         cacheDisabled = true
       } else {
-        const names = [message.data.name].concat(message.data.cacheExcept)
-        for (const name of names) {
+        for (const name of cacheOpts.except) {
           if (!cacheExcept.includes(name)) cacheExcept.push(name)
         }
       }
