@@ -24,6 +24,9 @@ exports.findAll = function(content) {
   }
 
   function findRequire() {
+    // to rule out module.require()
+    if (parts[i - 2] == '.') return
+
     space()
     if (part == '(') {
       space()

@@ -132,4 +132,11 @@ describe('matchRequire', function() {
     `)
     expect(deps).to.eql(['jquery', 'yen'])
   })
+
+  it('should not match module.require()', async function() {
+    const deps = matchRequire.findAll(`
+      var types = freeModule && freeModule.require && freeModule.require('util').types;
+    `)
+    expect(deps).to.eql([])
+  })
 })
