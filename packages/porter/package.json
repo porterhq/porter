@@ -2,7 +2,7 @@
   "name": "@cara/porter",
   "description": "A koa and express middleware for browser side javascript module authoring.",
   "version": "1.0.2",
-  "main": "lib/Porter.js",
+  "main": "lib/porter.js",
   "repository": {
     "type": "git",
     "url": "git@github.com:erzu/porter.git"
@@ -39,7 +39,7 @@
   },
   "scripts": {
     "cover": "npx istanbul cover ./node_modules/.bin/_mocha -- --timeout 30000",
-    "test": "DEBUG=porter mocha --timeout 30000"
+    "test": "DEBUG=porter mocha --timeout 60000"
   },
   "engines": {
     "node": ">= 8.6.0"

@@ -2,24 +2,9 @@
 
 const Koa = require('koa')
 const serve = require('koa-static')
-const path = require('path')
-const Porter = require('@cara/porter')
 
 const app = new Koa()
-const porter = new Porter({
-  root: __dirname,
-  paths: ['components', 'browser_modules'],
-  dest: path.join(__dirname, 'public'),
-  source: {
-    serve: true
-  },
-  preload: 'preload',
-  loaderConfig: {
-    map: {
-      'i18n': '/i18n'
-    }
-  }
-})
+const porter = require('./lib/porter')
 app.use(serve('views'))
 app.use(serve('public'))
 app.use(porter.async())

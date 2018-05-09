@@ -2,6 +2,7 @@
 
 const path = require('path')
 const expect = require('expect.js')
+const semver = require('semver')
 const Porter = require('..')
 
 const root = path.join(__dirname, '../../porter-app')
@@ -63,18 +64,9 @@ describe('porter.package.lock', function() {
     const pkg = require(path.join(root, 'package.json'))
     const { lock } = porter.package
     expect(lock).to.be.an(Object)
-    expect(lock[pkg.name][pkg.version].dependencies).to.eql({
-      yen: '1.2.4',
-      'chart.js': '2.7.0',
-      jquery: '3.3.1',
-      cropper: '3.1.4',
-      prismjs: '1.11.0',
-      'react-datepicker': '1.1.0',
-      'expect.js': '0.3.1',
-      'react-stack-grid': '0.7.1',
-      inferno: '3.10.1',
-      'react-color': '2.13.8',
-      react: '16.2.0'
-    })
+    const deps = lock[pkg.name][pkg.version].dependencies
+    for (const name in deps) {
+      expect(semver.satisfies(deps[name], pkg[name]))
+    }
   })
 })
