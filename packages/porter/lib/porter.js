@@ -11,7 +11,7 @@ const path = require('path')
 const postcss = require('postcss')
 const querystring = require('querystring')
 const rimraf = require('rimraf')
-const UglifyJS = require('uglify-es')
+const UglifyJS = require('uglify-js')
 // const util = require('util')
 const { exists, lstat, readdir, readFile, unlink, writeFile } = fs
 

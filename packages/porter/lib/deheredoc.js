@@ -4,7 +4,7 @@
  * @module
  */
 
-const UglifyJS = require('uglify-es')
+const UglifyJS = require('uglify-js')
 
 
 /**

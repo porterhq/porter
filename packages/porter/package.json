@@ -27,7 +27,6 @@
     "rimraf": "^2.6.2",
     "semver": "^4.3.6",
     "source-map": "^0.6.1",
-    "uglify-es": "^3.3.9",
     "uglify-js": "^3.3.16"
   },
   "devDependencies": {
