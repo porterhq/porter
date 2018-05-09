@@ -51,12 +51,14 @@ function matchAtImport(code) {
 const moduleCache = {}
 
 class Module {
-  constructor({ name, version, file, fpath }) {
+  constructor({ file, fpath, pkg }) {
     if (moduleCache[fpath]) return moduleCache[fpath]
     moduleCache[fpath] = this
 
-    this.name = name
-    this.version = version
+    this.package = pkg
+    this.name = pkg.name
+    this.version = pkg.version
+
     this.file = file
     this.fpath = fpath
     this.children = []
@@ -64,6 +66,12 @@ class Module {
 
   get id() {
     return [this.name, this.version, this.file].join('/')
+  }
+
+  get isRootEntry() {
+    const { file, loaders, package: pkg } = this
+    return file in pkg.entries &&
+      (!pkg.parent || (loaders && loaders['worker-loader']))
   }
 
   get family() {
@@ -103,7 +111,7 @@ class Module {
     let mod = await pkg.parsePackage({ name, entry })
 
     // Allow root/a => package/b => root/c
-    if (!mod) mod = pkg.rootPackage.parseFile(dep)
+    if (!mod) mod = await pkg.rootPackage.parseFile(dep)
 
     return mod
   }
@@ -148,21 +156,28 @@ class Module {
     this.loaded = true
 
     const { file, fpath } = this
-    const code = await readFile(fpath, 'utf8')
-    const deps = file.endsWith('.js')
-      ? matchRequire.findAll(await this.mightEnvify(fpath, code))
-      : matchAtImport(code)
+    const code = this.code || await readFile(fpath, 'utf8')
+    const deps = this.deps || (
+      file.endsWith('.js')
+        ? matchRequire.findAll((await this.loadJs({ code })).code)
+        : matchAtImport(code)
+    )
 
     await Promise.all(deps.map(this.parseDep, this))
   }
 
   async loadJs({ code }) {
-    const { file, fpath, package: pkg } = this
+    const { deps, fpath, isRootEntry, package: pkg } = this
+    const { preload } = pkg.app
 
-    if (!pkg.parent && file in pkg.entries && pkg.preload.length > 0) {
-      // lazy parse preloaded modules
-      const calls = pkg.preload.map(specifier => `require(${JSON.stringify(specifier)})`)
-      code = code.replace(/^(\s*(['"])use strict\2)?/, `$1;${calls.join(';')}`)
+    // preload shall only apply to entries of root package, where as `isRootEntry` may refer to both entries of root package and worker entries of dependencies.
+    if (isRootEntry && !pkg.parent && !deps && preload.length > 0) {
+      const calls = preload.map(specifier => {
+        return /\bimport\s*/.test(code)
+          ? `import ${JSON.stringify(specifier)}\n`
+          : `require(${JSON.stringify(specifier)})`
+      })
+      code = code.replace(/^(\s*(['"])use strict\2;?)?/, `$1;${calls.join(';')};`)
     }
 
     code = await this.mightEnvify(fpath, code)
@@ -171,14 +186,14 @@ class Module {
 
   async load() {
     const { file, fpath } = this
-    const code = await readFile(fpath, 'utf8')
+    const code = this.code || await readFile(fpath, 'utf8')
 
     if (file.endsWith('.js')) {
       return await this.loadJs({ code })
     }
 
     const { id } = this
-    const { cssLoader, root } = this.package.rootPackage
+    const { cssLoader, root } = this.package.app
     const { css, map } = await cssLoader.process(code, {
       from: path.relative(root, fpath),
       to: id,
@@ -191,7 +206,8 @@ class Module {
   async transpileJs({ code, map }) {
     const { fpath, package: pkg } = this
 
-    if (!fpath.startsWith(pkg.root)) return { code, map }
+    // `babel.transform` finds presets and plugins relative to `fpath`. If `fpath` doesn't start with pkg.dir, it's quite possible that the needed presets or plugins might not be found.
+    if (!fpath.startsWith(pkg.dir)) return { code, map }
 
     switch (pkg.transpiler) {
     case 'babel':
@@ -214,7 +230,7 @@ class Module {
 
   async transpileCss({ code, map }) {
     const { fpath, id } = this
-    const { cssTranspiler, root } = this.package.rootPackage
+    const { cssTranspiler, root } = this.package.app
 
     const result = await cssTranspiler.process(code, {
       from: path.relative(root, fpath),
@@ -242,7 +258,7 @@ class Module {
 
   async fetch() {
     const { id } = this
-    const { dest } = this.package.cache
+    const { dest } = this.package.app.cache
     const { code, map } = await this.load()
     const digest = crypto.createHash('md5').update(code).digest('hex')
     const cacheName = id.replace(/(\.(?:css|js))$/, `-${digest}$1`)
@@ -285,10 +301,7 @@ class Module {
 
     if (reload) {
       return {
-        code: [
-          `Object.assign(porter.lock, ${JSON.stringify(this.package.lock)})`,
-          result.code
-        ].join(';'),
+        code: `Object.assign(porter.lock, ${JSON.stringify(this.package.lock)});${result.code}`,
         map: result.map
       }
     } else {
@@ -316,14 +329,19 @@ class Module {
 
   uglify({ code, map }) {
     const { id } = this
-    const { ast } = UglifyJS.minify({ [id]: code }, {
+    const parseResult = UglifyJS.minify({ [id]: code }, {
       parse: {},
       compress: false,
       mangle: false,
       output: { ast: true, code: false }
     })
 
-    const result = UglifyJS.minify(deheredoc(ast), {
+    if (parseResult.error) {
+      const err = parseResult.error
+      throw new Error(`${err.message} (${err.filename}:${err.line}:${err.col})`)
+    }
+
+    const result = UglifyJS.minify(deheredoc(parseResult.ast), {
       compress: {
         dead_code: true,
         global_defs: {
@@ -352,32 +370,28 @@ class Module {
 }
 
 const packageCache = {}
+const loaderCache = {}
 
 class Package {
-  constructor({ root, dir, paths, dest, cache, parent, transpile }) {
+  constructor({ app, dir, paths, parent }) {
     if (packageCache[dir]) return packageCache[dir]
     packageCache[dir] = this
 
     const pkg = require(path.join(dir, 'package.json'))
-    this.root = root
+    this.app = app
     this.dir = dir
     this.name = pkg.name
     this.version = pkg.version
     this.paths = paths || [dir]
-    this.dest = dest
-    this.cache = cache
     this.parent = parent
     this.dependencies = {}
     this.entries = {}
     this.files = {}
     this.alias = {}
     this.transform = (pkg.browserify && pkg.browserify.transform) || []
-    this.transpile = transpile
     this.depPaths = []
 
-    // root package shall always check if it needs transpilation.
-    if (!parent) transpile.only.push(pkg.name)
-    if (transpile.only.includes(pkg.name) && pkg.babel) {
+    if (app.transpile.only.includes(pkg.name) && pkg.babel) {
       this.transpiler = 'babel'
       this.transpilerOpts = pkg.babel
     }
@@ -431,8 +445,8 @@ class Package {
   async prepare() {
     await this.parseDepPaths()
 
-    const { name, transpile, transpiler } = this
-    if (transpile.only.includes(name) && !transpiler) {
+    const { name, transpiler, app } = this
+    if (app.transpile.only.includes(name) && !transpiler) {
       const obj = { babel: '.babelrc', typescript: 'tsconfig.json' }
       for (const prop in obj) {
         const configPath = path.join(this.dir, obj[prop])
@@ -460,35 +474,7 @@ class Package {
     throw new Error(`Cannot find module ${name}`)
   }
 
-  async atImportResolve(id, baseDir, importOptions) {
-    if (id.startsWith('.')) return path.join(baseDir, id)
-
-    const [fpath] = await this.resolve(id)
-    if (fpath) return fpath
-
-    const [, name, , file] = id.match(rModuleId)
-    if (name in this.dependencies) {
-      const pkg = this.dependencies[name]
-      const result = await pkg.resolve(file)
-      return result[0]
-    }
-  }
-
-  async parseEntry(entry = this.main) {
-    const { dir, entries } = this
-    const mod = await this.parseFile(entry)
-
-    if (!mod) throw new Error(`unknown entry ${entry} (${dir})`)
-
-    if (!this.parent && this.preload.length > 0) {
-      await Promise.all(this.preload.map(dep => mod.parseDep(dep)))
-    }
-
-    entries[mod.file] = mod
-    return mod
-  }
-
-  async parseFile(file) {
+  async parseModule(file) {
     const { alias, files } = this
     const originFile = file
 
@@ -508,14 +494,43 @@ class Package {
       }
       // There might be multiple resolves on same file.
       if (file in files) return files[file]
-      const { name, version } = this
-
-      const mod = new Module({ name, version, file, fpath })
-      mod.package = this
-      await mod.parse()
-      files[file] = mod
+      const mod = new Module({ file, fpath, pkg: this })
       return mod
     }
+  }
+
+  async parseEntry(entry = this.main) {
+    const { app, dir, entries, files } = this
+    const mod = await this.parseModule(entry)
+
+    if (!mod) throw new Error(`unknown entry ${entry} (${dir})`)
+    entries[mod.file] = files[mod.file] = mod
+    app.entries = Object.keys(entries)
+    await mod.parse()
+    return mod
+  }
+
+  async parseFile(file) {
+    const { files } = this
+    const mod = await this.parseModule(file)
+
+    if (mod) {
+      files[mod.file] = mod
+      await mod.parse()
+      return mod
+    }
+  }
+
+  async parseFakeEntry({ entry, deps, code }) {
+    const { entries, files, paths } = this
+    const fpath = path.join(paths[0], entry)
+    delete moduleCache[fpath]
+    const mod = new Module({ file: entry, fpath, pkg: this })
+
+    Object.assign(mod, { deps, code })
+    entries[mod.file] = files[mod.file] = mod
+    await mod.parse()
+    return mod
   }
 
   async parsePackage({ name, entry }) {
@@ -527,8 +542,8 @@ class Package {
     for (const depPath of this.depPaths) {
       const dir = path.join(depPath, name)
       if (await exists(dir)) {
-        const { root, dest, cache, transpile } = this
-        const pkg = new Package({ root, dir, dest, cache, transpile, parent: this })
+        const { app } = this
+        const pkg = new Package({ dir, parent: this, app })
         await pkg.prepare()
         this.dependencies[pkg.name] = pkg
         return pkg.parseEntry(entry)
@@ -553,7 +568,9 @@ class Package {
   }
 
   get lock() {
-    const lock = {}
+    const lock = this.app.lock
+      ? JSON.parse(JSON.stringify(this.app.lock))
+      : {}
 
     for (const pkg of this.all) {
       const { name, version, dependencies, alias, main, entries } = pkg
@@ -588,25 +605,30 @@ class Package {
     return lock
   }
 
-  async parseLoader(code) {
-    const fpath = path.join(__dirname, '..', 'loader.js')
-    if (!code) code = await readFile(fpath, 'utf8')
-    let loaderConfig = this.rootPackage.loaderConfig
+  get loaderConfig() {
+    const { baseUrl, cache, map } = this.app
+    const { name, version, main } = this
 
-    if (this.parent) {
-      loaderConfig = Object.assign({}, loaderConfig, {
-        package: { name: this.name, version: this.version, entries: {} }
-      })
+    return {
+      baseUrl, map, cache: { except: cache.except },
+      package: { name, version, entries: {}, main },
     }
+  }
+
+  async parseLoader(opts) {
+    const fpath = path.join(__dirname, '..', 'loader.js')
+    const code = await readFile(fpath, 'utf8')
+    const loaderConfig = Object.assign(this.loaderConfig, opts)
 
     return await envify(fpath, code, { loaderConfig })
   }
 
-  async minifyLoader() {
-    if (this.loader) return this.loader
-    const code = await this.parseLoader()
+  async minifyLoader(opts = {}) {
+    const cacheKey = querystring.stringify(opts)
+    if (loaderCache[cacheKey]) return loaderCache[cacheKey]
+    const code = await this.parseLoader(opts)
 
-    return this.loader = UglifyJS.minify({ 'loader.js': code }, {
+    return loaderCache[cacheKey] = UglifyJS.minify({ 'loader.js': code }, {
       compress: { dead_code: true },
       output: { ascii_only: true },
       sourceMap: { root: '/' },
@@ -614,60 +636,61 @@ class Package {
     })
   }
 
-  async bundle(...entries) {
-    const opts = { minify: true, bundle: 'package' }
-    if (typeof entries[entries.length - 1] === 'object') {
-      Object.assign(opts, entries.pop())
-    }
+  async bundle(entries, opts) {
+    opts = { minify: true, package: true, ...opts }
     const done = {}
     const chunks = []
 
     for (const entry of entries) {
       if (entry.endsWith('.css')) continue
       const ancestor = this.files[entry]
+      if (!ancestor) throw new Error(`unparsed entry ${entry} (${this.dir})`)
       for (const mod of ancestor.family) {
-        if (done[mod.file]) continue
-        if (mod.package !== this && opts.bundle !== 'all') continue
-        done[mod.file] = true
+        if (done[mod.id]) continue
+        if (mod.package !== this && !opts.all) continue
+        done[mod.id] = true
         const { code, } = await (opts.minify ? mod.minify() : mod.fetch())
         chunks.push(code)
       }
     }
 
     const mod = this.files[entries[0]]
-    const isMain = (mod.loaders && 'worker-loader' in mod.loaders) ||
-      ['loader', 'all'].includes(opts.bundle)
-    const isRootEntry = isMain || !this.parent
 
-    if (isRootEntry) {
+    if (mod.isRootEntry) {
       chunks.unshift(`Object.assign(porter.lock, ${JSON.stringify(this.lock)})`)
     }
 
-    if (isMain) {
-      const { code, } = await this.minifyLoader()
-      chunks.unshift(code)
+    if (mod.isRootEntry) {
+      if (opts.loader !== false) {
+        const { code, } = await this.minifyLoader(opts.loaderConfig)
+        chunks.unshift(code)
+      }
       chunks.push(`porter["import"](${JSON.stringify(mod.id)})`)
     }
 
     return { code: chunks.join('\n') }
   }
 
-  async compile(...entries) {
-    if (entries.length === 0) return
+  async compile(entries, opts) {
+    if (!Array.isArray(entries)) entries = [entries]
+    opts = { package: true, writeFile: true, ...opts }
 
-    const opts = { bundle: 'package' }
-    if (typeof entries[entries.length - 1] === 'object') {
-      Object.assign(opts, entries.pop())
+    // compile({ entry: 'fake/entry', deps, code }, opts)
+    if (typeof entries[0] == 'object') {
+      await this.parseFakeEntry(entries[0])
+      entries[0] = entries[0].entry
     }
 
-    const { dest, name, version } = this
+    const { name, version } = this
+    const { dest } = this.app
     const fname = entries.length > 1 ? '~bundle.js' : entries[0]
     const fpath = path.join(dest, name, version, fname)
 
-    const { code, map } = fname.endsWith('.js') && opts.bundle
-      ? await this.bundle(...entries, opts)
+    const { code, map } = fname.endsWith('.js') && (opts.package || opts.all)
+      ? await this.bundle(entries, opts)
       : await this.files[entries[0]].minify()
 
+    if (!opts.writeFile) return { code, map }
     await mkdirp(path.dirname(fpath))
     await Promise.all([
       writeFile(fpath, code),
@@ -687,25 +710,46 @@ class Porter {
     const dest = path.resolve(root, opts.dest || 'public')
     const transpile = { only: [], ...opts.transpile }
     const cache = { dest, except: [], ...opts.cache }
-    const pkg = new Package({ root, dir: root, paths, dest, cache, transpile })
 
-    pkg.preload = [].concat(opts.preload || [])
-    pkg.lazyload = [].concat(opts.lazyload || [])
+    Object.assign(this, { root, dest, cache, transpile })
+    const pkg = require(path.join(root, 'package.json'))
 
+    transpile.only.push(pkg.name)
     if (!cache.except.includes('*')) cache.except.push(pkg.name)
     cache.dest = path.resolve(root, cache.dest)
 
-    Object.assign(this, { root, dest, cache, package: pkg })
+    this.package = new Package({ dir: root, paths, app: this })
 
-    pkg.loaderConfig = {
-      baseUrl: '/',
-      ...opts.loaderConfig,
-      package: { name: pkg.name, version: pkg.version, entries: {} },
-      cache: { except: cache.except }
-    }
+    this.baseUrl = opts.baseUrl || '/'
+    this.map = opts.map
+
+    this.entries = [].concat(opts.entries || [])
+    this.preload = [].concat(opts.preload || [])
+    this.lazyload = [].concat(opts.lazyload || [])
 
     this.source = { serve: false, root: '/', ...opts.source }
+    this.cssLoader = postcss().use(
+      atImport({
+        path: paths,
+        resolve: this.atImportResolve.bind(this)
+      })
+    )
+    this.cssTranspiler = postcss().use(autoprefixer(opts.autoprefixer))
     this.ready = this.prepare(opts)
+  }
+
+  async atImportResolve(id, baseDir, importOptions) {
+    if (id.startsWith('.')) return path.join(baseDir, id)
+
+    const [fpath] = await this.package.resolve(id)
+    if (fpath) return fpath
+
+    const [, name, , file] = id.match(rModuleId)
+    if (name in this.package.dependencies) {
+      const pkg = this.package.dependencies[name]
+      const result = await pkg.resolve(file)
+      return result[0]
+    }
   }
 
   readFilePath(fpath) {
@@ -718,12 +762,11 @@ class Porter {
   async readBuiltinJs(name) {
     const fpath = path.join(__dirname, '..', name)
     const result = await this.readFilePath(fpath)
-    return result
-  }
 
-  async readLoaderJs(pkg = this.package) {
-    const result = await this.readBuiltinJs('loader.js')
-    result[0] = await this.package.parseLoader(result[0])
+    if (name == 'loader.js') {
+      result[0] = await this.package.parseLoader(result[0])
+    }
+
     return result
   }
 
@@ -735,21 +778,13 @@ class Porter {
     }
 
     const { package: pkg } = this
-    const entries = opts.entries || []
+    const { entries, lazyload } = this
 
     await pkg.prepare()
     await Promise.all([
       ...entries.map(entry => pkg.parseEntry(entry)),
-      ...pkg.lazyload.map(file => pkg.parseFile(file))
+      ...lazyload.map(file => pkg.parseFile(file))
     ])
-
-    pkg.cssLoader = postcss().use(
-      atImport({
-        path: pkg.paths,
-        resolve: pkg.atImportResolve.bind(pkg)
-      })
-    )
-    pkg.cssTranspiler = postcss().use(autoprefixer(opts.autoprefixer))
 
     const { cache } = this
     rimraf(path.join(cache.dest, `{${cache.except.join(',')}`), err => {
@@ -775,28 +810,36 @@ class Porter {
     }, []))
 
     debug('compile packages')
-    await Promise.all(Array.from(this.package.all, async pkg => {
-      if (pkg !== this.package) {
-        return pkg.compile(...Object.keys(pkg.entries).filter(file => file.endsWith('.js')))
+    for (const pkg of this.package.all) {
+      if (!pkg.parent) continue
+      const pkgEntries = []
+      for (const entry in pkg.entries) {
+        if (!entry.endsWith('.js')) continue
+        if (pkg.entries[entry].isRootEntry) {
+          await pkg.compile(entry)
+        } else {
+          pkgEntries.push(entry)
+        }
       }
-    }))
+      await pkg.compile(pkgEntries)
+    }
 
     debug('compile entries')
     for (const entry of entries) {
-      if (entry.endsWith('.css')) {
-        await this.package.compile(entry)
-      } else {
-        await this.package.compile(entry, { bundle: 'loader' })
-      }
+      await this.package.compile(entry)
     }
 
     debug('compile lazyload')
-    for (const file of this.package.lazyload) {
+    for (const file of this.lazyload) {
       for (const mod of (await this.package.parseFile(file)).family) {
-        await mod.package.compile(mod.file, { bundle: false })
+        await mod.package.compile(mod.file, { loader: false, package: false })
       }
     }
     debug('done')
+  }
+
+  async compileEntry(entry, opts) {
+    return this.package.compile(entry, opts)
   }
 
   async isRawFile(file) {
@@ -857,7 +900,8 @@ class Porter {
   async readBundleJs(id, query) {
     const [, name, version] = id.match(rModuleId)
     const pkg = this.package.find({ name, version })
-    const { code } = await pkg.bundle(...Object.keys(pkg.files), { minify: false })
+    if (!pkg) throw new Error(`unready package ${name}/${version}`)
+    const { code } = await pkg.bundle(Object.keys(pkg.entries), { minify: false })
 
     return [code, { 'Last-Modified': new Date() }]
   }
@@ -874,14 +918,16 @@ class Porter {
     const chunks = []
 
     if (isMain) {
-      chunks.push((await this.readLoaderJs(pkg))[0])
+      chunks.push(await pkg.parseLoader())
     }
 
     if (isEntry) {
       chunks.push(`Object.assign(porter.lock, ${JSON.stringify(pkg.lock)})`)
     }
 
-    const { code } = await mod.fetch()
+    const { code } = pkg !== this.package && pkg.dir.startsWith(this.root)
+      ? await pkg.bundle([mod.file], { minify: false })
+      : await mod.fetch()
     chunks.push(code)
     if (isMain) chunks.push(`porter["import"](${JSON.stringify(mod.id)})`)
 
@@ -891,20 +937,18 @@ class Porter {
   async readFile(file, query) {
     await this.ready
 
+    const { package: pkg } = this
     const ext = path.extname(file)
     let result = null
 
-    if (file === 'loader.js') {
-      result = await this.readLoaderJs()
+    if (file === 'loader.js' || file === 'porter-sw.js') {
+      result = await this.readBuiltinJs(file)
     }
     else if (file === 'loaderConfig.json') {
       result = [
-        JSON.stringify(this.package.loaderConfig),
-        { 'Last-Modified': (new Date()).toJSON() }
+        JSON.stringify(Object.assign(pkg.loaderConfig, { lock: pkg.lock })),
+        { 'Last-Modified': new Date() }
       ]
-    }
-    else if (file === 'porter-sw.js') {
-      result = await this.readBuiltinJs(file)
     }
     else if (await this.isRawFile(file)) {
       result = await this.readRawFile(file)
@@ -919,7 +963,6 @@ class Porter {
       result = await this.readCss(file, query)
     }
     else if (rExt.test(ext)) {
-      const { package: pkg } = this
       const [fpath] = await pkg.resolve(file)
       if (fpath) {
         result = await this.readFilePath(fpath)

@@ -82,9 +82,9 @@ describe('matchRequire', function() {
 
   it('should not hang while parsing following code', async function() {
     const deps = matchRequire.findAll(`
-    if ('production' !== 'production') {
-      Object.freeze(emptyObject);
-    }
+      if ('production' !== 'production') {
+        Object.freeze(emptyObject);
+      }
     `)
     expect(deps).to.eql([])
   })

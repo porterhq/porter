@@ -351,14 +351,19 @@
     if (version) {
       map = lock[name][version]
     }
-    else if (opts && opts.dependencies && (name in opts.dependencies)) {
-      if (!version) version = opts.dependencies[name]
-      map = lock[name][version]
+    if (!version) {
+      if (opts && opts.dependencies && (name in opts.dependencies)) {
+        version = opts.dependencies[name]
+      }
+      else if (name == pkg.name) {
+        version = pkg.version
+      }
     }
+    map = lock[name][version]
 
-    var file = mod.file || map.main
+    var file = mod.file || map.main || 'index.js'
     if (map.alias) file = map.alias[file] || file
-    return resolve(name, version, suffix(file || 'index.js'))
+    return resolve(name, version, suffix(file))
   }
 
 
@@ -377,15 +382,17 @@
   }
 
   function importFactory(context) {
-    var entryId = 'import-' + (+new Date()).toString(36) + '.js'
+    var entryId = resolve(context, 'import-' + (+new Date()).toString(36) + '.js')
 
     return function(ids, fn) {
       ids = [].concat(ids)
       ids.forEach(function(id) { pkg.entries[suffix(id)] = true })
-      define(resolve(context, entryId), ids, function(require) {
+      define(entryId, ids, function(require) {
         var mods = ids.map(function(id) { return require(id) })
         if (fn) fn.apply(null, mods)
       })
+      // Try ignite at the first place, which is necessary when the script is inline.
+      registry[entryId].ignite()
     }
   }
 
@@ -399,12 +406,12 @@
   }
 
   Object.assign(system, {
-    'import': function Porter_import(entry, fn) {
-      entry = suffix(entry)
-      var mod = parseId(entry)
-      if (mod.version) entry = mod.file
-      var context = pkg.name + '/' + pkg.version
-      importFactory(context)(entry, fn)
+    'import': function Porter_import(entries, fn) {
+      entries = [].concat(entries).map(function(entry) {
+        var mod = parseId(entry)
+        return suffix(mod.version ? mod.file : entry)
+      })
+      importFactory(pkg.name + '/' + pkg.version)(entries, fn)
     }
   })
 
