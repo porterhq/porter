@@ -1,10 +1,10 @@
 {
   "name": "@cara/porter-app",
   "description": "A web app built with koa and porter",
-  "version": "2.0.0-1",
+  "version": "2.0.0-2",
   "private": true,
   "dependencies": {
-    "@cara/porter": "^2.0.0-1",
+    "@cara/porter": "^2.0.0-2",
     "babel-core": "^6.26.0",
     "chart.js": "2.7.0",
     "cropper": "^3.0.0",
@@ -29,7 +29,7 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "@cara/porter-cli": "^2.0.0-1",
+    "@cara/porter-cli": "^2.0.0-2",
     "babel-preset-env": "^1.6.1",
     "expect.js": "^0.3.1",
     "glob": "^7.1.2",
