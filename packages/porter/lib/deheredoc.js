@@ -39,7 +39,9 @@ function deheredoc(ast) {
         value = value.replace(new RegExp('^.{' + shortest + '}', 'mg'), '')
       }
       return new UglifyJS.AST_String({
-        value: value
+        end: node.end,
+        start: node.start,
+        value
       })
     }
     if (node instanceof UglifyJS.AST_Var) {

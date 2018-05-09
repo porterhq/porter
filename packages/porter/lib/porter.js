@@ -460,6 +460,11 @@ class Package {
           }
         }
       }
+      // If enabled but not specified any transpiler, use the default one.
+      if (!this.transpiler) {
+        this.transpiler = app.package.transpiler
+        this.transpilerOpts = app.package.transpilerOpts
+      }
     }
   }
 
