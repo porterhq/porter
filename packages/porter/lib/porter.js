@@ -548,7 +548,8 @@ class Package {
       const dir = path.join(depPath, name)
       if (await exists(dir)) {
         const { app } = this
-        const pkg = new Package({ dir, parent: this, app })
+        // cnpm (npminstall) dedupes dependencies with symbolic links
+        const pkg = new Package({ dir: await fs.realpath(dir), parent: this, app })
         await pkg.prepare()
         this.dependencies[pkg.name] = pkg
         return pkg.parseEntry(entry)
