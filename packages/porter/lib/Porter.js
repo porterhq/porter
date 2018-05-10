@@ -737,7 +737,7 @@ class Porter {
         const { dir } = this.findMap({ name })
         return path.join(dir, entry)
       } else {
-        return findStyle(id, importOptions.path)
+        return findStyle(id, importOptions.path).then(result => result[0])
       }
     }
 
