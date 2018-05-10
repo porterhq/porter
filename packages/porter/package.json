@@ -1,7 +1,7 @@
 {
   "name": "@cara/porter",
   "description": "A koa and express middleware for browser side javascript module authoring.",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "main": "lib/Porter.js",
   "repository": {
     "type": "git",
