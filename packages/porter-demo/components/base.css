@@ -1,0 +1,23 @@
+body {
+  max-width: 50em;
+  margin: 0 auto;
+  padding: 50px;
+  font-family: Monospaced Number,Chinese Quote,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,PingFang SC,Hiragino Sans GB,Microsoft YaHei,Helvetica Neue,Helvetica,Arial,sans-serif;
+  line-height: 1.5;
+}
+
+h1, h2, h3, h4, h5 {
+  color: #233;
+}
+
+code {
+  font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+  font-size: 90%;
+}
+
+code:not([class*="language-"]) {
+  background: #f5f2f0;
+  border-radius: 2px;
+  padding: 1px 3px;
+  color: #233;
+}

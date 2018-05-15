@@ -10,7 +10,7 @@ const porter = new Porter({ root })
 describe('.compileEntry({ entry, code })', function () {
   it('can compile component with specified code', async function () {
     const { code } = await porter.compileEntry({
-      entry: 'fake/entry.js', 
+      entry: 'fake/entry.js',
       code: `
         'use strict'
         var $ = require('yen')
@@ -21,13 +21,14 @@ describe('.compileEntry({ entry, code })', function () {
     expect(code).to.contain('fake/entry.js')
     expect(code).to.contain('yen/1.2.4/index.js')
     expect(code).to.contain('yen/1.2.4/events.js')
+    expect(code).to.not.contain('preload.js')
   })
 })
 
 describe('.compileEntry({ entry, deps, code })', function() {
   it('can compile component with specified deps and code', async function() {
     const { code } = await porter.compileEntry({
-      entry: 'fake/entry.js', 
+      entry: 'fake/entry.js',
       deps: ['yen', 'jquery'],
       code: `
         'use strict'
@@ -47,7 +48,7 @@ describe('.compileEntry(entry, { map, preload })', function() {
 
   before(async function() {
     const result = await porter.compileEntry({
-      entry: 'fake/entry.js', 
+      entry: 'fake/entry.js',
       code: `
         'use strict'
         var $ = require('yen')
@@ -65,10 +66,14 @@ describe('.compileEntry(entry, { map, preload })', function() {
   })
 
   it('can override loaderConfig', async function() {
-    // If not overridden, loaderConfig shall contain cache settings like 
-    // 
+    // If not overridden, loaderConfig shall contain cache settings like
+    //
     //     cache:{except:["@cara/porter-app"]}
     //
     expect(code).to.not.contain(',cache:{except')
+  })
+
+  it('should omit the global preload settings', async function() {
+    expect(code).to.not.contain('preload.js')
   })
 })

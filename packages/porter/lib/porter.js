@@ -89,6 +89,30 @@ class Module {
     return iterable
   }
 
+  get lock() {
+    const lock = {}
+    const packages = []
+
+    for (const mod of this.family) {
+      const { package: pkg } = mod
+      if (packages.includes(pkg)) continue
+      packages.push(pkg)
+      const { name, version } = pkg
+      const copies = lock[name] || (lock[name] = {})
+      copies[version] = Object.assign(copies[version] || {}, pkg.copy)
+    }
+
+    const { package: rootPackage } = this
+    const { name, version } = rootPackage
+    const copy = lock[name][version]
+    copy.dependencies = Object.keys(copy.dependencies).reduce((obj, prop) => {
+      if (prop in lock) obj[prop] = copy.dependencies[prop]
+      return obj
+    }, {})
+
+    return lock
+  }
+
   async mightEnvify(fpath, code) {
     const { package: pkg } = this
     if (pkg.transform.some(name => name == 'envify' || name == 'loose-envify')) {
@@ -111,7 +135,11 @@ class Module {
     let mod = await pkg.parsePackage({ name, entry })
 
     // Allow root/a => package/b => root/c
-    if (!mod) mod = await pkg.rootPackage.parseFile(dep)
+    if (!mod) {
+      const { rootPackage } = pkg
+      const specifier = name == rootPackage.name ? (entry || rootPackage.main) : dep
+      mod = await rootPackage.parseFile(specifier)
+    }
 
     return mod
   }
@@ -167,11 +195,11 @@ class Module {
   }
 
   async loadJs({ code }) {
-    const { deps, fpath, isRootEntry, package: pkg } = this
-    const { preload } = pkg.app
+    const { fpath, isRootEntry, package: pkg } = this
+    const preload = this.preload || pkg.app.preload
 
     // preload shall only apply to entries of root package, where as `isRootEntry` may refer to both entries of root package and worker entries of dependencies.
-    if (isRootEntry && !pkg.parent && !deps && preload.length > 0) {
+    if (isRootEntry && !pkg.parent && preload.length > 0) {
       const calls = preload.map(specifier => {
         return /\bimport\s*/.test(code)
           ? `import ${JSON.stringify(specifier)}\n`
@@ -275,7 +303,7 @@ class Module {
       for (const dep of deps) {
         if (this.deps.includes(dep)) continue
         const mod = await this.parseDep(dep)
-        if (mod.package !== this.package) reload = true
+        if (mod && mod.package !== this.package) reload = true
       }
     }
 
@@ -526,13 +554,21 @@ class Package {
     }
   }
 
+  /**
+   * Parse an entry that has code or deps (or both) specified already..
+   * @param {Object} opts
+   * @param {string} opts.entry
+   * @param {string[]} opts.deps
+   * @param {string} opts.code
+   */
   async parseFakeEntry({ entry, deps, code }) {
     const { entries, files, paths } = this
     const fpath = path.join(paths[0], entry)
     delete moduleCache[fpath]
     const mod = new Module({ file: entry, fpath, pkg: this })
 
-    Object.assign(mod, { deps, code })
+    // fake entries shall not share app.preload settings.
+    Object.assign(mod, { deps, code, preload: [] })
     entries[mod.file] = files[mod.file] = mod
     await mod.parse()
     return mod
@@ -579,36 +615,44 @@ class Package {
       : {}
 
     for (const pkg of this.all) {
-      const { name, version, dependencies, alias, main, entries } = pkg
+      const { name, version,  } = pkg
       const copies = lock[name] || (lock[name] = {})
-      const copy = copies[version] || (copies[version] = {})
-
-      if (!/^(?:\.\/)?index(?:.js)?$/.test(main)) copy.main = main
-
-      if (alias && Object.keys(alias).length > 0)  {
-        copy.alias = Object.assign({}, copy.alias, alias)
-      }
-
-      if (Object.keys(entries).length > 1) {
-        const jsEntries = Object.keys(entries)
-          .filter(prop => !prop.endsWith('.css'))
-          .filter(prop => {
-            const entry = pkg.files[prop]
-            return !(entry.loaders && ('worker-loader' in entry.loaders))
-          })
-
-        if (jsEntries.length > 1) copy.bundle = true
-      }
-
-      if (dependencies && Object.keys(dependencies).length > 0) {
-        if (!copy.dependencies) copy.dependencies = {}
-        for (const dep of Object.values(dependencies)) {
-          copy.dependencies[dep.name] = dep.version
-        }
-      }
+      copies[version] || (copies[version] = {})
+      copies[version] = Object.assign(copies[version] || {}, pkg.copy)
     }
 
     return lock
+  }
+
+  get copy() {
+    const copy = {}
+    const { dependencies, alias, main, entries, files } = this
+
+    if (!/^(?:\.\/)?index(?:.js)?$/.test(main)) copy.main = main
+
+    if (alias && Object.keys(alias).length > 0)  {
+      copy.alias = Object.assign({}, copy.alias, alias)
+    }
+
+    if (Object.keys(entries).length > 1) {
+      const jsEntries = Object.keys(entries)
+        .filter(prop => !prop.endsWith('.css'))
+        .filter(prop => {
+          const entry = files[prop]
+          return !(entry.loaders && ('worker-loader' in entry.loaders))
+        })
+
+      if (jsEntries.length > 1) copy.bundle = true
+    }
+
+    if (dependencies && Object.keys(dependencies).length > 0) {
+      if (!copy.dependencies) copy.dependencies = {}
+      for (const dep of Object.values(dependencies)) {
+        copy.dependencies[dep.name] = dep.version
+      }
+    }
+
+    return copy
   }
 
   get loaderConfig() {
@@ -661,9 +705,10 @@ class Package {
     }
 
     const mod = this.files[entries[0]]
+    const lock = opts.all ? mod.lock : this.lock
 
     if (mod.isRootEntry) {
-      chunks.unshift(`Object.assign(porter.lock, ${JSON.stringify(this.lock)})`)
+      chunks.unshift(`Object.assign(porter.lock, ${JSON.stringify(lock)})`)
     }
 
     if (mod.isRootEntry) {
@@ -755,6 +800,8 @@ class Porter {
       const pkg = this.package.dependencies[name]
       const result = await pkg.resolve(file)
       return result[0]
+    } else {
+      return id
     }
   }
 

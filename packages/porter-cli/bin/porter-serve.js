@@ -10,9 +10,10 @@ function collectPath(val, paths) {
 }
 
 program
+  .option('-D --dest [dest]', 'public folder', 'public')
   .option('-H --headless [headless]', 'run headless tests right after server is started', false)
-  .option('-p --port [port]', 'port to listen on', 5000)
   .option('-P --paths [paths]', 'components load path', collectPath, [])
+  .option('-p --port [port]', 'port to listen on', 5000)
   .option('-s --suite [suite]', 'run suites right after server is started', 'test/suite')
   .option('-t --timeout [timeout]', 'timeout on headless tests', 15000)
 
@@ -109,10 +110,10 @@ async function serve() {
   const app = new Koa()
 
   const serveStatic = require('koa-static')
-  app.use(serveStatic(path.join(cwd, 'tmp')))
+  app.use(serveStatic(path.resolve(cwd, program.dest)))
   app.use(serveStatic(path.join(__dirname, '../public')))
 
-  if (program.paths.length == 0) program.paths.push('.')
+  if (program.paths.length == 0) program.paths.push('components')
   const Porter = require('@cara/porter')
   const porter = new Porter({
     paths: [...program.paths, path.join(__dirname, '../public')],

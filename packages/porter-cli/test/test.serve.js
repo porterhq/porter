@@ -32,7 +32,7 @@ describe('porter-serve component', function() {
   let proc
 
   before(async function() {
-    proc = spawn(cmd, { cwd: componentRoot, stdio: ['pipe', 'pipe', process.stderr] })
+    proc = spawn(cmd, ['--paths', '.'], { cwd: componentRoot, stdio: ['pipe', 'pipe', process.stderr] })
     await new Promise(resolve => {
       proc.stdout.on('data', chunk => {
         if (chunk.includes('Server started')) resolve()
@@ -77,7 +77,7 @@ describe('porter-serve component', function() {
 
 describe('porter-serve component --headless', function() {
   it('should be able to run component tests headlessly', async function() {
-    const proc = spawn(cmd, ['--headless'], { stdio: 'inherit', cwd: componentRoot })
+    const proc = spawn(cmd, ['--paths', '.', '--headless'], { stdio: 'inherit', cwd: componentRoot })
     await new Promise((resolve, reject) => {
       proc.on('exit', code => {
         if (code > 0) {

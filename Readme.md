@@ -2,91 +2,78 @@
 [![NPM Version](http://img.shields.io/npm/v/@cara/porter.svg?style=flat)](https://www.npmjs.com/package/@cara/porter)
 [![Build Status](https://travis-ci.org/erzu/porter.svg)](https://travis-ci.org/erzu/porter)
 
-Porter is a consolidated browser modules framework featuring module transformation on the fly.
+Porter is **a consolidated browser module solution** which provides a module system for web browsers that is both Node.js Modules and ES Modules compatible.
 
 ## How to
 
-You need a main entry point for your app's JS and/or CSS.
+We need two entry points for our app. One for JavaScript and the other for CSS.
 
 ```html
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>An Porter Example</title>
-  <!-- CSS ENTRY -->
+  <title>An Porter Demo</title>
+  <!-- CSS entry -->
   <link rel="stylesheet" type="text/css" href="/app.css">
 </head>
 <body>
-  <h1>An Porter Example</h1>
-  <!-- JAVASCRIPT ENTRY -->
+  <h1>A Porter Demo</h1>
+  <!-- JavaScript entry -->
   <script src="/app.js?main"></script>
 </body>
 </html>
 ```
 
-In js files, you can use CMD `require` dependencies:
+In `app.js` we can `require` modules:
 
 ```js
-const $ = require('jquery')
-const cropper = require('cropper')
+const Prism = require('prismjs')
+Prism.highlightAll()
 ```
 
-Or esModule:
+or `import` ES Modules (with Babel or TypeScript enabled):
 
 ```js
- * as React from 'react'
+import * as React from 'react'
 ```
 
-And in stylesheets, you can `@import` dependencies too:
+In `app.css`, we can `@import` css dependencies:
 
 ```css
-@import 'cropper/dist/cropper.css';   /* stylesheets in node_modules */
-@import './nav.css';                  /* stylesheets in components */
+@import 'prismjs/themes/prism.css';   /* stylesheets in dependencies */
+@import './base.css';                 /* stylesheets in package */
 ```
 
-To achieve this, just setup the middleware provided by porter. For Koa:
+The files shall be organized like below.
 
-```js
-const Koa = require('koa')
-const Porter = require('@cara/porter')
-const app = new Koa()
-
-app.use(new Porter().async())
+```bash
+➜  porter-demo git:(master) tree -L 2 -I node_modules
+.
+├── components
+│   ├── app.css
+│   ├── app.js
+│   └── base.css
+└── public
+    └── index.html
 ```
 
-For older versions of Koa that require generator functions:
+We can now start the app with Porter.
 
-```js
-const koa = require('koa')
-const Porter = require('@cara/porter')
-const app = koa()
-
-app.use(new Porter().gen())
+```bash
+➜  porter-demo git:(master) npx porter serve
+Server started at 5000
 ```
 
-For Express:
+The app is now ready at <http://localhost:5000>.
 
-```js
-const express = require('express')
-const porter = require('@cara/porter')
-const app = express()
+## Packages
 
-// that's it
-app.use(new Porter().func())
-```
+Porter consists of two major packages, [porter](https://github.com/erzu/porter/tree/master/packages/porter) the middleware and [porter-cli](https://github.com/erzu/porter/tree/master/packages/porter-cli) the command line interface. These are the two packages we publish to NPM.
 
-When it's time to be production ready, simply run:
+The rest of the packages are mostly for demo or test purpose. For users interested in porter-cli,
 
-```js
-const Porter = require('@cara/porter')
-const porter = new Porter()
+- porter-component may be referenced as a demo of using porter-cli to develop a browser module.
+- porter-demo may be referenced as a demo of using porter-cli to develop a web application.
 
-Promise.all([
-  porter.compileAll({ match: 'app.js' }),           // js components and modules
-  porter.compileStyleSheets({ match: 'app.css' })   // css files
-])
-  .catch(function(err) {
-    console.error(err.stack)
-  })
-```
+As of porter-app, users interested in porter the middleware may take the `app.js` in porter-app for example. Many options of porter the middleware, and edge cases of browser modules in NPM, are tested in porter-app. Pardon if you find the code within porter-app a bit messy.

@@ -4,194 +4,281 @@
 [![NPM Version](http://img.shields.io/npm/v/@cara/porter.svg?style=flat)](https://www.npmjs.com/package/@cara/porter)
 [![Build Status](https://travis-ci.org/erzu/porter.svg)](https://travis-ci.org/erzu/porter)
 
-porter is a JS/CSS module loader featuring module transformation on the fly.
+Porter is a **consolidated browser module solution** which provides a module system for web browsers that is both [Node.js Modules](https://nodejs.org/api/modules.html) and [ES Modules](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/import) compatible.
+
+Here are the features that make Porter different from (if not better than) other module solutions:
+
+1. Both synchronous and asynchronous module loading are supported. `import` is transformed with either Babel or TypeScript. `import()` is not fully supported yet but there's an equivalent `require.async(specifier, mod => {})` provided.
+2. Implemented with the concept `Module` (file) and `Package` (directory with package.json and files) built-in.
+3. Fast enough module resolution and transpilation that makes the `watch => bundle` loop unnecessary. With Porter the middleware, `.css` and `.js` requests are intercepted (and processed if changed) correspondingly.
+
+## Setup
+
+> This document is mainly about Porter the middleware. To learn about Porter CLI, please visit the [corresponding folder](https://github.com/erzu/porter/packages/porter-cli).
+
+Porter the middleware is compatible with Koa (both major versions) and Express:
+
+```js
+const Koa = require('koa')
+const Porter = require('@cara/porter')
+
+const app = new Koa()
+const porter = new Porter()
+app.use(porter.async())
+
+// koa 1.x
+app.use(porter.gen())
+
+// express
+app.use(porter.func())
+```
+
+## Modules
+
+With the default setup, browser modules at `./components` folder is now accessible with `/path/to/file.js` or `/${pkg.name}/${pkg.version}/path/to/file.js`. Take [porter-demo](https://github.com/erzu/porter/packages/porter-demo) for example, the file structure shall resemble that of below:
+
+```bash
+➜  porter-demo git:(master) tree -L 2
+.
+├── components        # browser modules
+│   ├── app.css
+│   └── app.js
+├── node_modules      # dependencies
+│   ├── @cara
+│   ├── jquery
+│   └── prismjs
+├── package.json
+└── public
+    └── index.html    # homepage
+```
+
+In `./public/index.html`, we can now add CSS and JavaScript entries:
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>An Porter Demo</title>
+  <!-- CSS entry -->
+  <link rel="stylesheet" type="text/css" href="/app.css">
+</head>
+<body>
+  <h1>A Porter Demo</h1>
+  <!-- JavaScript entry -->
+  <script src="/app.js?main"></script>
+</body>
+</html>
+```
+
+The extra `?main` querystring might seem a bit confusing at first glance. It tells Porter the middleware to bundle loader when `/app.js?main` is accessed. The equivalent `<script>` entry of above is:
+
+```html
+<script src="/loader.js" data-main="app.js"></script>
+```
+
+Both `<script>`s work as the JavaScript entry of current page. In `./components/app.js`, there are the good old `require` and `exports`:
+
+```js
+// es5
+'use strict'
+
+const jQuery = require('jquery')  // => ./node_modules/jquery/dist/jquery.js
+const React = require('react')    // => ./node_modules/react/index.js
+const util = require('./util')    // => ./components/util.js or ./components/util/index.js
+```
+
+and the fancy new `import` and `export`:
+
+```js
+import jQuery from 'jquery'
+import * as React from 'react'
+import util from './util'
+```
+
+In CSS entry, there's `@import`:
+
+```css
+@import "prismjs/themes/prism.css";
+@import "./base.css";
+```
 
 ## Options
 
-### `cacheExcept=[]`
+### `cache={ dest, except }`
 
-To accelerate loading in development mode, Porter will cache node_modules by compiling and bundling them on the fly. You can rule out some of them by passing an array of module names to `cacheExcept` option:
+To accelerate responses, Porter caches following things:
+
+- CSS post-process results (code and source map) after `@import`s being processed.
+- JS transpile results (code and source map) if Babel or TypeScript is enabled.
+
+By default, these files are stored in the folder specified by `dest='public'`. At some circumstances, we may need to put cache files into a different folder, therefore here is the extra `cache={ dest }`:
 
 ```js
-app.use(porter({ cacheExcept: 'mobx' }))
-app.use(porter({ cacheExcept: ['mobx', 'react'] }))
+const porter = new Porter({
+  cache: { dest: '.porter-cache' },   // where the cache file goes to
+  dest: 'public'                      // where the compiled assets will be at after porter.compileAll()
+})
 ```
 
-To turn off the node_modules caching completely, just set `cacheExcept` to `*`:
+If `cache={ dest }` is undefined, cache files are put into `dest='public'` as well.
+
+It is recommended that the directory that contain cache files shall be served statically, which makes the source maps accessible. Here is an example in Koa:
 
 ```js
-app.use(porter({ cacheExcept: '*' }))
-```
+const serve = require('koa-static')
 
-### `cachePersist=true`
-
-porter will not clear the cache (except the ones specified in `cacheExcept` option) by default. Set `cachePersist` to false to make porter clear cache every time it restarts:
-
-```js
-app.use(porter({ cachePersist: false }))
+app.use(serve('.porter-cache'))
+app.use(serve('public'))
 ```
 
 ### `dest='public'`
 
-Porter caches node_modules compilations, js components transformations (if `.babelrc` exists), and stylesheets. Set `dset=other/directory` to store the cache somewhere else:
-
-```js
-app.use(porter({ dest: '.porter-cache' }))
-```
-
-Some of the cache requires a static serving middleware to work:
-
-- node_modules compilation results,
-- components source maps generated after transformation.
-
-For Koa:
-
-```js
-app.use(require('koa-static')(path.join(__dirname, 'public')))
-app.use(requrie('porter')({ dest: 'public' }))
-```
-
-For Express:
-
-```js
-app.use(express.static(path.join(__dirname, 'public')))
-app.use(requrie('porter')())
-```
-
-### `express=false`
-
-`porter()` returns a koa middleware by default. Set `express=true` to get an express middleware instead:
-
-```js
-app.use(require('@cara/porter')({ express: true }))
-```
-
-### `loaderConfig={}`
-
-There's a loader hidden in Porter which is the magic behind Porter that makes module loading possible. When js entries such as `app.js?main` is requested, Porter will prepend the loader and loader config to the content of the component. See the loader section for detailed information.
-
-### `mangleExcept=[]`
-
-While porter caches node_modules, the code will be bundled and minified with UglifyJS. In rare caces, UglifyJS' name mangling might generate false results, which can be bypassed with `mangleExcept`:
-
-```js
-app.use(porter({ mangleExcept: ['react-router'] }))
-```
+The directory that contains compile results, and cache files as well if `cache={ dest }` is undefined.
 
 ### `paths='components'`
 
-The directory of your components. Multiple paths is allowd. For example, you need to import modules from both the `components` directory of your app and `node_modules/@corp/sharedComponents`:
+The directory or directories that contain browser modules. For example, if we need to import modules from both the `./components` directory and `./node_modules/@corp/shared-components`:
 
 ```js
-app.use(porter({
-  paths: [ 'components', 'node_modules/@corp/sharedComponents']
-}))
+const porter = new Porter({
+  paths: [ 'components', 'node_modules/@corp/shared-components']
+})
 ```
 
 ### `root=process.cwd()`
 
-Normally this option should never be used. Options like `paths` and `dest` are all resolved against `root`. In test cases like `tests/test.index.js` in the source code, we need to change the `root` to `path.join(__dirname, 'test/example')`.
+This option should never be necessary. Options like `paths` and `dest` are all resolved against `root`, which defaults to `process.cwd()`. If the project root is different than `process.cwd()`, try set `root`.
 
-### `serveSource=false`
+### `source={ serve, root }`
 
-Porter generates source maps while transforming components, caching node_modules, or compiling the final assets. For content security concerns, the `sourceContents` are removed in the generated source maps and a `sourceRoot` is set instead. In this way, porter won't leak any source code by default. And if you do need source code being fetched by browser, you can simply turn on `serveSource`:
+Like `cache={}`, the `source={}` option is an object, which contains two properties that are all related to source maps. In development phase, the source maps are generated while Porter processes requests. In those source map files, `sourceContents` are stripped, and `sourceRoot` are set to `/`. Therefore to make source mapping actually take place in devtools, we need to enable `source={ serve }` during development as well:
 
 ```js
-app.use(porter({ serveSource: true }))
-// or set it in a more recommended way
-app.use(porter({ serveSource: process.env.NODE_ENV == 'development' }))
+const porter = new Porter({
+  source: { serve: process.env.NODE_ENV == 'development' }
+})
 ```
 
-### `transformOnly=[]`
+Regarding `source={ root }`, it is not used until the project goes into production. When the JavaScript and CSS codes are compiled (with `porter.compileAll()` or so), source maps get generated with `sourceContents` stripped, and `sourceRoot` can not be `/` in production because `source={ serve }` should be off in production. Therefore, `source={ root }` shall be set to the actual origin that is able to serve the source securely.
 
-Besides components, Porter can also transform node_modules. Simply put the module names in `transformOnly`:
+In our practice, the `source={ root }` is usually set to <http://localhost:3000>.
+
+### `transpile={ only }`
+
+By default, Porter checks transpiler configs of the project (that is, the root package) only. When it comes to dependencies in ES6+ (which shouldn't be common in npm land), transpile logic shall be activated for them as well. To specify these packages that need to be transpiled as well, use `transpile={ only }`:
 
 ```js
-app.use(porter({ transformOnly: ['some-es6-module'] }))
+const porter = new Porter({
+  transpile: { only: ['some-es6-module'] }
+})
 ```
 
 If the module being loaded is listed in `transformOnly`, and a `.babelrc` within the module directory is found, porter will process the module source with babel too, like the way it handles components. Don't forget to install the presets and plugins listed in the module's `.babelrc` .
 
 ## Deployment
 
-Oceanfiy provides two static methods for assets precompilation:
-
-- `porter.compileAll()`
-- `porter.compileStyleSheets()`
-
-### `.compileAll([options])`
-
-`.compileAll([options])` returns a Promise.
+It is possible (and also recommended) to disable Porter in production, as long as the assets are compiled with `porter.compileAll()`. To compile assets of the project, simply call `porter.compileAll({ entries })`:
 
 ```js
-const porter = require('@cara/porter')
+const porter = new Porter()
 
-// Specify the entry modules
-porter.compileAll({ match: 'app.js' })
-  .then(function() {
-    console.log('done')
-  })
-  .catch(function(err) {
-    console.error(err.stack)
-  })
-
-// You can omit the options since they're the defaults.
-porter.compileAll()
+porter.compileAll({
+  entries: ['app.js', 'app.css']
+})
+  .then(() => console.log('done')
+  .catch(err => console.error(err.stack))
 ```
 
-Porter will compile all the components that matches `opts.match`, find their dependencies in `node_modules` directory and compile them too.
+Porter will compile entries and their dependencies, bundle them together afterwards. How the modules are bundled is a simple yet complicated question. Here's the default bundling strategy:
 
-You can try the one in [Porter Example](https://github.com/erzu/porter/tree/master/examples/default). Just execute
-`npm run precompile`.
+- Entries are bundled separately, e.g. `entries: ['app.js', 'app2.js']` are compiled into two different bundles.
+- Dependencies are bundled per package with internal modules put together, e.g. jQuery gets compiled as `jquery/3.3.1/dist/jquery.js`.
+- Dependencies with multiple entries gets bundled per package as well, e.g. lodash methods will be compiled as `lodash/4.17.10/~bundle.js`.
 
-### `.compileStyleSheets([options])`
+Assume the root package is:
 
-`.compileStyleSheets([options])` returns a Promise.
+```json
+{
+  "name": "@cara/porter-demo",
+  "version": "2.0.0"
+}
+```
+
+and the content of `./components/app.js` is:
 
 ```js
-const porter = require('@cara/porter')
+'use strict'
 
-porter.compileStyleSheets({ match: 'app.css' })
-  .then(function() {
-    console.log('done')
-  })
-  .catch(function() {
-    console.error(err.stack)
-  })
+const $ = require('jquery')
+const throttle = require('lodash/throttle')
+const camelize = require('lodash/camelize')
+const util = require('./util')
+
+// code
 ```
 
-Currently `.compileStyleSheets` just process the source code with autoprefixer and postcss-import. You gonna need some minification tools like[cssnano](https://github.com/ben-eb/cssnano) to minify the compiled result.
+After `porter.compileAll({ entries: ['app.js'] })`, the files in `./public` should be:
 
+```bash
+public
+├── @cara
+│   └── porter-app
+│       └── 2.0.0-3
+|           ├── app.js
+|           └── app.js.map
+├── jquery
+│   └── 3.3.1
+│       └── dist
+|           ├── jquery.js
+|           └── jquery.js.map
+└── lodash
+    └── 4.17.10
+        ├── ~bundle.js
+        └── ~bundle.js.map
+```
+
+For different kinds of projects, different strategies shall be employed. We can tell Porter to bundle dependencies at certain scope with `porter.compileEntry()`:
+
+```js
+// default
+porter.compileEntry('app.js', { package: true })
+
+// bundle everything
+porter.compileEntry('app.js', { all: true })
+```
 
 ## Behind the Scene
 
-Let's start with `app.js`, which might seems a bit of black magic at the first glance. It is added to the page directly:
+Let's start with `app.js`, which might seem a bit confusing at the first glance. It is added to the page directly:
 
 ```html
 <script src="/app.js?main"></script>
 ```
 
-And suddenly you can write `app.js` as CommonJS or ES Module right away:
+And suddenly you can write `app.js` as Node.js Modules or ES Modules right away:
 
 ```js
-const React = require('react')
 import mobx from 'mobx'
+const React = require('react')
 ```
 
-How can browser know where to `require` when executing `main.js`?
+How can browser know where to `import` MobX or `require` React when executing `app.js`?
 
 ### Loader
 
-The secret is, entry components that ends with `?main` (e.g. `app.js?main`) will be prepended with two things before the the actual `app.js` when it's served with Porter:
+The secret is, entries that has `main` in the querystring (e.g. `app.js?main`) will be prepended with two things before the the actual `app.js` when it's served with Porter:
 
 1. Loader
-2. Loader config
+2. Package lock
 
 You can import `app.js` explicitly if you prefer:
 
 ```html
 <script src="/loader.js"></script>
 <script>porter.import('app')</script>
+<!-- or with shortcut -->
+<script src="/loader.js" data-main="app"></script>
 ```
 
 Both way works. To make `app.js` consumable by the Loader, it will be wrapped into Common Module Declaration format on the fly:
@@ -203,7 +290,7 @@ define(id, deps, function(require, exports, module) {
 ```
 
 - `id` is deducted from the file path.
-- `dependencies` is parsed from the factory code with [js-tokens](https://github.com/lydell/js-tokens) module.
+- `dependencies` is parsed from the factory code with [js-tokens](https://github.com/lydell/js-tokens).
 - `factory` (the anonymouse function) body is left untouched or transformed with babel depending on whether `.babelrc` exists or not.
 
 If ES Module is preferred, you'll need two things:
@@ -211,11 +298,9 @@ If ES Module is preferred, you'll need two things:
 1. Put a `.babelrc` file under your components directory.
 2. Install the presets or plugins configured in said `.babelrc`.
 
-Back to the Loader, after the wrapped `app.js` is fetched, it won't execute right away. The dependencies need to be resolved first. For relative dependencies (e.g. other components), it's easy to just resolve them against `id`. For external dependencies (in this case, react and mobx), there's more work done by Porter under the hood:
+Back to the Loader, after the wrapped `app.js` is fetched, it won't execute right away. The dependencies need to be resolved first. For relative dependencies (e.g. dependencies within the same package), it's easy to just resolve them against `module.id`. For external dependencies (in this case, react and mobx), `node_modules` are looked.
 
-1. Generate a dependencies map by parsing components and node_modules when it initializes,
-2. Flatten the dependencies map into a list of modules required (directly or indirectly) by current entry,
-3. Config the loader with the list (among other loader config).
+The parsed dependencies is in two trees, one for modules (file by file), one for packages (folder by folder). When the entry module (e.g. `app.js`) is accessed, a package lock is generated and prepended before the module to make sure the correct module path is used.
 
 Take heredoc's (simplified) node_modules for example:
 
@@ -249,25 +334,25 @@ It will be flattened into:
 }
 ```
 
-The original dependency path `should/should-type` is now at the same level of `should`. There still are `dependencies`, to store the actual version of `should/should-type` required by `should`. Notice this structure supports multiple versions.
-
 ### Loader Config
 
-The structure is then put among other options passed to Loader with `porter.config()`:
+Besides package lock, there're several basic loader settings (which are all configurable while `new Porter()`):
+
+| property  | description |
+|-----------|-------------|
+| `baseUrl` | root path of the browser modules, e.g. `https://staticfile.org/`      |
+| `map`     | module mappings that may interfere module resolution                  |
+| `package` | metadata of the root package, e.g. `{ name, version, main, entries }` |
+| `preload` | a syntax sugar for quick loading certain files before entry           |
+
+In development phase, Porter configs the loader with following settings:
 
 ```js
-porter.config({
-  "base": "http://localhost:5000",
-  "name": "heredoc",
-  "version": "1.3.1",
-  "main": "index",
-  "modules": { ... }
-})
+{
+  baseUrl: '/',
+  package: { /* generated from package.json of the project */ }
+}
 ```
-
-- `base` is the root path of components and node modules.
-- `name`, `version`, and `main` are self-explanatory. They are all extracted from package.json of the app.
-- `modules` is the flattened dependencies map.
 
 ### Wrap It Up
 
@@ -276,25 +361,20 @@ So here is `app.js?main` expanded:
 ```js
 // GET /loader.js returns both Loader and Loader Config.
 ;(function() { /* Loader */ })
-porter.config({ /* Loader Config */})
+Object.assign(porter.lock, /* package lock */)
 
 // The module definition and the import kick off.
 define(id, dependencies, function(require, exports, module) { /* app.js */ })
 porter.import('app')
 ```
 
-Here's the actual interaction between browser and backend:
+Here's the actual interaction between browser and Porter:
 
-1. Browser requests `/app.js?main`;
-2. Porter prepares the content of `/app.js?main` with Loader, Loader Config, and the wrapped `app.js`;
-3. Browser executes the returned `/app.js`, Loader kicks in, cache `app.js` module in registry;
-4. Loader resolves the dependencies of `app.js` module;
-5. Browser requests the dependencies per Loader's request;
-6. Loader executes the factory of `app.js` once all the dependencies are resolved.
+![](https://cdn.yuque.com/__puml/76189ffa06e35b64edd55c3e9423734d.svg)
 
 ### StyleSheets
 
-The stylesheets part is much easier since Porter does not provide a CSS Loader for now. All of the `@import`s are handled at the backend. Take following `app.css` for example:
+The stylesheets part is much easier since Porter processes CSS `@import`s at the first place. Take following `app.css` for example:
 
 ```css
 @import "cropper/dist/cropper.css";
@@ -310,4 +390,4 @@ When browser requests `app.css`:
 1. `postcss-import` processes all of the `@import`s;
 2. `autoprefixer` transforms the bundle;
 
-Voila!
+Porter then responses with the processed CSS (which has all `@import`s replaced with actual file contents).

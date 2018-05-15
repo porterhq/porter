@@ -1,5 +1,6 @@
 'use strict'
 
+const expect = require('expect.js')
 const path = require('path')
 const Porter = require('..')
 
@@ -30,5 +31,10 @@ describe('Module', function() {
         files[mod.file] = true
       }
     }
+  })
+
+  it('should generate compact lock', function() {
+    expect('react-color' in porter.package.lock).to.be.ok()
+    expect('react-color' in porter.package.entries['home.js']).to.not.be.ok()
   })
 })

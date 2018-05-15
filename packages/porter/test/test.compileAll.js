@@ -13,6 +13,7 @@ process.chdir(root)
 const porter = new Porter({
   root,
   paths: ['components', 'browser_modules'],
+  preload: 'preload',
   lazyload: ['i18n/index.js'],
   source: { root: 'http://localhost:3000/' }
 })
@@ -34,6 +35,7 @@ describe('porter.compileAll()', function() {
     const content = await readFile(fpath, 'utf8')
     expect(content).to.contain(`define("${name}/${version}/i18n/index.js",`)
     expect(content).to.contain('porter.lock')
+    expect(content).to.contain(`define("${name}/${version}/preload.js"`)
   })
 
   it('should compile packages separately', async function () {

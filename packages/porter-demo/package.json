@@ -1,0 +1,21 @@
+{
+  "name": "@cara/porter-demo",
+  "description": "A demo of porter-cli",
+  "version": "2.0.0-3",
+  "private": true,
+  "dependencies": {
+    "cropper": "^3.0.0",
+    "jquery": "^3.3.1",
+    "prismjs": "^1.7.0"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@cara/porter-cli": "^2.0.0-3",
+    "expect.js": "^0.3.1",
+    "mocha": "^3.5.3"
+  },
+  "scripts": {
+    "start": "porter serve",
+    "test": "DEBUG=porter,$DEBUG porter serve --headless"
+  }
+}
