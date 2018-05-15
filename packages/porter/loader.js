@@ -270,7 +270,7 @@
     mod.status = MODULE_RESOLVING
     var children = mod.children = (mod.deps || []).map(function(depName) {
       var depId = Module.resolve(depName, mod.id)
-      return registry[depId] || new Module(depId)
+      return registry[depId] || registry[depId + '.js'] || new Module(depId)
     })
 
     children.forEach(function(child) {
