@@ -410,7 +410,7 @@
       deps = []
     }
 
-    var mod = registry[id] || registry[id + '.js'] || new Module(id)
+    var mod = registry[id] || registry[id + '.js'] || registry[id.replace(/\.js$/, '')] || new Module(id)
 
     mod.deps = deps
     mod.factory = factory
