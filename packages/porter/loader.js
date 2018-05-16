@@ -324,7 +324,7 @@
 
     function require(id) {
       id = Module.resolve(id, mod.id)
-      var dep = registry[id]
+      var dep = registry[id] || registry[id + '.js']
 
       if (dep.status < MODULE_RESOLVED) {
         throw new Error('Module ' + id + ' should be resolved by now')
