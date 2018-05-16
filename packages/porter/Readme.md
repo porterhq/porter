@@ -385,6 +385,8 @@ body {
 }
 ```
 
+![](https://cdn.yuque.com/__puml/5c1a7b8ae1312893829aaf4f357cdadd.svg)
+
 When browser requests `app.css`:
 
 1. `postcss-import` processes all of the `@import`s;
