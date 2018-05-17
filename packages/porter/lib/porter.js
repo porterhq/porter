@@ -801,7 +801,7 @@ class FakePackage extends Package {
    */
   async parsePackage({ name, entry }) {
     const mod = await super.parsePackage({ name, entry })
-    if (mod) return  mod
+    if (mod) return mod
 
     const { _lock: lock } = this
     const deps = lock[this.name][this.version].dependencies
@@ -812,6 +812,12 @@ class FakePackage extends Package {
         name,
         version,
         file: entry || lock[name][version].main || 'index.js'
+      }
+    } else {
+      return {
+        name: this.name,
+        version: this.version,
+        file: entry
       }
     }
   }
