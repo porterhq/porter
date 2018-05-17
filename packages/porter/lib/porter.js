@@ -222,10 +222,19 @@ class Module {
 
     const { id } = this
     const { cssLoader, root } = this.package.app
+
+    /**
+     * `from` must be absolute path to make sure the `baseDir` in `atImportResolve()` function is correct. Otherwise it will be set to process.cwd() which might not be `root` in some circumstances. Luckily we've got `map.from` to specify the file path in source map.
+     * - http://api.postcss.org/global.html#processOptions
+     */
     const { css, map } = await cssLoader.process(code, {
-      from: path.relative(root, fpath),
+      from: fpath,
       to: id,
-      map: { inline: false }
+      map: {
+        inline: false,
+        from: path.relative(root, fpath),
+        sourcesContent: false
+      }
     })
 
     return { code: css, map }
@@ -261,9 +270,14 @@ class Module {
     const { cssTranspiler, root } = this.package.app
 
     const result = await cssTranspiler.process(code, {
-      from: path.relative(root, fpath),
+      from: fpath,
       to: id,
-      map: { inline: false, prev: map }
+      map: {
+        inline: false,
+        prev: map,
+        from: path.relative(root, fpath),
+        sourcesContent: false
+      }
     })
 
     return { code: result.css, map: result.map }
@@ -752,6 +766,57 @@ class Package {
   }
 }
 
+/**
+ * FakePackage is used to anticipate a Porter project. With FakePackage we can create new Porter instances with existing Porter setup.
+ */
+class FakePackage extends Package {
+  constructor(opts) {
+    const { app, dir, paths, package: pkg, lock } = opts
+    super({ app, dir, paths })
+
+    this._lock = lock
+    this._package = pkg
+
+    const { name, version } = pkg
+    Object.assign(this, { name, version })
+  }
+
+  /**
+   * The real package lock should be used
+   */
+  get lock() {
+    return this._lock
+  }
+
+  /**
+   * The real package name and version should be used.
+   */
+  get loaderConfig() {
+    return { ...super.loaderConfig, package: this._package }
+  }
+
+  /**
+   * Override {@link Package.parsePackage} to eliminate "unmet dependency" warnings.
+   * @param {Object} opts
+   */
+  async parsePackage({ name, entry }) {
+    const mod = await super.parsePackage({ name, entry })
+    if (mod) return  mod
+
+    const { _lock: lock } = this
+    const deps = lock[this.name][this.version].dependencies
+
+    if (name in deps) {
+      const version = deps[name]
+      return {
+        name,
+        version,
+        file: entry || lock[name][version].main || 'index.js'
+      }
+    }
+  }
+}
+
 class Porter {
   constructor(opts) {
     const root = opts.root || process.cwd()
@@ -763,13 +828,15 @@ class Porter {
     const cache = { dest, except: [], ...opts.cache }
 
     Object.assign(this, { root, dest, cache, transpile })
-    const pkg = require(path.join(root, 'package.json'))
+    const pkg = opts.package || require(path.join(root, 'package.json'))
 
     transpile.only.push(pkg.name)
     if (!cache.except.includes('*')) cache.except.push(pkg.name)
     cache.dest = path.resolve(root, cache.dest)
 
-    this.package = new Package({ dir: root, paths, app: this })
+    this.package = opts.package
+      ? new FakePackage({ dir: root, paths, app: this, package: opts.package, lock: opts.lock })
+      : new Package({ dir: root, paths, app: this })
 
     this.baseUrl = opts.baseUrl || '/'
     this.map = opts.map
