@@ -35,7 +35,7 @@
   }
 
 
-  var system = { lock: {}, registry: {} }
+  var system = { lock: {}, registry: {}, entries: {} }
   var lock = system.lock
   var registry = system.registry
   Object.assign(system, process.env.loaderConfig)
@@ -196,7 +196,7 @@
     }
 
     var url = resolve(baseUrl, id)
-    if (pkg.entries[obj.file]) url += '?entry'
+    if (registry[id].parent.id in system.entries) url += '?entry'
     return url
   }
 
@@ -268,7 +268,6 @@
   }
 
   Module.prototype.ignite = function() {
-    var mod = this
     var allset = true
 
     for (var id in registry) {
@@ -279,11 +278,9 @@
     }
 
     if (allset) {
-      var ancestor = mod
-      while (ancestor.parent) {
-        ancestor = ancestor.parent
+      for (var id in system.entries) {
+        registry[id].execute()
       }
-      ancestor.execute()
     }
   }
 
@@ -312,7 +309,6 @@
     }
 
     require.async = importFactory(context)
-    require.worker = workerFactory(context)
     mod.status = MODULE_LOADED
 
     var exports = typeof factory === 'function'
@@ -382,13 +378,12 @@
   }
 
   function importFactory(context) {
-    var entryId = resolve(context, 'import-' + (+new Date()).toString(36) + '.js')
-
-    return function(ids, fn) {
-      ids = [].concat(ids)
-      ids.forEach(function(id) { pkg.entries[suffix(id)] = true })
-      define(entryId, ids, function(require) {
-        var mods = ids.map(function(id) { return require(id) })
+    return function(specifiers, fn) {
+      var entryId = resolve(context, 'import-' + (+new Date()).toString(36) + '.js')
+      system.entries[entryId] = true
+      specifiers = [].concat(specifiers)
+      define(entryId, specifiers, function(require) {
+        var mods = specifiers.map(require)
         if (fn) fn.apply(null, mods)
       })
       // Try ignite at the first place, which is necessary when the script is inline.
@@ -406,12 +401,12 @@
   }
 
   Object.assign(system, {
-    'import': function Porter_import(entries, fn) {
-      entries = [].concat(entries).map(function(entry) {
-        var mod = parseId(entry)
-        return suffix(mod.version ? mod.file : entry)
+    'import': function Porter_import(specifiers, fn) {
+      specifiers = [].concat(specifiers).map(function(specifier) {
+        var mod = parseId(specifier)
+        return suffix(mod.version ? mod.file : specifier)
       })
-      importFactory(pkg.name + '/' + pkg.version)(entries, fn)
+      importFactory(pkg.name + '/' + pkg.version)(specifiers, fn)
     }
   })
 

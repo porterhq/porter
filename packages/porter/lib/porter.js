@@ -661,7 +661,7 @@ class Package {
 
     return {
       baseUrl, map, cache: { except: cache.except },
-      package: { name, version, entries: {}, main },
+      package: { name, version, main },
     }
   }
 
