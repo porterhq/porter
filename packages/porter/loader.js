@@ -39,7 +39,7 @@
   var lock = system.lock
   var registry = system.registry
   Object.assign(system, process.env.loaderConfig)
-  var baseUrl = system.baseUrl
+  var baseUrl = system.baseUrl.replace(/([^\/])$/, '$1/')
   var pkg = system.package
 
 
@@ -102,7 +102,6 @@
    * resolve paths
    */
   var RE_DIRNAME = /([^?#]*)\//
-  var RE_DUPLICATED_SLASH = /(^|[^:])\/\/+/g
 
   function dirname(fpath) {
     var m = fpath.match(RE_DIRNAME)
@@ -111,13 +110,14 @@
 
   function resolve() {
     var args = ArrayFn.slice.call(arguments)
-    var base = args.shift()
-    var levels = base ? base.split('/') : []
+    var levels = []
+    var i = 0
 
-    while (args.length) {
-      var parts = args.shift().split('/')
-      while (parts.length) {
-        var part = parts.shift()
+    while (i < args.length) {
+      var parts = args[i++].split('/')
+      var j = 0
+      while (j < parts.length) {
+        var part = parts[j++]
         if (part === '..') {
           if (levels.length) {
             levels.pop()
@@ -125,17 +125,13 @@
             throw new Error('Top level reached.')
           }
         }
-        else if (part !== '.') {
+        else if (part !== '.' && part !== '.') {
           levels.push(part)
         }
       }
     }
 
-    for (var i = levels.length - 1; i >= 0; i--) {
-      if (levels[i] === '.') levels.splice(i, 1)
-    }
-
-    return levels.join('/').replace(RE_DUPLICATED_SLASH, '$1/')
+    return levels.join('/')
   }
 
 
@@ -176,7 +172,7 @@
    * - https://example.com/foo.js
    * - http://example.com/bar.js
    * - //example.com/baz.js
-   * - /qux.js
+   * - /qux/quux.js
    */
   var rUri = /^(?:https?:)?\//
 
@@ -189,13 +185,11 @@
     var name = obj.name
     var version = obj.version
 
-    if (name !== pkg.name) {
-      if (lock[name][version].bundle) {
-        return resolve(baseUrl, name, version, '~bundle.js')
-      }
+    if (name !== pkg.name && lock[name][version].bundle) {
+      return baseUrl + resolve(name, version, '~bundle.js')
     }
 
-    var url = resolve(baseUrl, id)
+    var url = baseUrl + id
     if (registry[id].parent.id in system.entries) url += '?entry'
     return url
   }
@@ -393,7 +387,7 @@
 
   function workerFactory(context) {
     return function(id) {
-      var url = resolve(baseUrl, context, id).replace(/(?:\.js)?$/, '.js')
+      var url = baseUrl + resolve(context, suffix(id))
       return function createWorker() {
         return new Worker([url, 'main'].join(url.indexOf('?') > 0 ? '&' : '?'))
       }
