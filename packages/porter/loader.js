@@ -371,9 +371,10 @@
     mod.resolve()
   }
 
+  var importEntryId = 0
   function importFactory(context) {
     return function(specifiers, fn) {
-      var entryId = resolve(context, 'import-' + (+new Date()).toString(36) + '.js')
+      var entryId = resolve(context, 'import-' + (importEntryId++) + '.js')
       system.entries[entryId] = true
       specifiers = [].concat(specifiers)
       define(entryId, specifiers, function(require) {
