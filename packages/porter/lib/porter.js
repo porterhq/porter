@@ -195,11 +195,15 @@ class Module {
   }
 
   async loadJs({ code }) {
-    const { fpath, isRootEntry, package: pkg } = this
+    const { fake, fpath, isRootEntry, package: pkg } = this
     const preload = this.preload || pkg.app.preload
 
-    // preload shall only apply to entries of root package, where as `isRootEntry` may refer to both entries of root package and worker entries of dependencies.
-    if (isRootEntry && !pkg.parent && preload.length > 0) {
+    /**
+     * Preload shall only apply to entries of root package, where as `isRootEntry`
+     * may refer to both entries of root package and worker entries of deps.
+     * Meanwhile, fake entries shall not preload.
+     */
+    if (isRootEntry && !fake && !pkg.parent && preload.length > 0) {
       const calls = preload.map(specifier => {
         return /\bimport\s*/.test(code)
           ? `import ${JSON.stringify(specifier)}\n`
@@ -581,8 +585,7 @@ class Package {
     delete moduleCache[fpath]
     const mod = new Module({ file: entry, fpath, pkg: this })
 
-    // fake entries shall not share app.preload settings.
-    Object.assign(mod, { deps, code, preload: [] })
+    Object.assign(mod, { deps, code, fake: true })
     entries[mod.file] = files[mod.file] = mod
     await mod.parse()
     return mod
@@ -1039,8 +1042,8 @@ class Porter {
 
     if (!mod) return
 
-    const { package: pkg } = mod
-    const stats = await lstat(mod.fpath)
+    const { fake, package: pkg } = mod
+    const mtime = fake ? new Date() : (await lstat(mod.fpath)).mtime.toJSON()
     const chunks = []
 
     if (isMain) {
@@ -1057,7 +1060,7 @@ class Porter {
     chunks.push(code)
     if (isMain) chunks.push(`porter["import"](${JSON.stringify(mod.id)})`)
 
-    return [chunks.join(';'), { 'Last-Modified': stats.mtime.toJSON() }]
+    return [chunks.join(';'), { 'Last-Modified': mtime }]
   }
 
   async readFile(file, query) {

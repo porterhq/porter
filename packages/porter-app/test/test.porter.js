@@ -1,19 +1,22 @@
 'use strict'
 
-const request = require('supertest')
+/**
+ * This script tests basic functionalities of the Porter class. The reason for this
+ * script being in this directory instead of `packages/porter/test` is mostly
+ * because want leave packages like `exporess` or `koa` out of porter's devDeps.
+ */
 const expect = require('expect.js')
-const path = require('path')
 const heredoc = require('heredoc').strip
-const express = require('express')
 const Koa = require('koa')
+const path = require('path')
 const Porter = require('@cara/porter')
+const request = require('supertest')
+const { readFile, writeFile } = require('mz/fs')
 
-const root = path.resolve(__dirname, '..')
+const glob = require('../lib/glob')
 const app = require('../app')
 const pkg = require('../package.json')
-const glob = require('../lib/glob')
-
-const { readFile, writeFile } = require('mz/fs')
+const root = path.resolve(__dirname, '..')
 
 function requestPath(urlPath, status = 200, listener = app.callback()) {
   return new Promise(function(resolve, reject) {
@@ -27,8 +30,8 @@ function requestPath(urlPath, status = 200, listener = app.callback()) {
   })
 }
 
-describe('.async()', function() {
-  const { porter } = app
+describe('Porter_readFile()', function() {
+  const porter = require('../lib/porter')
 
   before(async function() {
     await porter.parsePromise
@@ -66,10 +69,16 @@ describe('.async()', function() {
   it('should serve raw assets too', async function () {
     await requestPath('/raw/logo.jpg')
   })
+
+  it('should handle fake entries', async function() {
+    await porter.package.parseFakeEntry({ entry: 'foo.js', deps: [], code: "'use strict'" })
+    await requestPath('/foo.js')
+  })
 })
 
 describe('.func()', function() {
   it('should work with express app', async function() {
+    const express = require('express')
     const listener = express().use(new Porter({ root }).func())
     await requestPath(`/${pkg.name}/${pkg.version}/home.js`, 200, listener)
   })

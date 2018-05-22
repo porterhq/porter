@@ -9,7 +9,6 @@ app.use(serve('views'))
 app.use(serve('public'))
 app.use(porter.async())
 
-app.porter = porter
 module.exports = app
 
 if (!module.parent) {

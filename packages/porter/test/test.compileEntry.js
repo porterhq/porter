@@ -5,7 +5,7 @@ const expect = require('expect.js')
 const Porter = require('..')
 
 const root = path.join(__dirname, '../../porter-app')
-const porter = new Porter({ root })
+const porter = new Porter({ root, preload: 'preload' })
 
 describe('.compileEntry({ entry, code })', function () {
   it('can compile component with specified code', async function () {
@@ -42,8 +42,7 @@ describe('.compileEntry({ entry, deps, code })', function() {
   })
 })
 
-// The way HTML creations were compiled.
-describe('.compileEntry(entry, { map, preload })', function() {
+describe('.compileEntry(entry, { loaderConfig })', function() {
   let code
 
   before(async function() {
@@ -65,11 +64,11 @@ describe('.compileEntry(entry, { map, preload })', function() {
     code = result.code
   })
 
+  /**
+   * Normally the cache would be `cache:{except:["@cara/porter-app"]}`, should be
+   * overridden by `{ loaderConfig }`
+   */
   it('can override loaderConfig', async function() {
-    // If not overridden, loaderConfig shall contain cache settings like
-    //
-    //     cache:{except:["@cara/porter-app"]}
-    //
     expect(code).to.not.contain(',cache:{except')
   })
 
