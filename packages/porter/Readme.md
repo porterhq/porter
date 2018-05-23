@@ -4,7 +4,7 @@
 [![NPM Version](http://img.shields.io/npm/v/@cara/porter.svg?style=flat)](https://www.npmjs.com/package/@cara/porter)
 [![Build Status](https://travis-ci.org/erzu/porter.svg)](https://travis-ci.org/erzu/porter)
 
-Porter is a **consolidated browser module solution** which provides a module system for web browsers that is both [Node.js Modules](https://nodejs.org/api/modules.html) and [ES Modules](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/import) compatible.
+Porter is a **consolidated browser module solution** which provides a module system for web browsers that is both CommonJS and [ES Modules](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/import) compatible.
 
 Here are the features that make Porter different from (if not better than) other module solutions:
 

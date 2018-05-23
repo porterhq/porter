@@ -414,18 +414,54 @@
       NODE_ENV: process.env.NODE_ENV
     }
   }
-})(this)
 
-if (process.env.NODE_ENV != 'production' && 'serviceWorker' in navigator && (location.protocol == 'https:' || location.hostname == 'localhost')) {
-  navigator.serviceWorker.register('/porter-sw.js', { scope: '/' }).then(function(registration) {
-    if (registration.waiting || registration.active) {
-      var worker = registration.waiting || registration.active
-      var porter = self.porter
+  /**
+   * install server worker in non-production environments.
+   */
+  if (process.env.NODE_ENV != 'production' && 'serviceWorker' in navigator && (location.protocol == 'https:' || location.hostname == 'localhost')) {
+    navigator.serviceWorker.register('/porter-sw.js', { scope: '/' }).then(function(registration) {
+      if (registration.waiting || registration.active) {
+        var worker = registration.waiting || registration.active
+        var porter = self.porter
 
-      worker.postMessage({
-        type: 'loaderConfig',
-        data: { cache: porter.cache }
-      })
+        worker.postMessage({
+          type: 'loaderConfig',
+          data: { cache: porter.cache }
+        })
+      }
+    })
+  }
+
+  /**
+   * <script src="/loader.js" data-main="app"></script>
+   */
+  var currentScript = document.currentScript
+
+  if (!currentScript) {
+    var scripts = document.getElementsByTagName('script')
+    for (var i = scripts.length - 1; i >= 0; i--) {
+      var script = scripts[i]
+      if (script.readyState == 'interactive') {
+        currentScript = script
+        break
+      }
     }
-  })
-}
+  }
+
+  /**
+   * This should only be necessary in IE 11 because it's the only browser that does
+   * not support `document.currentScript`, or `script.readyState`.
+   */
+  if (!currentScript) {
+    try {
+      currentScript = document.querySelector('script[data-main]')
+    } catch (err) {
+      // ignored
+    }
+  }
+
+  if (currentScript) {
+    var main = currentScript.getAttribute('data-main')
+    if (main) system.import(main)
+  }
+})(this)

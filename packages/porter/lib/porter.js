@@ -244,6 +244,48 @@ class Module {
     return { code: css, map }
   }
 
+  transpileTypeScript({ code, map }) {
+    const { file, package: pkg } = this
+    const ts = pkg.tryRequire('typescript')
+    const { compilerOptions } = pkg.transpilerOpts
+    const { outputText, diagnostics, sourceMapText } = ts.transpileModule(code, {
+      fileName: file,
+      moduleName: file,
+      compilerOptions: { ...compilerOptions, module: 'commonjs' }
+    })
+    if (diagnostics.length) {
+      for (const diagnostic of diagnostics) {
+        if (diagnostic.file) {
+          let { line, character } = diagnostic.file.getLineAndCharacterOfPosition(diagnostic.start)
+          let message = ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')
+          console.log(`${diagnostic.file.fileName} (${line + 1},${character + 1}): ${message}`)
+        }
+        else {
+          console.log(`${ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')}`)
+        }
+      }
+    }
+    return {
+      code: outputText.replace(/\/\/# sourceMappingURL=.*$/, ''),
+      map: JSON.parse(sourceMapText)
+    }
+  }
+
+  async transpileECMAScript({ code, map }) {
+    const { fpath, package: pkg } = this
+    const babel = pkg.tryRequire('babel-core')
+
+    return await babel.transform(code, {
+      ...pkg.transpilerOpts,
+      sourceMaps: true,
+      sourceRoot: '/',
+      ast: false,
+      filename: fpath,
+      filenameRelative: path.relative(pkg.dir, fpath),
+      sourceFileName: path.relative(pkg.dir, fpath)
+    })
+  }
+
   async transpileJs({ code, map }) {
     const { fpath, package: pkg } = this
 
@@ -252,18 +294,9 @@ class Module {
 
     switch (pkg.transpiler) {
     case 'babel':
-      const babel = pkg.tryRequire('babel-core')
-      return await babel.transform(code, {
-        ...pkg.transpilerOpts,
-        sourceMaps: true,
-        sourceRoot: '/',
-        ast: false,
-        filename: fpath,
-        filenameRelative: path.relative(pkg.dir, fpath),
-        sourceFileName: path.relative(pkg.dir, fpath)
-      })
+      return this.transpileECMAScript({ code, map })
     case 'typescript':
-      return { code, map }
+      return this.transpileTypeScript({ code, map })
     default:
       return { code, map }
     }
@@ -512,6 +545,10 @@ class Package {
         this.transpilerOpts = app.package.transpilerOpts
       }
     }
+
+    this.extensions = this.transpiler == 'typescript'
+      ? ['.js', '.ts', '/index.js', '/index.ts']
+      : ['.js', '/index.js']
   }
 
   tryRequire(name) {
@@ -612,7 +649,7 @@ class Package {
 
   async resolve(file) {
     const [, fname, ext] = file.match(/^(.*?)(\.(?:\w+))$/)
-    const suffixes = ext == '.js' ? ['.js', '/index.js'] : [ext]
+    const suffixes = ext == '.js' ? this.extensions : [ext]
 
     for (const dir of this.paths) {
       for (const suffix of suffixes) {
@@ -916,7 +953,7 @@ class Porter {
     ])
 
     const { cache } = this
-    rimraf(path.join(cache.dest, `{${cache.except.join(',')}`), err => {
+    rimraf(path.join(cache.dest, '**/*.{css,js,map}'), err => {
       if (err) console.error(err.stack)
     })
   }
