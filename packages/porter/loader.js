@@ -418,17 +418,9 @@
   /**
    * install server worker in non-production environments.
    */
-  if (process.env.NODE_ENV != 'production' && 'serviceWorker' in navigator && (location.protocol == 'https:' || location.hostname == 'localhost')) {
-    navigator.serviceWorker.register('/porter-sw.js', { scope: '/' }).then(function(registration) {
-      if (registration.waiting || registration.active) {
-        var worker = registration.waiting || registration.active
-        var porter = self.porter
-
-        worker.postMessage({
-          type: 'loaderConfig',
-          data: { cache: porter.cache }
-        })
-      }
+  if (process.env.NODE_ENV != 'production' && 'serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistration('/').then(function(registration) {
+      if (registration) registration.unregister()
     })
   }
 
@@ -437,6 +429,9 @@
    */
   var currentScript = document.currentScript
 
+  /**
+   * This works in IE 6-10
+   */
   if (!currentScript) {
     var scripts = document.getElementsByTagName('script')
     for (var i = scripts.length - 1; i >= 0; i--) {

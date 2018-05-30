@@ -71,44 +71,44 @@ describe('porter.compileAll()', function() {
     expect(entries).to.contain(`public/${name}/${version}/i18n/index.js`)
   })
 
-  // it('should generate source map of entries', async function() {
-  //   const { name, version } = porter.package
-  //   const fpath = path.join(root, `public/${name}/${version}/home.js.map`)
-  //   const map = JSON.parse(await readFile(fpath, 'utf8'))
-  //   expect(map.sources).to.contain('components/home.js')
-  //   expect(map.sources).to.contain('components/i18n/index.js')
-  //   expect(map.sources).to.contain('components/i18n/zh.js')
-  // })
+  it('should generate source map of entries', async function() {
+    const { name, version } = porter.package
+    const fpath = path.join(root, `public/${name}/${version}/home.js.map`)
+    const map = JSON.parse(await readFile(fpath, 'utf8'))
+    expect(map.sources).to.contain('components/home.js')
+    expect(map.sources).to.contain('components/i18n/index.js')
+    expect(map.sources).to.contain('components/i18n/zh.js')
+  })
 
-  // it('should generate source map of components from other paths', async function() {
-  //   const { name, version } = porter.package
-  //   const fpath = path.join(root, `public/${name}/${version}/test/suite.js.map`)
-  //   const map = JSON.parse(await readFile(fpath, 'utf8'))
-  //   expect(map.sources).to.contain('browser_modules/test/suite.js')
-  //   expect(map.sources).to.contain('browser_modules/cyclic-modules/suite.js')
-  //   expect(map.sources).to.contain('browser_modules/require-directory/convert/index.js')
-  // })
+  it('should generate source map of components from other paths', async function() {
+    const { name, version } = porter.package
+    const fpath = path.join(root, `public/${name}/${version}/test/suite.js.map`)
+    const map = JSON.parse(await readFile(fpath, 'utf8'))
+    expect(map.sources).to.contain('browser_modules/test/suite.js')
+    expect(map.sources).to.contain('browser_modules/cyclic-modules/suite.js')
+    expect(map.sources).to.contain('browser_modules/require-directory/convert/index.js')
+  })
 
-  // it('should generate source map of modules as well', async function() {
-  //   const name = 'react'
-  //   const { version, main } = porter.package.find({ name })
-  //   const fpath = path.join(root, 'public', `${name}/${version}/${main}.js.map`)
-  //   const map = JSON.parse(await readFile(fpath, 'utf8'))
-  //   expect(map.sources).to.contain('node_modules/react/index.js')
-  // })
+  it('should generate source map of modules as well', async function() {
+    const name = 'react'
+    const { version, main } = porter.package.find({ name })
+    const fpath = path.join(root, 'public', `${name}/${version}/${main}.map`)
+    const map = JSON.parse(await readFile(fpath, 'utf8'))
+    expect(map.sources).to.contain('node_modules/react/index.js')
+  })
 
-  // it('should set sourceRoot in components source map', async function() {
-  //   const { name, version } = porter.package
-  //   const fpath = path.join(root, `public/${name}/${version}/home.js.map`)
-  //   const map = JSON.parse(await readFile(fpath, 'utf8'))
-  //   expect(map.sourceRoot).to.equal('http://localhost:3000/')
-  // })
+  it('should set sourceRoot in components source map', async function() {
+    const { name, version } = porter.package
+    const fpath = path.join(root, `public/${name}/${version}/home.js.map`)
+    const map = JSON.parse(await readFile(fpath, 'utf8'))
+    expect(map.sourceRoot).to.equal('http://localhost:3000/')
+  })
 
-  // it('should set sourceRoot in related dependencies too', async function() {
-  //   const fpath = path.join(root, 'public/yen/1.2.4/index.js.map')
-  //   const map = JSON.parse(await readFile(fpath, 'utf8'))
-  //   expect(map.sourceRoot).to.equal('http://localhost:3000/')
-  // })
+  it('should set sourceRoot in related dependencies too', async function() {
+    const fpath = path.join(root, 'public/yen/1.2.4/index.js.map')
+    const map = JSON.parse(await readFile(fpath, 'utf8'))
+    expect(map.sourceRoot).to.equal('http://localhost:3000/')
+  })
 
   it('should compile stylesheets', async function() {
     const { name, version } = porter.package

@@ -6,14 +6,12 @@
  * because want leave packages like `exporess` or `koa` out of porter's devDeps.
  */
 const expect = require('expect.js')
-const heredoc = require('heredoc').strip
 const Koa = require('koa')
 const path = require('path')
 const Porter = require('@cara/porter')
 const request = require('supertest')
-const { readFile, writeFile } = require('mz/fs')
+const { exists, readFile, writeFile } = require('mz/fs')
 
-const glob = require('../lib/glob')
 const app = require('../app')
 const pkg = require('../package.json')
 const root = path.resolve(__dirname, '..')
@@ -34,13 +32,13 @@ describe('Porter_readFile()', function() {
   const porter = require('../lib/porter')
 
   before(async function() {
-    await porter.parsePromise
+    await porter.ready
   })
 
   it('should start from main', async function () {
     const res = await requestPath(`/${pkg.name}/${pkg.version}/home.js?main`)
-    expect(res.text).to.contain(`;define("${pkg.name}/${pkg.version}/home.js"`)
-    expect(res.text).to.contain(`;porter["import"]("${pkg.name}/${pkg.version}/home.js")`)
+    expect(res.text).to.contain(`define("${pkg.name}/${pkg.version}/home.js"`)
+    expect(res.text).to.contain(`porter["import"]("${pkg.name}/${pkg.version}/home.js")`)
   })
 
   it('should handle components', async function () {
@@ -86,36 +84,24 @@ describe('.func()', function() {
 
 describe('{ cache }', function() {
   it('should cache generated style', async function () {
-    await requestPath(`/${pkg.name}/${pkg.version}/stylesheets/app.css`)
+    const { name, version } = pkg
+    await requestPath(`/${name}/${version}/stylesheets/app.css`)
 
-    const dir = path.join(root, `public/${pkg.name}/${pkg.version}/stylesheets`)
-    const entries = (await glob('app-*.css', { cwd: dir })).map(entry => {
-      return entry.replace(/-[0-9a-f]{32}\.css$/, '.css')
-    })
-
-    expect(entries.length).to.equal(1)
-    expect(entries).to.contain('app.css')
+    const fpath = path.join(root, `public/${name}/${version}/stylesheets/app.css.cache`)
+    expect(await exists(fpath)).to.be.ok()
+    expect(await readFile(fpath, 'utf8')).to.not.contain('@import')
   })
 
   it('should invalidate generated style if source changed', async function () {
+    const { name, version } = pkg
     const fpath = path.join(root, 'components/stylesheets/app.css')
     const source = await readFile(fpath, 'utf8')
 
-    await writeFile(fpath, source + heredoc(function() {/*
-      div {
-        padding: 0;
-      }
-    */}))
+    await writeFile(fpath, `${source}/* changed */`)
+    await requestPath(`/${name}/${version}/stylesheets/app.css`)
 
-    await requestPath(`/${pkg.name}/${pkg.version}/stylesheets/app.css`)
-
-    const dir = path.join(root, `public/${pkg.name}/${pkg.version}/stylesheets`)
-    const entries = (await glob('app-*.css', { cwd: dir })).map(entry => {
-      return entry.replace(/-[0-9a-f]{32}\.css$/, '.css')
-    })
-
-    expect(entries.length).to.equal(1)
-    expect(entries).to.contain('app.css')
+    const cachePath = path.join(root, `public/${name}/${version}/stylesheets/app.css.cache`)
+    expect(await readFile(cachePath, 'utf8')).to.contain('/* changed */')
 
     // reset source
     await writeFile(fpath, source)

@@ -11,9 +11,9 @@ const path = require('path')
 const postcss = require('postcss')
 const querystring = require('querystring')
 const rimraf = require('rimraf')
+const { SourceMapConsumer, SourceMapGenerator, SourceNode } = require('source-map')
 const UglifyJS = require('uglify-js')
-// const util = require('util')
-const { exists, lstat, readdir, readFile, unlink, writeFile } = fs
+const { exists, lstat, readFile, writeFile } = fs
 
 const deheredoc = require('./deheredoc')
 const matchRequire = require('./matchRequire')
@@ -205,7 +205,7 @@ class Module {
      */
     if (isRootEntry && !fake && !pkg.parent && preload.length > 0) {
       const calls = preload.map(specifier => {
-        return /\bimport\s*/.test(code)
+        return /^\s*import\s+/.test(code)
           ? `import ${JSON.stringify(specifier)}\n`
           : `require(${JSON.stringify(specifier)})`
       })
@@ -228,7 +228,10 @@ class Module {
     const { cssLoader, root } = this.package.app
 
     /**
-     * `from` must be absolute path to make sure the `baseDir` in `atImportResolve()` function is correct. Otherwise it will be set to process.cwd() which might not be `root` in some circumstances. Luckily we've got `map.from` to specify the file path in source map.
+     * `from` must be absolute path to make sure the `baseDir` in
+     * `atImportResolve()` function is correct. Otherwise it will be set to
+     * process.cwd() which might not be `root` in some circumstances. Luckily
+     * we've got `map.from` to specify the file path in source map.
      * - http://api.postcss.org/global.html#processOptions
      */
     const { css, map } = await cssLoader.process(code, {
@@ -241,18 +244,22 @@ class Module {
       }
     })
 
-    return { code: css, map }
+    return { code: css, map: map.toJSON() }
   }
 
-  transpileTypeScript({ code, map }) {
-    const { file, package: pkg } = this
+  transpileTypeScript({ code, }) {
+    const { fpath, id, package: pkg } = this
     const ts = pkg.tryRequire('typescript')
     const { compilerOptions } = pkg.transpilerOpts
     const { outputText, diagnostics, sourceMapText } = ts.transpileModule(code, {
-      fileName: file,
-      moduleName: file,
       compilerOptions: { ...compilerOptions, module: 'commonjs' }
     })
+    const map = JSON.parse(sourceMapText)
+
+    map.sources = [path.relative(pkg.app.root, fpath)]
+    map.file = id
+    map.sourceRoot = '/'
+
     if (diagnostics.length) {
       for (const diagnostic of diagnostics) {
         if (diagnostic.file) {
@@ -265,13 +272,14 @@ class Module {
         }
       }
     }
+
     return {
       code: outputText.replace(/\/\/# sourceMappingURL=.*$/, ''),
-      map: JSON.parse(sourceMapText)
+      map
     }
   }
 
-  async transpileECMAScript({ code, map }) {
+  async transpileEcmaScript({ code, }) {
     const { fpath, package: pkg } = this
     const babel = pkg.tryRequire('babel-core')
 
@@ -289,12 +297,16 @@ class Module {
   async transpileJs({ code, map }) {
     const { fpath, package: pkg } = this
 
-    // `babel.transform` finds presets and plugins relative to `fpath`. If `fpath` doesn't start with pkg.dir, it's quite possible that the needed presets or plugins might not be found.
+    /**
+     * `babel.transform` finds presets and plugins relative to `fpath`. If `fpath`
+     * doesn't start with pkg.dir, it's quite possible that the needed presets or
+     * plugins might not be found.
+     */
     if (!fpath.startsWith(pkg.dir)) return { code, map }
 
     switch (pkg.transpiler) {
     case 'babel':
-      return this.transpileECMAScript({ code, map })
+      return this.transpileEcmaScript({ code, map })
     case 'typescript':
       return this.transpileTypeScript({ code, map })
     default:
@@ -306,6 +318,10 @@ class Module {
     const { fpath, id } = this
     const { cssTranspiler, root } = this.package.app
 
+    /**
+     * PostCSS doesn't support sourceRoot yet
+     * https://github.com/postcss/postcss/blob/master/docs/source-maps.md
+     */
     const result = await cssTranspiler.process(code, {
       from: fpath,
       to: id,
@@ -317,7 +333,10 @@ class Module {
       }
     })
 
-    return { code: result.css, map: result.map }
+    map = JSON.parse(result.map)
+    map.sourceRoot = '/'
+
+    return { code: result.css, map }
   }
 
   async transpile(opts) {
@@ -335,21 +354,19 @@ class Module {
     }
   }
 
-  async fetch() {
-    const { id } = this
-    const { dest } = this.package.app.cache
-    const { code, map } = await this.load()
-    const digest = crypto.createHash('md5').update(code).digest('hex')
-    const cacheName = id.replace(/(\.(?:css|js))$/, `-${digest}$1`)
-    const cachePath = path.join(dest, cacheName)
-
-    if (await exists(cachePath)) {
-      return { code: await readFile(cachePath, 'utf8') }
-    }
+  /**
+   * Find deps of code and compare them with existing `this.deps` to see if there's
+   * new dep to parse. Only the modules of the root package are checked.
+   * @param {Object} opts
+   * @param {string} opts.code
+   * @returns {Array} [deps, reload]
+   */
+  async checkDeps({ code }) {
+    if (this.file.endsWith('.css')) return [null, false]
 
     const deps = matchRequire.findAll(code)
-
     let reload = false
+
     if (!this.package.parent && this.deps) {
       for (const dep of deps) {
         if (this.deps.includes(dep)) continue
@@ -358,34 +375,74 @@ class Module {
       }
     }
 
+    return [deps, reload]
+  }
+
+  async readCache(cachePath) {
+    try {
+      return await Promise.all([
+        readFile(`${cachePath}.cache`, 'utf8'),
+        readFile(`${cachePath}.md5`, 'utf8'),
+        readFile(`${cachePath}.map`, 'utf8')
+      ])
+    } catch (err) {
+      return [null, null, null]
+    }
+  }
+
+  async writeCache(cachePath, { code, map, digest}) {
+    const destDir = path.dirname(cachePath)
+    await mkdirp(destDir)
+    await Promise.all([
+      writeFile(`${cachePath}.cache`, code),
+      writeFile(`${cachePath}.md5`, digest),
+      writeFile(`${cachePath}.map`, JSON.stringify(map, (k, v) => {
+        if (k !== 'sourcesContent') return v
+      }))
+    ])
+  }
+
+  async fetch() {
+    const { id } = this
+    const { dest } = this.package.app.cache
+    const { code, map } = await this.load()
+    const digest = crypto.createHash('md5').update(code).digest('hex')
+    const cachePath = path.join(dest, id)
+    const [cacheCode, cacheDigest, cacheMap] = await this.readCache(cachePath)
+
+    if (digest == cacheDigest) {
+      return { code: cacheCode, map: JSON.parse(cacheMap) }
+    }
+
+    const [deps, reload] = await this.checkDeps({ code })
     this.deps = deps
     const result = await this.transpile({ code, map })
 
     if (result.map) {
-      const destDir = path.dirname(cachePath)
-      await mkdirp(destDir)
-      // clear stale cache
-      const fname = path.basename(id).replace(rExt, '-')
-      for (const file of (await readdir(destDir))) {
-        if (file.startsWith(fname)) {
-          await unlink(path.join(destDir, file))
-        }
-      }
-
-      await Promise.all([
-        writeFile(cachePath, result.code),
-        writeFile(path.join(dest, `${id}.map`), JSON.stringify(result.map))
-      ])
+      await this.writeCache(cachePath, { ...result, digest })
     }
 
     if (reload) {
+      const { lock } = this.package
       return {
-        code: `Object.assign(porter.lock, ${JSON.stringify(this.package.lock)});${result.code}`,
+        code: `Object.assign(porter.lock, ${JSON.stringify(lock)};${result.code}`,
         map: result.map
       }
     } else {
       return result
     }
+  }
+
+  /**
+   * Fetch without cache.
+   * @returns {Object}
+   */
+  async obtain() {
+    const { code, map } = await this.load()
+    if (this.file.endsWith('.js')) {
+      this.deps = matchRequire.findAll(code)
+    }
+    return this.transpile({ code, map })
   }
 
   async minify() {
@@ -407,8 +464,9 @@ class Module {
   }
 
   uglify({ code, map }) {
-    const { id } = this
-    const parseResult = UglifyJS.minify({ [id]: code }, {
+    const { fpath } = this
+    const source = path.relative(this.package.app.root, fpath)
+    const parseResult = UglifyJS.minify({ [source]: code }, {
       parse: {},
       compress: false,
       mangle: false,
@@ -434,8 +492,8 @@ class Module {
       },
       output: { ascii_only: true },
       sourceMap: {
-        root: '/',
-        content: map
+        content: map,
+        root: '/'
       },
       ie8: true
     })
@@ -710,11 +768,11 @@ class Package {
   }
 
   get loaderConfig() {
-    const { baseUrl, cache, map } = this.app
+    const { baseUrl, map } = this.app
     const { name, version, main } = this
 
     return {
-      baseUrl, map, cache: { except: cache.except },
+      baseUrl, map,
       package: { name, version, main },
     }
   }
@@ -740,10 +798,29 @@ class Package {
     })
   }
 
+  async createSourceNode({ source, code, map }) {
+    if (map instanceof SourceMapGenerator) {
+      map = map.toJSON()
+    }
+
+    if (map) {
+      const consumer = await new SourceMapConsumer(map)
+      return SourceNode.fromStringWithSourceMap(code, consumer)
+    } else {
+      const lines = code.split('\n')
+      const node = new SourceNode()
+      for (let i = 0; i < lines.length; i++) {
+        node.add(new SourceNode(i + 1, 0, source, lines[i]))
+      }
+      return node.join('\n')
+    }
+  }
+
   async bundle(entries, opts) {
     opts = { minify: true, package: true, ...opts }
     const done = {}
-    const chunks = []
+    const node = new SourceNode()
+    const { root } = this.app
 
     for (const entry of entries) {
       if (entry.endsWith('.css')) continue
@@ -753,8 +830,9 @@ class Package {
         if (done[mod.id]) continue
         if (mod.package !== this && !opts.all) continue
         done[mod.id] = true
-        const { code, } = await (opts.minify ? mod.minify() : mod.fetch())
-        chunks.push(code)
+        const { code, map } = await (opts.minify ? mod.minify() : mod.obtain())
+        const source = path.relative(root, mod.fpath)
+        node.add(await this.createSourceNode({ source, code, map }))
       }
     }
 
@@ -762,18 +840,39 @@ class Package {
     const lock = opts.all ? mod.lock : this.lock
 
     if (mod.isRootEntry) {
-      chunks.unshift(`Object.assign(porter.lock, ${JSON.stringify(lock)})`)
+      node.prepend(`Object.assign(porter.lock, ${JSON.stringify(lock)})`)
     }
 
     if (mod.isRootEntry) {
       if (opts.loader !== false) {
         const { code, } = await this.minifyLoader(opts.loaderConfig)
-        chunks.unshift(code)
+        node.prepend(code)
       }
-      chunks.push(`porter["import"](${JSON.stringify(mod.id)})`)
+      node.add(`porter["import"](${JSON.stringify(mod.id)})`)
     }
 
-    return { code: chunks.join('\n') }
+    return node.join('\n').toStringWithSourceMap({ sourceRoot: '/' })
+  }
+
+  /**
+   * Fix source map related settings in both code and map.
+   * @param {Object} opts
+   * @param {string} opts.file
+   * @param {string} opts.code
+   * @param {Object|SourceMapGenerator} opts.map
+   */
+  fixSourceMap({ file, code, map }) {
+    code = file.endsWith('.js')
+      ? `${code}\n//# sourceMappingURL=${path.basename(file)}.map`
+      : `${code}\n/*# sourceMappingURL=${path.basename(file)}.map */`
+
+    if (map instanceof SourceMapGenerator) map = map.toJSON()
+    if (typeof map == 'string') map = JSON.parse(map)
+
+    map.sources = map.sources.map(source => source.replace(/^\//, ''))
+    map.sourceRoot = this.app.source.root
+
+    return { code, map }
   }
 
   async compile(entries, opts) {
@@ -788,14 +887,16 @@ class Package {
 
     const { name, version } = this
     const { dest } = this.app
-    const fname = entries.length > 1 ? '~bundle.js' : entries[0]
-    const fpath = path.join(dest, name, version, fname)
+    const file = entries.length > 1 ? '~bundle.js' : entries[0]
+    const fpath = path.join(dest, name, version, file)
 
-    const { code, map } = fname.endsWith('.js') && (opts.package || opts.all)
+    const result = file.endsWith('.js') && (opts.package || opts.all)
       ? await this.bundle(entries, opts)
       : await this.files[entries[0]].minify()
 
+    const { code, map } = this.fixSourceMap({ file, ...result })
     if (!opts.writeFile) return { code, map }
+
     await mkdirp(path.dirname(fpath))
     await Promise.all([
       writeFile(fpath, code),
@@ -807,7 +908,8 @@ class Package {
 }
 
 /**
- * FakePackage is used to anticipate a Porter project. With FakePackage we can create new Porter instances with existing Porter setup.
+ * FakePackage is used to anticipate a Porter project. With FakePackage we can
+ * create Porter instances that maps existing Porter setup.
  */
 class FakePackage extends Package {
   constructor(opts) {
@@ -836,7 +938,7 @@ class FakePackage extends Package {
   }
 
   /**
-   * Override {@link Package.parsePackage} to eliminate "unmet dependency" warnings.
+   * To eliminate "unmet dependency" warnings.
    * @param {Object} opts
    */
   async parsePackage({ name, entry }) {
@@ -871,7 +973,7 @@ class Porter {
     })
     const dest = path.resolve(root, opts.dest || 'public')
     const transpile = { only: [], ...opts.transpile }
-    const cache = { dest, except: [], ...opts.cache }
+    const cache = { dest, except: [], persist: true, ...opts.cache }
 
     Object.assign(this, { root, dest, cache, transpile })
     const pkg = opts.package || require(path.join(root, 'package.json'))
@@ -930,7 +1032,7 @@ class Porter {
     const result = await this.readFilePath(fpath)
 
     if (name == 'loader.js') {
-      result[0] = await this.package.parseLoader(result[0])
+      result[0] = await this.package.parseLoader()
     }
 
     return result
@@ -953,9 +1055,11 @@ class Porter {
     ])
 
     const { cache } = this
-    rimraf(path.join(cache.dest, '**/*.{css,js,map}'), err => {
-      if (err) console.error(err.stack)
-    })
+    if (!cache.persist) {
+      rimraf(path.join(cache.dest, '**/*.{cache,css,js,map,md5}'), err => {
+        if (err) console.error(err.stack)
+      })
+    }
   }
 
   async compileAll({ entries, sourceRoot }) {
@@ -1055,21 +1159,52 @@ class Porter {
     }
   }
 
+  async writeCache(id, pkg, { code, map }) {
+    const { dest, except } = this.cache
+    const fpath = path.join(dest, id)
+
+    if (map instanceof SourceMapGenerator) {
+      map = map.toJSON()
+    }
+    map = JSON.stringify(map, (k, v) => {
+      if (k !== 'sourcesContent') return v
+    })
+
+    await mkdirp(path.dirname(fpath))
+
+    if (except.includes(pkg.name)) {
+      await writeFile(`${fpath}.map`, map)
+    } else {
+      await Promise.all([
+        writeFile(fpath, code),
+        writeFile(`${fpath}.map`, map)
+      ])
+    }
+  }
+
   async readCss(id, query) {
     const mod = await this.parseId(id, { isEntry: true })
     const { mtime } = await lstat(mod.fpath)
-    const { code } = await mod.fetch()
+    const result = await mod.fetch()
 
-    return [code, { 'Last-Modified': mtime.toJSON() }]
+    await this.writeCache(id, mod.package, result)
+    return [
+      `${result.code}\n/*# sourceMappingURL=${path.basename(id)}.map */`,
+      { 'Last-Modified': mtime.toJSON()
+    }]
   }
 
   async readBundleJs(id, query) {
     const [, name, version] = id.match(rModuleId)
     const pkg = this.package.find({ name, version })
-    if (!pkg) throw new Error(`unready package ${name}/${version}`)
-    const { code } = await pkg.bundle(Object.keys(pkg.entries), { minify: false })
 
-    return [code, { 'Last-Modified': new Date() }]
+    if (!pkg) throw new Error(`unready package ${name}/${version}`)
+
+    const entries = Object.keys(pkg.entries)
+    const result = await pkg.bundle(entries, { minify: false })
+
+    await this.writeCache(id, pkg, result)
+    return [result.code, { 'Last-Modified': new Date() }]
   }
 
   async readJs(id, query) {
@@ -1081,23 +1216,33 @@ class Porter {
 
     const { fake, package: pkg } = mod
     const mtime = fake ? new Date() : (await lstat(mod.fpath)).mtime.toJSON()
-    const chunks = []
+    const node = new SourceNode()
 
     if (isMain) {
-      chunks.push(await pkg.parseLoader())
+      const source = 'loader.js'
+      const code = await pkg.parseLoader()
+      node.add(await pkg.createSourceNode({ source, code }))
     }
 
     if (isEntry) {
-      chunks.push(`Object.assign(porter.lock, ${JSON.stringify(pkg.lock)})`)
+      node.add(`Object.assign(porter.lock, ${JSON.stringify(pkg.lock)})`)
     }
 
-    const { code } = pkg !== this.package && pkg.dir.startsWith(this.root)
+    const { root } = pkg.app
+    const source = path.relative(root, mod.fpath)
+    const { code, map } = pkg !== this.package && pkg.dir.startsWith(this.root)
       ? await pkg.bundle([mod.file], { minify: false })
       : await mod.fetch()
-    chunks.push(code)
-    if (isMain) chunks.push(`porter["import"](${JSON.stringify(mod.id)})`)
 
-    return [chunks.join(';'), { 'Last-Modified': mtime }]
+    node.add(await pkg.createSourceNode({ source, code, map }))
+
+    if (isMain) node.add(`porter["import"](${JSON.stringify(mod.id)})`)
+    if (map) node.add(`//# sourceMappingURL=${path.basename(id)}.map`)
+
+    const result = node.join('\n').toStringWithSourceMap()
+
+    await this.writeCache(id, pkg, result)
+    return [result.code, { 'Last-Modified': mtime }]
   }
 
   async readFile(file, query) {
