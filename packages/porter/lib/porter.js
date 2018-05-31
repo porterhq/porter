@@ -845,8 +845,9 @@ class Package {
 
     if (mod.isRootEntry) {
       if (opts.loader !== false) {
-        const { code, } = await this.minifyLoader(opts.loaderConfig)
-        node.prepend(code)
+        const { code, map } = await this.minifyLoader(opts.loaderConfig)
+        const source = 'loader.js'
+        node.prepend(await this.createSourceNode({ source, code, map }))
       }
       node.add(`porter["import"](${JSON.stringify(mod.id)})`)
     }
@@ -861,7 +862,7 @@ class Package {
    * @param {string} opts.code
    * @param {Object|SourceMapGenerator} opts.map
    */
-  fixSourceMap({ file, code, map }) {
+  setSourceMap({ file, code, map }) {
     code = file.endsWith('.js')
       ? `${code}\n//# sourceMappingURL=${path.basename(file)}.map`
       : `${code}\n/*# sourceMappingURL=${path.basename(file)}.map */`
@@ -894,7 +895,7 @@ class Package {
       ? await this.bundle(entries, opts)
       : await this.files[entries[0]].minify()
 
-    const { code, map } = this.fixSourceMap({ file, ...result })
+    const { code, map } = this.setSourceMap({ file, ...result })
     if (!opts.writeFile) return { code, map }
 
     await mkdirp(path.dirname(fpath))
@@ -1159,37 +1160,39 @@ class Porter {
     }
   }
 
-  async writeCache(id, pkg, { code, map }) {
+  async writeSourceMap({ id, isMain, name, code, map }) {
     const { dest, except } = this.cache
     const fpath = path.join(dest, id)
 
     if (map instanceof SourceMapGenerator) {
       map = map.toJSON()
     }
-    map = JSON.stringify(map, (k, v) => {
-      if (k !== 'sourcesContent') return v
-    })
+
+    const mapPath = isMain ? `${fpath}-main.map` : `${fpath}.map`
+    code = id.endsWith('.js')
+      ? `${code}\n//# sourceMappingURL=${path.basename(mapPath)}`
+      : `${code}\n/*# sourceMappingURL=${path.basename(mapPath)}`
 
     await mkdirp(path.dirname(fpath))
+    await Promise.all([
+      except.includes(name) ? Promise.resolve() : writeFile(fpath, code),
+      writeFile(mapPath, JSON.stringify(map, (k, v) => {
+        if (k !== 'sourcesContent') return v
+      }))
+    ])
 
-    if (except.includes(pkg.name)) {
-      await writeFile(`${fpath}.map`, map)
-    } else {
-      await Promise.all([
-        writeFile(fpath, code),
-        writeFile(`${fpath}.map`, map)
-      ])
-    }
+    return { code }
   }
 
   async readCss(id, query) {
     const mod = await this.parseId(id, { isEntry: true })
     const { mtime } = await lstat(mod.fpath)
     const result = await mod.fetch()
+    const { name } = mod.package
+    const { code } = await this.writeSourceMap({ id, name, ...result })
 
-    await this.writeCache(id, mod.package, result)
     return [
-      `${result.code}\n/*# sourceMappingURL=${path.basename(id)}.map */`,
+      code,
       { 'Last-Modified': mtime.toJSON()
     }]
   }
@@ -1202,13 +1205,13 @@ class Porter {
 
     const entries = Object.keys(pkg.entries)
     const result = await pkg.bundle(entries, { minify: false })
+    const { code } = await this.writeSourceMap({ id, name, ...result })
 
-    await this.writeCache(id, pkg, result)
-    return [result.code, { 'Last-Modified': new Date() }]
+    return [code, { 'Last-Modified': new Date() }]
   }
 
   async readJs(id, query) {
-    const isMain = 'main' in query
+    const isMain = id.endsWith('.js') && 'main' in query
     const isEntry = isMain || 'entry' in query
     const mod = await this.parseId(id, { isEntry })
 
@@ -1230,19 +1233,20 @@ class Porter {
 
     const { root } = pkg.app
     const source = path.relative(root, mod.fpath)
-    const { code, map } = pkg !== this.package && pkg.dir.startsWith(this.root)
+    let result = pkg !== this.package && pkg.dir.startsWith(this.root)
       ? await pkg.bundle([mod.file], { minify: false })
       : await mod.fetch()
 
-    node.add(await pkg.createSourceNode({ source, code, map }))
+    node.add(await pkg.createSourceNode({ source, ...result }))
 
     if (isMain) node.add(`porter["import"](${JSON.stringify(mod.id)})`)
-    if (map) node.add(`//# sourceMappingURL=${path.basename(id)}.map`)
 
-    const result = node.join('\n').toStringWithSourceMap()
+    result = node.join('\n').toStringWithSourceMap()
+    const { code } = await this.writeSourceMap({
+      id, isMain, name: pkg.name, ...result
+    })
 
-    await this.writeCache(id, pkg, result)
-    return [result.code, { 'Last-Modified': mtime }]
+    return [code, { 'Last-Modified': mtime }]
   }
 
   async readFile(file, query) {

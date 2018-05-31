@@ -36,9 +36,10 @@ describe('Porter_readFile()', function() {
   })
 
   it('should start from main', async function () {
-    const res = await requestPath(`/${pkg.name}/${pkg.version}/home.js?main`)
-    expect(res.text).to.contain(`define("${pkg.name}/${pkg.version}/home.js"`)
-    expect(res.text).to.contain(`porter["import"]("${pkg.name}/${pkg.version}/home.js")`)
+    const { name, version } = pkg
+    const res = await requestPath(`/${name}/${version}/home.js?main`)
+    expect(res.text).to.contain(`define("${name}/${version}/home.js"`)
+    expect(res.text).to.contain(`porter["import"]("${name}/${version}/home.js")`)
   })
 
   it('should handle components', async function () {
@@ -125,5 +126,50 @@ describe('{ source }', function() {
     const porter = new Porter({ root })
     const listener = new Koa().use(porter.async()).callback()
     await requestPath('/components/home.js', 404, listener)
+  })
+})
+
+describe('Source Map in Porter_readFile()', function() {
+  const porter = require('../lib/porter')
+
+  it('should generate source map when accessing /${name}/${version}/${file}', async function() {
+    const { name, version } = pkg
+    await requestPath(`/${name}/${version}/home.js`, 200)
+    const fpath = path.join(root, `public/${name}/${version}/home.js.map`)
+    expect(await exists(fpath)).to.be.ok()
+
+    const map = JSON.parse(await readFile(fpath, 'utf8'))
+    expect(map.sources).to.contain('/components/home.js')
+  })
+
+  it('should generate source map when accessing /${file}', async function() {
+    await requestPath('/home.js', 200)
+    const fpath = path.join(root, 'public/home.js.map')
+    expect(await exists(fpath)).to.be.ok()
+
+    const map = JSON.parse(await readFile(fpath, 'utf8'))
+    expect(map.sources).to.contain('/components/home.js')
+  })
+
+  it('should generate source map when accessing /${name}/${version}/${file}?main', async function() {
+    const { name, version } = pkg
+    await requestPath(`/${name}/${version}/home.js?main`, 200)
+    const fpath = path.join(root, `public/${name}/${version}/home.js-main.map`)
+    expect(await exists(fpath)).to.be.ok()
+
+    const map = JSON.parse(await readFile(fpath, 'utf8'))
+    expect(map.sources).to.contain('/components/home.js')
+    expect(map.sources).to.contain('loader.js')
+  })
+
+  it('should generate source map when accessing dependencies', async function() {
+    const { name, version, main } = porter.package.find({ name: 'react' })
+    await requestPath(`/${name}/${version}/${main}`, 200)
+    const fpath = path.join(root, `public/${name}/${version}/${main}.map`)
+    expect(await exists(fpath)).to.be.ok()
+
+    const map = JSON.parse(await readFile(fpath, 'utf8'))
+    expect(map.sources).to.contain('/node_modules/react/index.js')
+    expect(map.sources).to.contain('/node_modules/react/cjs/react.development.js')
   })
 })
