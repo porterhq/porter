@@ -168,14 +168,15 @@ class Module {
       return
     }
 
+    mod.loaders = loaders
     if (loaders['worker-loader']) {
       // modules required by worker-loader shall be treated as entries.
       mod.package.entries[mod.file] = mod
+    } else {
+      if (!mod.parent) mod.parent = this
+      this.children.push(mod)
     }
 
-    mod.loaders = loaders
-    if (!mod.parent) mod.parent = this
-    this.children.push(mod)
     return mod
   }
 
@@ -184,14 +185,35 @@ class Module {
     this.loaded = true
 
     const { file, fpath } = this
+
+    /**
+     * This take place at the parse phase, hence the vanilla source code is
+     * preferred. But it does require the js code to be processed with
+     * {@link Module#loadJs} because otherwise `preload` gets left out.
+     */
     const code = this.code || await readFile(fpath, 'utf8')
-    const deps = this.deps || (
-      file.endsWith('.js')
-        ? matchRequire.findAll((await this.loadJs({ code })).code)
-        : matchAtImport(code)
-    )
+    const loadedCode = file.endsWith('.js')
+      ? (await this.loadJs({ code })).code
+      : code
+
+    const deps = this.deps || this.matchImport(loadedCode)
 
     await Promise.all(deps.map(this.parseDep, this))
+  }
+
+  matchImport(code) {
+    const { file } = this
+
+    if (file.endsWith('.css')) {
+      return matchAtImport(code)
+    }
+
+    const { app } = this.package
+    const deps = matchRequire.findAll(code)
+
+    return app.ignore
+      ? deps.filter(dep => !app.ignore.includes(dep))
+      : deps
   }
 
   async loadJs({ code }) {
@@ -250,6 +272,9 @@ class Module {
   transpileTypeScript({ code, }) {
     const { fpath, id, package: pkg } = this
     const ts = pkg.tryRequire('typescript')
+
+    if (!ts) return { code }
+
     const { compilerOptions } = pkg.transpilerOpts
     const { outputText, diagnostics, sourceMapText } = ts.transpileModule(code, {
       compilerOptions: { ...compilerOptions, module: 'commonjs' }
@@ -282,6 +307,8 @@ class Module {
   async transpileEcmaScript({ code, }) {
     const { fpath, package: pkg } = this
     const babel = pkg.tryRequire('babel-core')
+
+    if (!babel) return { code }
 
     return await babel.transform(code, {
       ...pkg.transpilerOpts,
@@ -364,7 +391,7 @@ class Module {
   async checkDeps({ code }) {
     if (this.file.endsWith('.css')) return [null, false]
 
-    const deps = matchRequire.findAll(code)
+    const deps = this.matchImport(code)
     let reload = false
 
     if (!this.package.parent && this.deps) {
@@ -439,8 +466,8 @@ class Module {
    */
   async obtain() {
     const { code, map } = await this.load()
-    if (this.file.endsWith('.js')) {
-      this.deps = matchRequire.findAll(code)
+    if (this.file.endsWith('.js') && !this.deps) {
+      this.deps = this.matchImport(code)
     }
     return this.transpile({ code, map })
   }
@@ -454,7 +481,7 @@ class Module {
       return this.minified = await this.transpile({ code, map })
     }
 
-    const deps = this.deps || matchRequire.findAll(code)
+    const deps = this.deps || this.matchImport(code)
     for (let i = deps.length - 1; i >= 0; i--) {
       if (deps[i].endsWith('heredoc')) deps.splice(i, 1)
     }
@@ -543,6 +570,15 @@ class Package {
     return pkg
   }
 
+  get bundleEntries() {
+    return Object.keys(this.entries)
+      .filter(file => file.endsWith('.js'))
+      .filter(file => {
+        const { loaders } = this.entries[file]
+        return !(loaders && 'worker-loader' in loaders)
+      })
+  }
+
   get all() {
     const iterable = { done: new WeakMap() }
     iterable[Symbol.iterator] = function * () {
@@ -556,6 +592,13 @@ class Package {
     return iterable
   }
 
+  /**
+   * Find package by name or by name and version in the package tree.
+   * @param {Object} opts
+   * @param {string} opts.name
+   * @param {string} opts.version
+   * @returns {Package}
+   */
   find({ name, version }) {
     if (!name) return this
 
@@ -617,7 +660,7 @@ class Package {
         // ignored
       }
     }
-    throw new Error(`Cannot find module ${name}`)
+    console.error(new Error(`Cannot find module ${name} (${this.dir})`).stack)
   }
 
   async parseModule(file) {
@@ -738,7 +781,7 @@ class Package {
 
   get copy() {
     const copy = {}
-    const { dependencies, alias, main, entries, files } = this
+    const { dependencies, alias, main, bundleEntries } = this
 
     if (!/^(?:\.\/)?index(?:.js)?$/.test(main)) copy.main = main
 
@@ -746,15 +789,8 @@ class Package {
       copy.alias = Object.assign({}, copy.alias, alias)
     }
 
-    if (Object.keys(entries).length > 1) {
-      const jsEntries = Object.keys(entries)
-        .filter(prop => !prop.endsWith('.css'))
-        .filter(prop => {
-          const entry = files[prop]
-          return !(entry.loaders && ('worker-loader' in entry.loaders))
-        })
-
-      if (jsEntries.length > 1) copy.bundle = true
+    if (Object.keys(bundleEntries).length > 1) {
+      copy.bundle = true
     }
 
     if (dependencies && Object.keys(dependencies).length > 0) {
@@ -1203,7 +1239,7 @@ class Porter {
 
     if (!pkg) throw new Error(`unready package ${name}/${version}`)
 
-    const entries = Object.keys(pkg.entries)
+    const entries = pkg.bundleEntries
     const result = await pkg.bundle(entries, { minify: false })
     const { code } = await this.writeSourceMap({ id, name, ...result })
 
