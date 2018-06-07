@@ -1077,9 +1077,7 @@ class Porter {
 
   async prepare(opts = {}) {
     if (process.env.NODE_ENV == 'production') {
-      await Promise.all(
-        ['loader.js', 'porter-sw.js'].map(this.readBuiltinJs, this)
-      )
+      await Promise.all(['loader.js'].map(this.readBuiltinJs, this))
     }
 
     const { package: pkg } = this
@@ -1292,7 +1290,7 @@ class Porter {
     const ext = path.extname(file)
     let result = null
 
-    if (file === 'loader.js' || file === 'porter-sw.js') {
+    if (file === 'loader.js') {
       result = await this.readBuiltinJs(file)
     }
     else if (file === 'loaderConfig.json') {

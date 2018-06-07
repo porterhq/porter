@@ -416,15 +416,6 @@
   }
 
   /**
-   * install server worker in non-production environments.
-   */
-  if (process.env.NODE_ENV != 'production' && 'serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistration('/').then(function(registration) {
-      if (registration) registration.unregister()
-    })
-  }
-
-  /**
    * <script src="/loader.js" data-main="app"></script>
    */
   var currentScript = document.currentScript
