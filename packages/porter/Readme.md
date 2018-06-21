@@ -194,7 +194,7 @@ Porter will compile entries and their dependencies, bundle them together afterwa
 
 - Entries are bundled separately, e.g. `entries: ['app.js', 'app2.js']` are compiled into two different bundles.
 - Dependencies are bundled per package with internal modules put together, e.g. jQuery gets compiled as `jquery/3.3.1/dist/jquery.js`.
-- Dependencies with multiple entries gets bundled per package as well, e.g. lodash methods will be compiled as `lodash/4.17.10/~bundle.js`.
+- Dependencies with multiple entries gets bundled per package as well, e.g. lodash methods will be compiled as `lodash/4.17.10/~bundle-36bdcd6d.js`.
 
 Assume the root package is:
 

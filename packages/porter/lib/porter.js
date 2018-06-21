@@ -779,6 +779,11 @@ class Package {
     return lock
   }
 
+  bundleFileName(entries) {
+    const hash = crypto.createHash('md5').update(entries.join(','))
+    return `~bundle-${hash.digest('hex').slice(0, 8)}.js`
+  }
+
   get copy() {
     const copy = {}
     const { dependencies, alias, main, bundleEntries } = this
@@ -790,7 +795,7 @@ class Package {
     }
 
     if (Object.keys(bundleEntries).length > 1) {
-      copy.bundle = true
+      copy.bundle = this.bundleFileName(bundleEntries)
     }
 
     if (dependencies && Object.keys(dependencies).length > 0) {
@@ -804,11 +809,11 @@ class Package {
   }
 
   get loaderConfig() {
-    const { baseUrl, map } = this.app
+    const { baseUrl, map, timeout } = this.app
     const { name, version, main } = this
 
     return {
-      baseUrl, map,
+      baseUrl, map, timeout,
       package: { name, version, main },
     }
   }
@@ -924,7 +929,7 @@ class Package {
 
     const { name, version } = this
     const { dest } = this.app
-    const file = entries.length > 1 ? '~bundle.js' : entries[0]
+    const file = entries.length > 1 ? this.bundleFileName(entries) : entries[0]
     const fpath = path.join(dest, name, version, file)
 
     const result = file.endsWith('.js') && (opts.package || opts.all)
@@ -1025,6 +1030,8 @@ class Porter {
 
     this.baseUrl = opts.baseUrl || '/'
     this.map = opts.map
+    // Ignition timeout
+    this.timeout = 30000
 
     this.entries = [].concat(opts.entries || [])
     this.preload = [].concat(opts.preload || [])
@@ -1302,7 +1309,7 @@ class Porter {
     else if (await this.isRawFile(file)) {
       result = await this.readRawFile(file)
     }
-    else if (file.endsWith('~bundle.js')) {
+    else if (/\/~bundle-[0-9a-f]{8}\.js$/.test(file)) {
       result = await this.readBundleJs(file, query)
     }
     else if (ext === '.js') {

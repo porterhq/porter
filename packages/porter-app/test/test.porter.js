@@ -73,6 +73,13 @@ describe('Porter_readFile()', function() {
     await porter.package.parseFakeEntry({ entry: 'foo.js', deps: [], code: "'use strict'" })
     await requestPath('/foo.js')
   })
+
+  it('should handle package bundles', async function() {
+    const fbjs = porter.package.find({ name: 'fbjs' })
+    const { name, version } = fbjs
+    const { bundle } = porter.package.lock[name][version]
+    await requestPath(`/${name}/${version}/${bundle}`)
+  })
 })
 
 describe('.func()', function() {

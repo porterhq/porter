@@ -185,8 +185,13 @@
     var name = obj.name
     var version = obj.version
 
-    if (name !== pkg.name && lock[name][version].bundle) {
-      return baseUrl + resolve(name, version, '~bundle.js')
+    if (name !== pkg.name) {
+      // lock is empty if loader.js is loaded separately, e.g.
+      // `<script src="/loader.js" data-main="app.js"></script>
+      var meta = lock[name][version]
+      if (meta.bundle) {
+        return baseUrl + resolve(name, version, meta.bundle)
+      }
     }
 
     var url = baseUrl + id
@@ -273,7 +278,9 @@
 
     if (allset) {
       for (var id in system.entries) {
-        registry[id].execute()
+        var mod = registry[id]
+        clearTimeout(mod.timeout)
+        mod.execute()
       }
     }
   }
@@ -285,15 +292,15 @@
 
     if (mod.status >= MODULE_LOADED) return
 
-    function require(id) {
-      if (rWorkerLoader.test(id)) {
-        return workerFactory(context)(id.split('!').pop())
+    function require(specifier) {
+      if (rWorkerLoader.test(specifier)) {
+        return workerFactory(context)(specifier.split('!').pop())
       }
-      id = Module.resolve(id, mod.id)
+      var id = Module.resolve(specifier, mod.id)
       var dep = registry[id]
 
       if (dep.status < MODULE_FETCHED) {
-        throw new Error('Module ' + id + ' is not ready')
+        throw new Error('Module ' + specifier + ' (' + mod.id + ') is not ready')
       }
       else if (dep.status < MODULE_LOADED) {
         dep.execute()
@@ -303,6 +310,9 @@
     }
 
     require.async = importFactory(context)
+    require.resolve = function(specifier) {
+      return baseUrl + Module.resolve(specifier, mod.id)
+    }
     mod.status = MODULE_LOADED
 
     var exports = typeof factory === 'function'
@@ -381,8 +391,12 @@
         var mods = specifiers.map(require)
         if (fn) fn.apply(null, mods)
       })
+      var entry = registry[entryId]
+      entry.timeout = setTimeout(function() {
+        throw new Error('Ignition timeout ' + specifiers.join(', '))
+      }, system.timeout)
       // Try ignite at the first place, which is necessary when the script is inline.
-      registry[entryId].ignite()
+      entry.ignite()
     }
   }
 
