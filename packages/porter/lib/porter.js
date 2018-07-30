@@ -4,6 +4,7 @@ const atImport = require('postcss-import')
 const autoprefixer = require('autoprefixer')
 const crypto = require('crypto')
 const debug = require('debug')('porter')
+const farmhash = require('farmhash')
 const fs = require('mz/fs')
 const looseEnvify = require('loose-envify')
 const mime = require('mime')
@@ -433,7 +434,7 @@ class Module {
     const { id } = this
     const { dest } = this.package.app.cache
     const { code, map } = await this.load()
-    const digest = crypto.createHash('md5').update(code).digest('hex')
+    const digest = farmhash.hash64(code)
     const cachePath = path.join(dest, id)
     const [cacheCode, cacheDigest, cacheMap] = await this.readCache(cachePath)
 
@@ -780,8 +781,8 @@ class Package {
   }
 
   bundleFileName(entries) {
-    const hash = crypto.createHash('md5').update(entries.join(','))
-    return `~bundle-${hash.digest('hex').slice(0, 8)}.js`
+    const hash = farmhash.hash64(entries.join(','))
+    return `~bundle-${hash.slice(0, 8)}.js`
   }
 
   get copy() {
@@ -1021,7 +1022,9 @@ class Porter {
     const pkg = opts.package || require(path.join(root, 'package.json'))
 
     transpile.only.push(pkg.name)
-    if (!cache.except.includes('*')) cache.except.push(pkg.name)
+    if (!cache.except.includes('*')) {
+      cache.except.push(pkg.name, ...transpile.only)
+    }
     cache.dest = path.resolve(root, cache.dest)
 
     this.package = opts.package
@@ -1274,7 +1277,7 @@ class Porter {
 
     const { root } = pkg.app
     const source = path.relative(root, mod.fpath)
-    let result = pkg !== this.package && pkg.dir.startsWith(this.root)
+    let result = !this.transpile.only.includes(pkg.name)
       ? await pkg.bundle([mod.file], { minify: false })
       : await mod.fetch()
 
@@ -1329,7 +1332,7 @@ class Porter {
       Object.assign(result[1], {
         'Cache-Control': 'max-age=0',
         'Content-Type': mime.lookup(ext),
-        ETag: crypto.createHash('md5').update(result[0]).digest('hex')
+        ETag: farmhash.hash64(result[0])
       })
     }
 
