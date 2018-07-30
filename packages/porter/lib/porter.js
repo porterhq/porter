@@ -2,7 +2,6 @@
 
 const atImport = require('postcss-import')
 const autoprefixer = require('autoprefixer')
-const crypto = require('crypto')
 const debug = require('debug')('porter')
 const farmhash = require('farmhash')
 const fs = require('mz/fs')
