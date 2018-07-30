@@ -64,6 +64,15 @@ exports.findAll = function(content) {
     }
   }
 
+  function findExportFrom() {
+    while (part && part != '\n' && part != 'from') next()
+    if (part == 'from') {
+      space()
+      const m = part.match(rString)
+      if (m) deps.push(m[2])
+    }
+  }
+
   function findRequireInBlock() {
     if (part == '{') {
       while (part && part != '}') {
@@ -184,6 +193,9 @@ exports.findAll = function(content) {
     }
     else if (part == 'import') {
       findImport()
+    }
+    else if (part == 'export') {
+      findExportFrom()
     }
     next()
   }

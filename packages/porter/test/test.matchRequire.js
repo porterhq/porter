@@ -21,6 +21,7 @@ describe('matchRequire', function() {
     const deps = matchRequire.findAll(`
       import * as yen from 'yen'
       import traverse from 'babel-traverse'
+      import { existsSync as exists } from 'fs'
 
       const code = \`
         require('cropper')
@@ -28,8 +29,10 @@ describe('matchRequire', function() {
       \`
 
       const css = '@import "cropper/dist/cropper.css"'
+
+      export { resolve } from 'path'
     `)
-    expect(deps).to.eql(['yen', 'babel-traverse'])
+    expect(deps).to.eql(['yen', 'babel-traverse', 'fs', 'path'])
   })
 
   it('match conditional require call statements', async function() {
@@ -139,7 +142,7 @@ describe('matchRequire', function() {
     `)
     expect(deps).to.eql([])
   })
-  
+
   it('should skip multiple statements if negative', async function() {
     const deps = matchRequire.findAll(`
       var $
