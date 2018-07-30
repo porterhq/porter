@@ -262,7 +262,9 @@
 
     children.forEach(function(child) {
       if (!child.parent) child.parent = mod
-      child.fetch()
+      setTimeout(function() {
+        child.fetch()
+      }, 0)
     })
   }
 
@@ -332,7 +334,7 @@
    */
   Module.resolve = function(id, context) {
     if (rUri.test(id)) return id
-    if (id.charAt(0) === '.') id = resolve(dirname(context), id)
+    if (/\/$/.test(id)) id += 'index.js'
 
     // if lock is not configured yet (which happens if the app is a work in progress)
     if (!lock[pkg.name]) return suffix(resolve(pkg.name, pkg.version, id))
@@ -340,7 +342,10 @@
     var parent = parseId(context)
     var opts = lock[parent.name][parent.version]
 
-    var mod = parseId(id)
+    var mod = id.charAt(0) == '.'
+      ? parseId(resolve(dirname(context), id))
+      : parseId(id)
+
     if (!(mod.name in lock)) {
       mod = { name: pkg.name, version: pkg.version, file: id }
     }
