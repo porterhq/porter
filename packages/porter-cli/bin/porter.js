@@ -8,7 +8,7 @@ const pkg = require('../package')
 
 program
   .version(pkg.version)
-  .command('ip', 'Get local ip')
+  .command('build', 'Build current package')
   .command('serve', 'Serve current directory as local component')
 
 program.on('--help', function() {

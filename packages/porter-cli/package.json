@@ -19,7 +19,7 @@
   },
   "bin": {
     "porter": "./bin/porter.js",
-    "porter-ip": "./bin/porter-ip.js",
+    "porter-build": "./bin/porter-build.js",
     "porter-serve": "./bin/porter-serve.js"
   },
   "engines": {

@@ -13,11 +13,7 @@ const porter = new Porter({
 
 describe('Module', function() {
   beforeEach(async function() {
-    try {
-      await porter.ready
-    } catch (err) {
-      console.error(err.stack)
-    }
+    await porter.ready
   })
 
   it('should be iteratable with module.family', async function() {
@@ -33,8 +29,8 @@ describe('Module', function() {
     }
   })
 
-  it('should generate compact lock', function() {
+  it('should be able to generate compact lock', function() {
     expect('react-color' in porter.package.lock).to.be.ok()
-    expect('react-color' in porter.package.entries['home.js']).to.not.be.ok()
+    expect('react-color' in porter.package.entries['home.js'].lock).to.not.be.ok()
   })
 })

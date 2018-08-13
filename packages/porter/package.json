@@ -28,7 +28,8 @@
     "rimraf": "^2.6.2",
     "semver": "^4.3.6",
     "source-map": "^0.7.3",
-    "uglify-js": "git+https://git@github.com/dotnil/UglifyJS2.git"
+    "uglify-es": "^3.3.9",
+    "uglify-js": "^3.4.7"
   },
   "devDependencies": {
     "expect.js": "^0.3.1",

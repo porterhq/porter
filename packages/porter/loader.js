@@ -35,10 +35,11 @@
   }
 
 
-  var system = { lock: {}, registry: {}, entries: {} }
+  var system = { lock: {}, registry: {}, entries: {}, preload: [] }
+  Object.assign(system, process.env.loaderConfig)
   var lock = system.lock
   var registry = system.registry
-  Object.assign(system, process.env.loaderConfig)
+  var preload = system.preload
   var baseUrl = system.baseUrl.replace(/([^\/])$/, '$1/')
   var pkg = system.package
 
@@ -240,6 +241,7 @@
       request(uri, function(err) {
         if (err) mod.status = MODULE_ERROR
         if (mod.status < MODULE_FETCHED) mod.status = MODULE_FETCHED
+        if (mod.isPreload) swapDefine()
         mod.uri = uri
         mod.ignite()
       })
@@ -372,6 +374,12 @@
   }
 
 
+  var predefineModules = []
+
+  function cacheDefine(id, deps, factory) {
+    predefineModules.push([id, deps, factory])
+  }
+
   function define(id, deps, factory) {
     if (!factory) {
       factory = deps
@@ -386,12 +394,20 @@
     mod.resolve()
   }
 
+  function swapDefine() {
+    for (var i = 0; i < predefineModules.length; i++) {
+      define.apply(null, predefineModules[i])
+    }
+    predefineModules = []
+    global.define = define
+  }
+
   var importEntryId = 0
   function importFactory(context) {
     return function(specifiers, fn) {
+      specifiers = [].concat(specifiers)
       var entryId = resolve(context, 'import-' + (importEntryId++) + '.js')
       system.entries[entryId] = true
-      specifiers = [].concat(specifiers)
       define(entryId, specifiers, function(require) {
         var mods = specifiers.map(require)
         if (fn) fn.apply(null, mods)
@@ -414,17 +430,27 @@
     }
   }
 
+  var rootImport = importFactory(pkg.name + '/' + pkg.version)
+
   Object.assign(system, {
     'import': function Porter_import(specifiers, fn) {
       specifiers = [].concat(specifiers).map(function(specifier) {
         var mod = parseId(specifier)
         return suffix(mod.version ? mod.file : specifier)
       })
-      importFactory(pkg.name + '/' + pkg.version)(specifiers, fn)
+      rootImport(preload, function() {
+        rootImport(specifiers, fn)
+      })
     }
   })
 
-  global.define = define
+  preload.forEach(function(specifier) {
+    var context = pkg.name + '/' + pkg.version
+    var id = Module.resolve(specifier, context)
+    new Module(id).isPreload = true
+  })
+
+  global.define = preload.length > 0 ? cacheDefine : define
   global.porter = system
 
   global.process = {

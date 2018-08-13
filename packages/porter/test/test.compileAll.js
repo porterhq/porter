@@ -35,29 +35,6 @@ describe('porter.compileAll()', function() {
     const content = await readFile(fpath, 'utf8')
     expect(content).to.contain(`define("${name}/${version}/i18n/index.js",`)
     expect(content).to.contain('porter.lock')
-    expect(content).to.contain(`define("${name}/${version}/preload.js"`)
-  })
-
-  it('should compile packages separately', async function () {
-    const name = 'chart.js'
-    const { version, main } = porter.package.find({ name })
-    expect(entries).to.contain(`public/${name}/${version}/${main}`)
-    expect(entries).to.contain(`public/${name}/${version}/${main}.map`)
-  })
-
-  it('should compile entry with alias', async function() {
-    const name = 'react-datepicker'
-    const { version, main, alias } = porter.package.find({ name })
-    expect(entries).to.contain(`public/${name}/${version}/${alias[main]}`)
-    expect(entries).to.contain(`public/${name}/${version}/${alias[main]}.map`)
-  })
-
-  it('should compile entry with browser field', async function() {
-    const name = 'cropper'
-    const { version, main, dir } = porter.package.find({ name })
-    expect(entries).to.contain(`public/${name}/${version}/${main}`)
-    expect(entries).to.contain(`public/${name}/${version}/${main}.map`)
-    expect(require(`${dir}/package.json`).browser).to.eql(`${main}`)
   })
 
   it('should compile entries in all paths', async function () {
@@ -89,14 +66,6 @@ describe('porter.compileAll()', function() {
     expect(map.sources).to.contain('browser_modules/require-directory/convert/index.js')
   })
 
-  it('should generate source map of modules as well', async function() {
-    const name = 'react'
-    const { version, main } = porter.package.find({ name })
-    const fpath = path.join(root, 'public', `${name}/${version}/${main}.map`)
-    const map = JSON.parse(await readFile(fpath, 'utf8'))
-    expect(map.sources).to.contain('node_modules/react/index.js')
-  })
-
   it('should set sourceRoot in components source map', async function() {
     const { name, version } = porter.package
     const fpath = path.join(root, `public/${name}/${version}/home.js.map`)
@@ -105,7 +74,8 @@ describe('porter.compileAll()', function() {
   })
 
   it('should set sourceRoot in related dependencies too', async function() {
-    const fpath = path.join(root, 'public/yen/1.2.4/index.js.map')
+    const { name, version } = porter.package
+    const fpath = path.join(root, `public/${name}/${version}/home.js.map`)
     const map = JSON.parse(await readFile(fpath, 'utf8'))
     expect(map.sourceRoot).to.equal('http://localhost:3000/')
   })

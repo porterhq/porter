@@ -91,13 +91,14 @@ describe('.func()', function() {
 })
 
 describe('{ cache }', function() {
+  const porter = require('../lib/porter')
+
   it('should cache generated style', async function () {
     const { name, version } = pkg
     await requestPath(`/${name}/${version}/stylesheets/app.css`)
 
-    const fpath = path.join(root, `public/${name}/${version}/stylesheets/app.css.cache`)
-    expect(await exists(fpath)).to.be.ok()
-    expect(await readFile(fpath, 'utf8')).to.not.contain('@import')
+    const { cache } = porter.package.files['stylesheets/app.css']
+    expect(cache[0]).to.not.contain('@import')
   })
 
   it('should invalidate generated style if source changed', async function () {
@@ -108,8 +109,8 @@ describe('{ cache }', function() {
     await writeFile(fpath, `${source}/* changed */`)
     await requestPath(`/${name}/${version}/stylesheets/app.css`)
 
-    const cachePath = path.join(root, `public/${name}/${version}/stylesheets/app.css.cache`)
-    expect(await readFile(cachePath, 'utf8')).to.contain('/* changed */')
+    const { cache } = porter.package.files['stylesheets/app.css']
+    expect(cache[0]).to.contain('/* changed */')
 
     // reset source
     await writeFile(fpath, source)
@@ -137,11 +138,17 @@ describe('{ source }', function() {
 })
 
 describe('Source Map in Porter_readFile()', function() {
-  const porter = require('../lib/porter')
+  // customize porter instance to disable preload.
+  const porter = new Porter({
+    root,
+    paths: ['components', 'browser_modules'],
+    entries: ['home.js', 'test/suite.js']
+  })
+  const listener = new Koa().use(porter.async()).callback()
 
   it('should generate source map when accessing /${name}/${version}/${file}', async function() {
     const { name, version } = pkg
-    await requestPath(`/${name}/${version}/home.js`, 200)
+    await requestPath(`/${name}/${version}/home.js`, 200, listener)
     const fpath = path.join(root, `public/${name}/${version}/home.js.map`)
     expect(await exists(fpath)).to.be.ok()
 
@@ -150,7 +157,7 @@ describe('Source Map in Porter_readFile()', function() {
   })
 
   it('should generate source map when accessing /${file}', async function() {
-    await requestPath('/home.js', 200)
+    await requestPath('/home.js', 200, listener)
     const fpath = path.join(root, 'public/home.js.map')
     expect(await exists(fpath)).to.be.ok()
 
@@ -160,7 +167,7 @@ describe('Source Map in Porter_readFile()', function() {
 
   it('should generate source map when accessing /${name}/${version}/${file}?main', async function() {
     const { name, version } = pkg
-    await requestPath(`/${name}/${version}/home.js?main`, 200)
+    await requestPath(`/${name}/${version}/home.js?main`, 200, listener)
     const fpath = path.join(root, `public/${name}/${version}/home.js-main.map`)
     expect(await exists(fpath)).to.be.ok()
 
@@ -171,12 +178,12 @@ describe('Source Map in Porter_readFile()', function() {
 
   it('should generate source map when accessing dependencies', async function() {
     const { name, version, main } = porter.package.find({ name: 'react' })
-    await requestPath(`/${name}/${version}/${main}`, 200)
+    await requestPath(`/${name}/${version}/${main}`, 200, listener)
     const fpath = path.join(root, `public/${name}/${version}/${main}.map`)
     expect(await exists(fpath)).to.be.ok()
 
     const map = JSON.parse(await readFile(fpath, 'utf8'))
-    expect(map.sources).to.contain('/node_modules/react/index.js')
-    expect(map.sources).to.contain('/node_modules/react/cjs/react.development.js')
+    expect(map.sources).to.contain('node_modules/react/index.js')
+    expect(map.sources).to.contain('node_modules/react/cjs/react.development.js')
   })
 })

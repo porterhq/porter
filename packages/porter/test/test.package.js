@@ -2,21 +2,22 @@
 
 const path = require('path')
 const expect = require('expect.js')
-const { exists } = require('mz/fs')
+const { readFile } = require('mz/fs')
 const semver = require('semver')
 const exec = require('child_process').execSync
 const Porter = require('..')
+const glob = require('../lib/glob')
 
 const root = path.join(__dirname, '../../porter-app')
-const porter = new Porter({ root, entries: ['home.js'] })
+const porter = new Porter({
+  root,
+  paths: ['components', 'browser_modules'],
+  entries: ['home.js', 'test/suite.js']
+})
 
 describe('package.parseFile()', function() {
-  beforeEach(async function() {
-    try {
-      await porter.ready
-    } catch (err) {
-      console.error(err.stack)
-    }
+  before(async function() {
+    await porter.ready
   })
 
   it('parse into recursive dependencies map by traversing components', function() {
@@ -51,11 +52,7 @@ describe('package.parseFile()', function() {
 
 describe('package.lock', function() {
   beforeEach(async function() {
-    try {
-      await porter.ready
-    } catch (err) {
-      console.error(err.stack)
-    }
+    await porter.ready
   })
 
   it('should flatten dependencies', function () {
@@ -80,8 +77,49 @@ describe('package.compile()', function () {
     const pkg = porter.package.find({ name })
     const { version, main } = pkg
     await pkg.compile(main)
-    const fpath = path.join(root, 'public', name, version, main)
+    const entries = await glob(`public/${name}/**/*.{css,js,map}`, { cwd: root })
+    expect(entries).to.contain(`public/${name}/${version}/${main}`)
+    expect(entries).to.contain(`public/${name}/${version}/${main}.map`)
+  })
 
-    expect(await exists(fpath)).to.be.ok()
+  it('should generate source map of modules as well', async function() {
+    const name = 'react'
+    const pkg = porter.package.find({ name })
+    const { version, main } = pkg
+    await pkg.compile(main)
+    const fpath = path.join(root, 'public', `${name}/${version}/${main}.map`)
+    const map = JSON.parse(await readFile(fpath, 'utf8'))
+    expect(map.sources).to.contain('node_modules/react/index.js')
+  })
+
+  it('should compile package with different main entry', async function () {
+    const name = 'chart.js'
+    const pkg = porter.package.find({ name })
+    const { version, main } = pkg
+    await pkg.compile(main)
+    const entries = await glob(`public/${name}/**/*.{css,js,map}`, { cwd: root })
+    expect(entries).to.contain(`public/${name}/${version}/${main}`)
+    expect(entries).to.contain(`public/${name}/${version}/${main}.map`)
+  })
+
+  it('should compile entry with alias', async function() {
+    const name = 'react-datepicker'
+    const pkg = porter.package.find({ name })
+    const { version, main, alias } = pkg
+    await pkg.compileAll()
+    const entries = await glob(`public/${name}/**/*.{css,js,map}`, { cwd: root })
+    expect(entries).to.contain(`public/${name}/${version}/${alias[main]}`)
+    expect(entries).to.contain(`public/${name}/${version}/${alias[main]}.map`)
+  })
+
+  it('should compile entry with browser field', async function() {
+    const name = 'cropper'
+    const pkg = porter.package.find({ name })
+    const { version, main, dir } = pkg
+    await pkg.compile(main)
+    const entries = await glob(`public/${name}/**/*.{css,js,map}`, { cwd: root })
+    expect(entries).to.contain(`public/${name}/${version}/${main}`)
+    expect(entries).to.contain(`public/${name}/${version}/${main}.map`)
+    expect(require(`${dir}/package.json`).browser).to.eql(`${main}`)
   })
 })
