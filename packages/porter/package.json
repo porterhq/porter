@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "autoprefixer": "^7.2.5",
-    "debug": "^1.0.4",
+    "debug": "^3.1.0",
     "farmhash": "^2.1.0",
     "glob": "^7.0.5",
     "js-tokens": "^4.0.0",
