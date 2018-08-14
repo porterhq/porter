@@ -530,6 +530,7 @@ class Package {
     this.alias = {}
     this.transform = (pkg.browserify && pkg.browserify.transform) || []
     this.depPaths = []
+    this.loaderCache = {}
 
     if (app.transpile.only.includes(pkg.name) && pkg.babel) {
       this.transpiler = 'babel'
@@ -811,7 +812,7 @@ class Package {
   }
 
   async minifyLoader(opts = {}) {
-    const { loaderCache } = this.app
+    const { loaderCache } = this
     const cacheKey = querystring.stringify(opts)
     if (loaderCache[cacheKey]) return loaderCache[cacheKey]
     const code = await this.parseLoader(opts)
@@ -1040,7 +1041,6 @@ class Porter {
     }
     cache.dest = path.resolve(root, cache.dest)
 
-    this.loaderCache = {}
     this.moduleCache = {}
     this.packageCache = {}
 
