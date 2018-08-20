@@ -98,19 +98,28 @@ describe('{ cache }', function() {
     await requestPath(`/${name}/${version}/stylesheets/app.css`)
 
     const { cache } = porter.package.files['stylesheets/app.css']
-    expect(cache[0]).to.not.contain('@import')
+    expect(cache.code).to.not.contain('@import')
   })
 
   it('should invalidate generated style if source changed', async function () {
     const { name, version } = pkg
     const fpath = path.join(root, 'components/stylesheets/app.css')
     const source = await readFile(fpath, 'utf8')
+    const mark = `/* changed ${Date.now().toString(36)} */`
 
-    await writeFile(fpath, `${source}/* changed */`)
+    await writeFile(fpath, `${source}${mark}`)
+    // {@link Package#watch} takes time to reload
+    await new Promise(resolve => setTimeout(resolve, 1000))
+
+    const mod = porter.package.files['stylesheets/app.css']
+
+    // https://stackoverflow.com/questions/10468504/why-fs-watchfile-called-twice-in-node
+    if (process.platform !== 'darwin' && process.platform !== 'win32') {
+      await mod.reload()
+    }
+
     await requestPath(`/${name}/${version}/stylesheets/app.css`)
-
-    const { cache } = porter.package.files['stylesheets/app.css']
-    expect(cache[0]).to.contain('/* changed */')
+    expect(mod.cache.code).to.contain(mark)
 
     // reset source
     await writeFile(fpath, source)
@@ -153,7 +162,7 @@ describe('Source Map in Porter_readFile()', function() {
     expect(await exists(fpath)).to.be.ok()
 
     const map = JSON.parse(await readFile(fpath, 'utf8'))
-    expect(map.sources).to.contain('/components/home.js')
+    expect(map.sources).to.contain('components/home.js')
   })
 
   it('should generate source map when accessing /${file}', async function() {
@@ -162,7 +171,7 @@ describe('Source Map in Porter_readFile()', function() {
     expect(await exists(fpath)).to.be.ok()
 
     const map = JSON.parse(await readFile(fpath, 'utf8'))
-    expect(map.sources).to.contain('/components/home.js')
+    expect(map.sources).to.contain('components/home.js')
   })
 
   it('should generate source map when accessing /${name}/${version}/${file}?main', async function() {
@@ -172,7 +181,7 @@ describe('Source Map in Porter_readFile()', function() {
     expect(await exists(fpath)).to.be.ok()
 
     const map = JSON.parse(await readFile(fpath, 'utf8'))
-    expect(map.sources).to.contain('/components/home.js')
+    expect(map.sources).to.contain('components/home.js')
     expect(map.sources).to.contain('loader.js')
   })
 

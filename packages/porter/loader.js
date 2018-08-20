@@ -229,9 +229,35 @@
   }
 
   var fetching = {}
+  var predefineModules = []
+
+  function cacheDefine(id, deps, factory) {
+    predefineModules.push([id, deps, factory])
+  }
+
+  function swapDefine() {
+    for (var i = 0; i < predefineModules.length; i++) {
+      define.apply(null, predefineModules[i])
+    }
+    predefineModules = []
+    global.define = define
+    for (var name in system.entries) {
+      var mod = registry[name]
+      mod.status = MODULE_FETCHED
+      mod.ignite()
+    }
+  }
 
   Module.prototype.fetch = function() {
     var mod = this
+
+    if (predefineModules.length > 0) {
+      for (var i = 0; i < predefineModules.length; i++) {
+        if (predefineModules[i][0] == mod.id) {
+          mod.status = MODULE_FETCHED
+        }
+      }
+    }
 
     if (mod.status < MODULE_FETCHING) {
       mod.status = MODULE_FETCHING
@@ -241,7 +267,6 @@
       request(uri, function(err) {
         if (err) mod.status = MODULE_ERROR
         if (mod.status < MODULE_FETCHED) mod.status = MODULE_FETCHED
-        if (mod.isPreload) swapDefine()
         mod.uri = uri
         mod.ignite()
       })
@@ -374,12 +399,6 @@
   }
 
 
-  var predefineModules = []
-
-  function cacheDefine(id, deps, factory) {
-    predefineModules.push([id, deps, factory])
-  }
-
   function define(id, deps, factory) {
     if (!factory) {
       factory = deps
@@ -392,14 +411,6 @@
     mod.factory = factory
     mod.status = MODULE_FETCHED
     mod.resolve()
-  }
-
-  function swapDefine() {
-    for (var i = 0; i < predefineModules.length; i++) {
-      define.apply(null, predefineModules[i])
-    }
-    predefineModules = []
-    global.define = define
   }
 
   var importEntryId = 0
@@ -434,20 +445,18 @@
 
   Object.assign(system, {
     'import': function Porter_import(specifiers, fn) {
-      specifiers = [].concat(specifiers).map(function(specifier) {
+      specifiers = preload.concat(specifiers).map(function(specifier) {
         var mod = parseId(specifier)
         return suffix(mod.version ? mod.file : specifier)
       })
-      rootImport(preload, function() {
-        rootImport(specifiers, fn)
+      rootImport(specifiers, function() {
+        if (predefineModules.length > 0) {
+          swapDefine()
+        } else if (fn) {
+          fn.apply(null, Array.prototype.slice.call(arguments, preload.length))
+        }
       })
     }
-  })
-
-  preload.forEach(function(specifier) {
-    var context = pkg.name + '/' + pkg.version
-    var id = Module.resolve(specifier, context)
-    new Module(id).isPreload = true
   })
 
   global.define = preload.length > 0 ? cacheDefine : define

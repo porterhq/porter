@@ -16,7 +16,7 @@ describe('.compileEntry({ entry, code })', function () {
         var $ = require('yen')
         $('body').addClass('hidden')
       `
-    }, { all: true, writeFile: false })
+    }, { all: true, writeFile: false, loaderConfig: { preload: undefined } })
 
     expect(code).to.contain('fake/entry.js')
     expect(code).to.contain('yen/1.2.4/index.js')
@@ -35,7 +35,7 @@ describe('.compileEntry({ entry, deps, code })', function() {
         var $ = require('yen')
         $('body').addClass('hidden')
       `
-    }, { all: true, writeFile: false })
+    }, { all: true, writeFile: false, loaderConfig: { preload: undefined } })
 
     const { name, version, main } = porter.package.find({ name: 'jquery' })
     expect(code).to.contain(`${name}/${version}/${main}`)
@@ -57,7 +57,7 @@ describe('.compileEntry(entry, { loaderConfig })', function() {
       all: true,
       writeFile: false,
       loaderConfig: {
-        cache: undefined
+        preload: undefined
       }
     })
 
@@ -65,11 +65,11 @@ describe('.compileEntry(entry, { loaderConfig })', function() {
   })
 
   /**
-   * Normally the cache would be `cache:{except:["@cara/porter-app"]}`, should be
-   * overridden by `{ loaderConfig }`
+   * Normally the cache would be `preload:["preload"]`, should be overridden by
+   * `{ loaderConfig }`
    */
   it('can override loaderConfig', async function() {
-    expect(code).to.not.contain(',cache:{except')
+    expect(code).to.not.contain(',preload:["preload"]')
   })
 
   it('should omit the global preload settings', async function() {
