@@ -5,11 +5,11 @@
   // do not override
   if (global.porter) return
 
-  var ArrayFn = Array.prototype
+  var arrayFn = Array.prototype
 
   if (!Object.assign) {
     Object.assign = function() {
-      var args = ArrayFn.slice.call(arguments)
+      var args = arrayFn.slice.call(arguments)
       var target = args.shift()
 
       while (args.length) {
@@ -110,7 +110,7 @@
   }
 
   function resolve() {
-    var args = ArrayFn.slice.call(arguments)
+    var args = arrayFn.slice.call(arguments)
     var levels = []
     var i = 0
 
@@ -453,7 +453,7 @@
         if (predefineModules.length > 0) {
           swapDefine()
         } else if (fn) {
-          fn.apply(null, Array.prototype.slice.call(arguments, preload.length))
+          fn.apply(null, arrayFn.slice.call(arguments, preload.length))
         }
       })
     }

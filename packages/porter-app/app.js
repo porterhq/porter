@@ -8,6 +8,11 @@ const porter = require('./lib/porter')
 app.use(serve('views'))
 app.use(serve('public'))
 app.use(porter.async())
+app.use(async function(ctx, next) {
+  if (ctx.path == '/arbitray-path') {
+    ctx.body = 'It works!'
+  }
+})
 
 module.exports = app
 

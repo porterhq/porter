@@ -32,6 +32,7 @@ const http = require('http')
 const Koa = require('koa')
 const path = require('path')
 const puppeteer = require('puppeteer')
+const Porter = require('@cara/porter')
 
 const exists = fs.existsSync
 
@@ -113,8 +114,15 @@ async function serve() {
   app.use(serveStatic(path.resolve(cwd, program.dest)))
   app.use(serveStatic(path.join(__dirname, '../public')))
 
+  app.use(async function(ctx, next) {
+    if (ctx.path == '/') {
+      ctx.redirect('/runner.html')
+    } else {
+      await next()
+    }
+  })
+
   if (program.paths.length == 0) program.paths.push('components')
-  const Porter = require('@cara/porter')
   const porter = new Porter({
     paths: [...program.paths, path.join(__dirname, '../public')],
     source: { serve: true }

@@ -80,6 +80,10 @@ describe('Porter_readFile()', function() {
     const { bundle } = porter.package.lock[name][version]
     await requestPath(`/${name}/${version}/${bundle}`)
   })
+
+  it('should hand request over to next middleware', async function() {
+    await requestPath('/arbitray-path')
+  })
 })
 
 describe('.func()', function() {

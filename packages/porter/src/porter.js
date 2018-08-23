@@ -412,7 +412,7 @@ class Porter {
     const Porter_readFile = this.readFile.bind(this)
 
     return async function Porter_async(ctx, next) {
-      if (ctx.headerSent) return await next
+      if (ctx.headerSent) return await next()
 
       const id = ctx.path.slice(1)
       const result = await Porter_readFile(id, ctx.query)
@@ -426,7 +426,7 @@ class Porter {
           ctx.body = result[0]
         }
       } else {
-        await next
+        await next()
       }
     }
   }
