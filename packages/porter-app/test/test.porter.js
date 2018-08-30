@@ -107,7 +107,7 @@ describe('{ cache }', function() {
 
   it('should invalidate generated style if source changed', async function () {
     const { name, version } = pkg
-    const fpath = path.join(root, 'components/stylesheets/app.css')
+    const fpath = path.join(root, 'components/stylesheets/common/base.css')
     const source = await readFile(fpath, 'utf8')
     const mark = `/* changed ${Date.now().toString(36)} */`
 
@@ -115,14 +115,14 @@ describe('{ cache }', function() {
     // {@link Package#watch} takes time to reload
     await new Promise(resolve => setTimeout(resolve, 1000))
 
-    const mod = porter.package.files['stylesheets/app.css']
+    const mod = porter.package.files['stylesheets/common/base.css']
 
     // https://stackoverflow.com/questions/10468504/why-fs-watchfile-called-twice-in-node
     if (process.platform !== 'darwin' && process.platform !== 'win32') {
       await mod.reload()
     }
 
-    await requestPath(`/${name}/${version}/stylesheets/app.css`)
+    await requestPath(`/${name}/${version}/stylesheets/common/base.css`)
     expect(mod.cache.code).to.contain(mark)
 
     // reset source

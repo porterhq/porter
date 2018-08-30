@@ -12,7 +12,7 @@ const root = path.join(__dirname, '../../porter-app')
 const porter = new Porter({
   root,
   paths: ['components', 'browser_modules'],
-  entries: ['home.js', 'test/suite.js']
+  entries: ['home.js', 'test/suite.js', 'stylesheets/app.css']
 })
 
 describe('package.parseFile()', function() {
@@ -47,6 +47,15 @@ describe('package.parseFile()', function() {
     expect(porter.package.dependencies['react-stack-grid'].alias).to.eql({
       'lib/animations/transitions/': 'lib/animations/transitions/index.js',
     })
+  })
+
+  it('recognize css @import', function() {
+    const cssFiles = Object.keys(porter.package.files).filter(file => file.endsWith('.css'))
+    expect(cssFiles).to.eql([
+      'stylesheets/app.css',
+      'stylesheets/common/base.css',
+      'stylesheets/common/reset.css'
+    ])
   })
 })
 

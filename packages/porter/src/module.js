@@ -134,13 +134,7 @@ module.exports = class Module {
   }
 
   async parse() {
-    if (this.loaded) return
-    this.loaded = true
-
-    const { code } = await this.load()
-    const deps = this.deps || this.matchImport(code)
-
-    await Promise.all(deps.map(this.parseDep, this))
+    throw new Error('unimplemented method')
   }
 
   matchImport() {

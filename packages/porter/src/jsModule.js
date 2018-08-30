@@ -24,6 +24,19 @@ module.exports = class JsModule extends Module {
     }
   }
 
+  /**
+   * parse the module code and contruct dependencies.
+   */
+  async parse() {
+    if (this.loaded) return
+    this.loaded = true
+
+    const { code } = await this.load()
+    const deps = this.deps || this.matchImport(code)
+
+    await Promise.all(deps.map(this.parseDep, this))
+  }
+
   async load() {
     const { fpath } = this
     const code = this.code || await readFile(fpath, 'utf8')

@@ -20,6 +20,20 @@ module.exports = class CssModule extends Module {
     return deps
   }
 
+  /**
+   * Parse the module code and contruct dependencies. Unlike {@link JsModule}, CssModule uses the original code to parse dependencies instead because the code returned by {@link CssModule#load} would have `@import`s expanded and replaced.
+   */
+  async parse() {
+    if (this.loaded) return
+    this.loaded = true
+
+    const { fpath } = this
+    const code = this.code || (await readFile(fpath, 'utf8'))
+    const deps = this.deps || this.matchImport(code)
+
+    await Promise.all(deps.map(this.parseDep, this))
+  }
+
   async load() {
     const { fpath } = this
     const code = this.code || await readFile(fpath, 'utf8')
