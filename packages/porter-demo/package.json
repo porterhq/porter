@@ -1,7 +1,7 @@
 {
   "name": "@cara/porter-demo",
   "description": "A demo of porter-cli",
-  "version": "2.1.2",
+  "version": "2.1.3",
   "private": true,
   "dependencies": {
     "cropper": "^3.0.0",
@@ -10,7 +10,7 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "@cara/porter-cli": "^2.1.2",
+    "@cara/porter-cli": "^2.1.3",
     "expect.js": "^0.3.1",
     "mocha": "^3.5.3"
   },
