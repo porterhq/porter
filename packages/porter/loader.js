@@ -306,8 +306,10 @@
     }
 
     if (allset) {
-      for (var id in system.entries) {
-        var mod = registry[id]
+      // a copy of entry ids is needed because `mod.execute()` might update `system.entries`
+      var ids = Object.keys(system.entries)
+      for (var i = 0; i < ids.length; i++) {
+        var mod = registry[ids[i]]
         clearTimeout(mod.timeout)
         mod.execute()
       }
@@ -502,6 +504,6 @@
 
   if (currentScript) {
     var main = currentScript.getAttribute('data-main')
-    if (main) system.import(main)
+    if (main) system['import'](main)
   }
 })(this)
