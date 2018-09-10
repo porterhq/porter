@@ -47,7 +47,9 @@ if (!exists(pkgPath)) {
 serve().catch(err => console.error(err.stack))
 
 async function test({ port }) {
-  const browser = await puppeteer.launch()
+  const browser = process.env.CI == 'true'
+    ? await puppeteer.launch({ args: ['--no-sandbox'] })
+    : await puppeteer.launch()
   const page = await browser.newPage()
 
   const report = result => {
