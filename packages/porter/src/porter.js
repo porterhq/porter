@@ -138,9 +138,9 @@ class Porter {
 
   async compileExclusivePackages(opts) {
     for (const name of this.bundle.except) {
-      const pkg = this.package.find({ name })
-      if (!pkg) throw new Error(`unable to find exclusive package ${name}`)
-      await pkg.compileAll(opts)
+      const packages = this.package.findAll({ name })
+      if (packages.length == 0) throw new Error(`unable to find package ${name}`)
+      for (const pkg of packages) await pkg.compileAll(opts)
     }
   }
 

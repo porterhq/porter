@@ -59,8 +59,38 @@ describe('package.parseFile()', function() {
   })
 })
 
+describe('package.find()', function() {
+  before(async function() {
+    await porter.ready
+  })
+
+  it('should find({ name, version })', function() {
+    const name = 'yen'
+    const version = '1.2.4'
+    const pkg = porter.package.find({ name, version })
+    expect(pkg.name).to.eql(name)
+    expect(pkg.version).to.eql(version)
+  })
+
+  it('should find({ name })', function() {
+    const pkg = porter.package.find({ name: 'react' })
+    expect(pkg.name).to.eql('react')
+  })
+})
+
+describe('package.findAll()', function() {
+  before(async function() {
+    await porter.ready
+  })
+
+  it('should findAll({ name })', function() {
+    const packages = porter.package.findAll({ name: 'react' })
+    expect(packages[0].name).to.eql('react')
+  })
+})
+
 describe('package.lock', function() {
-  beforeEach(async function() {
+  before(async function() {
     await porter.ready
   })
 

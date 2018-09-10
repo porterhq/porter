@@ -122,6 +122,17 @@ module.exports = class Package {
     }
   }
 
+  findAll({ name }) {
+    const result = []
+
+    if (!name) return result
+    for (const pkg of this.all) {
+      if (name == pkg.name) result.push(pkg)
+    }
+
+    return result
+  }
+
   async parseDepPaths() {
     const { depPaths } = this
     let pkg = this
