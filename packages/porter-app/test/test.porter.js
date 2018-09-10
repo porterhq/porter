@@ -75,9 +75,10 @@ describe('Porter_readFile()', function() {
   })
 
   it('should handle package bundles', async function() {
-    const fbjs = porter.package.find({ name: 'fbjs' })
-    const { name, version } = fbjs
+    const yen = porter.package.find({ name: 'yen' })
+    const { name, version } = yen
     const { bundle } = porter.package.lock[name][version]
+    expect(bundle).to.contain('~bundle')
     await requestPath(`/${name}/${version}/${bundle}`)
   })
 

@@ -1,6 +1,8 @@
 'use strict'
 
 require('yen')
+// require an extra entry to test package bundling
+require('yen/events')
 const Chart = require('chart.js')
 const $ = require('jquery')
 require('cropper')
