@@ -2,12 +2,13 @@
 
 const path = require('path')
 const UglifyJS = require('uglify-js')
-const { readFile } = require('mz/fs')
+const { access, readFile, writeFile } = require('mz/fs')
 
 const Module = require('./module')
 const deheredoc = require('../lib/deheredoc')
 const envify = require('../lib/envify')
 const matchRequire = require('../lib/matchRequire')
+const mkdirp = require('../lib/mkdirp')
 
 
 module.exports = class JsModule extends Module {
@@ -30,6 +31,11 @@ module.exports = class JsModule extends Module {
   async parse() {
     if (this.loaded) return
     this.loaded = true
+
+    const fpath = path.join(this.package.app.cache.dest, this.id)
+    const cache = await readFile(`${fpath}.cache`, 'utf8').catch(() => {})
+
+    if (cache) this.cache = JSON.parse(cache)
 
     const { code } = await this.load()
     const deps = this.deps || this.matchImport(code)
@@ -58,16 +64,40 @@ module.exports = class JsModule extends Module {
     }
   }
 
+  async writeCache({ code, map }) {
+    const fpath = path.join(this.package.app.cache.dest, this.id)
+    const dir = path.dirname(fpath)
+
+    try {
+      await access(dir)
+    } catch (err) {
+      await mkdirp(dir)
+    }
+
+    if (typeof map === 'string') map = JSON.parse(map)
+    await writeFile(`${fpath}.cache`, JSON.stringify({ code, map }))
+  }
+
+  async obtain() {
+    if (this.cache) return this.cache
+
+    this.cache = await super.obtain()
+    await this.writeCache(this.cache)
+    return this.cache
+  }
+
   async minify() {
-    if (this.minified) return this.minified
+    if (this.cache) return this.cache
+
     const { code, map } = await this.load()
     const deps = this.deps || this.matchImport(code)
     for (let i = deps.length - 1; i >= 0; i--) {
       if (deps[i].endsWith('heredoc')) deps.splice(i, 1)
     }
     this.deps = deps
-    this.minified = this.tryUglify(await this.transpile({ code, map }))
-    return this.minified
+    this.cache = this.tryUglify(await this.transpile({ code, map }))
+    await this.writeCache(this.cache)
+    return this.cache
   }
 
   transpileTypeScript({ code, }) {
@@ -181,8 +211,7 @@ module.exports = class JsModule extends Module {
       sourceMap: {
         content: map,
         root: '/'
-      },
-      ie8: true
+      }
     })
 
     if (result.error) {

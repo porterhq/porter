@@ -105,7 +105,7 @@ In CSS entry, there's `@import`:
 
 ## Options
 
-### `cache={ dest, except }`
+### `cache={ dest }`
 
 To accelerate responses, Porter caches following things:
 

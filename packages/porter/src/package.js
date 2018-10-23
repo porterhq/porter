@@ -1,7 +1,7 @@
 'use strict'
 
+const crypto = require('crypto')
 const debug = require('debug')('porter')
-const farmhash = require('farmhash')
 const fs = require('mz/fs')
 const path = require('path')
 const querystring = require('querystring')
@@ -326,7 +326,7 @@ module.exports = class Package {
   }
 
   bundleFileName(entries) {
-    const hash = farmhash.hash64(entries.join(','))
+    const hash = crypto.createHash('md5').update(entries.join(',')).digest('hex')
     return `~bundle-${hash.slice(0, 8)}.js`
   }
 

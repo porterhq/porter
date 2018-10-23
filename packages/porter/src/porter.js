@@ -2,8 +2,8 @@
 
 const atImport = require('postcss-import')
 const autoprefixer = require('autoprefixer')
+const crypto = require('crypto')
 const debug = require('debug')('porter')
-const farmhash = require('farmhash')
 const fs = require('mz/fs')
 const mime = require('mime')
 const path = require('path')
@@ -30,16 +30,13 @@ class Porter {
     })
     const dest = path.resolve(root, opts.dest || 'public')
     const transpile = { only: [], ...opts.transpile }
-    const cache = { dest, except: [], ...opts.cache }
+    const cache = { dest, ...opts.cache }
     const bundle = { except: [], ...opts.bundle }
 
     Object.assign(this, { root, dest, cache, transpile, bundle })
     const pkg = opts.package || require(path.join(root, 'package.json'))
 
     transpile.only.push(pkg.name)
-    if (!cache.except.includes('*')) {
-      cache.except.push(pkg.name, ...transpile.only)
-    }
     cache.dest = path.resolve(root, cache.dest)
 
     this.moduleCache = {}
@@ -123,9 +120,14 @@ class Porter {
     }
 
     const { cache } = this
-    rimraf(path.join(cache.dest, '**/*.{css,js,map}'), err => {
-      if (err) console.error(err.stack)
-    })
+    if (cache.dest !== this.dest) {
+      await new Promise((resolve, reject) => {
+        rimraf(path.join(cache.dest, '**/*.{css,js,map}'), err => {
+          if (err) reject(err)
+          else resolve()
+        })
+      })
+    }
   }
 
   async compilePackages(opts) {
@@ -240,8 +242,7 @@ class Porter {
   }
 
   async writeSourceMap({ id, isMain, name, code, map }) {
-    const { dest, except } = this.cache
-    const fpath = path.join(dest, id)
+    const fpath = path.join(this.cache.dest, id)
 
     if (map instanceof SourceMapGenerator) {
       map = map.toJSON()
@@ -254,12 +255,9 @@ class Porter {
     }
 
     await mkdirp(path.dirname(fpath))
-    await Promise.all([
-      except.includes(name) ? Promise.resolve() : writeFile(fpath, code),
-      writeFile(mapPath, JSON.stringify(map, (k, v) => {
-        if (k !== 'sourcesContent') return v
-      }))
-    ])
+    await writeFile(mapPath, JSON.stringify(map, (k, v) => {
+      if (k !== 'sourcesContent') return v
+    }))
 
     return { code }
   }
@@ -353,7 +351,7 @@ class Porter {
       Object.assign(result[1], {
         'Cache-Control': 'max-age=0',
         'Content-Type': mime.lookup(ext),
-        ETag: farmhash.hash64(result[0])
+        ETag: crypto.createHash('md5').update(result[0]).digest('hex')
       })
     }
 

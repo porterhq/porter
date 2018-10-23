@@ -1,3 +1,45 @@
+2.2.0 / 2018-10-23
+==================
+
+  * New: cache transpile and minify results with {@link JsModule@cache}
+  * dropped opts.cache.except because {@link Porter} no longer caches final js outputs, which is equivalent of `opts.cache.except = *`
+
+2.1.4 / 2018-09-10
+==================
+
+  * Fix: make sure isolated packages have all their versions compiled
+  * Fix: prevent premature module execution
+
+2.1.3 / 2018-08-30
+==================
+
+  * fix: css module parsing
+  * fix: await next()
+
+2.1.2 / 2018-08-20
+==================
+
+  * fix preload bundling, porter now tries its best to skip preloaded packages when bundling entries
+  * fix multiple porter.lock assignment, only entries can now assign porter.lock
+  * fix minor regression issues since favoring bundling
+  * switch to `watch => reload` for better development experience
+  * dropped opts.persist since it's no longer necessary
+
+2.1.1 / 2018-08-14
+==================
+
+  * Fix: loaderCache should not be shared at application level for it contains package specific data.
+
+2.1.0 / 2018-08-13
+==================
+
+  * New: bundling at large
+
+2.0.2 / 2018-08-07
+==================
+
+  * Fix: close a safari 9 argument shadowing issue with a temporary UglifyJS fork
+
 2.0.1 / 2018-07-30
 ==================
 
