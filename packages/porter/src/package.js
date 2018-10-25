@@ -205,10 +205,12 @@ module.exports = class Package {
     // the module might be `opts.lazyload`ed
     await purge(mod.id)
 
-    // packages isolated with `opts.bundle.except` or by other means
-    await Promise.all(Object.values(this.entries).map(m => purge(m.id)))
+    if (this.parent) {
+      // packages isolated with `opts.bundle.except` or by other means
+      await Promise.all(Object.values(this.entries).map(m => purge(m.id)))
+    }
 
-    // css bundling is handled by postcss-import, which won't use {@link Module@cache}. hence it's unnecessary to reload the changed module.
+    // css bundling is handled by postcss-import, which won't use {@link Module@cache}.
     const ext = path.extname(filename)
     outer: for (const entry of app.entries.filter(file => file.endsWith(ext))) {
       const entryModule = app.package.entries[entry]
@@ -222,7 +224,7 @@ module.exports = class Package {
     }
 
     if (!mod.file.endsWith('.css')) {
-      mod.reload()
+      await mod.reload()
     }
   }
 

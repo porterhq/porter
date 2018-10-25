@@ -116,7 +116,7 @@ describe('{ cache }', function() {
     try {
       // https://stackoverflow.com/questions/10468504/why-fs-watchfile-called-twice-in-node
       if (process.platform !== 'darwin' && process.platform !== 'win32') {
-        await porter.package.reload('stylesheets/common/base.css')
+        await porter.package.reload('change', 'stylesheets/common/base.css')
       } else {
         // {@link Package#watch} takes time to reload
         await new Promise(resolve => setTimeout(resolve, 1000))
@@ -138,12 +138,13 @@ describe('{ cache }', function() {
     const fpath = path.join(root, 'components/i18n/zh.js')
     const source = await readFile(fpath, 'utf8')
     const mark = `/* changed ${Date.now().toString(36)} */`
+    await requestPath(`/${name}/${version}/home.js`)
     await writeFile(fpath, `${mark}${source}`)
 
     try {
       // https://stackoverflow.com/questions/10468504/why-fs-watchfile-called-twice-in-node
       if (process.platform !== 'darwin' && process.platform !== 'win32') {
-        await porter.package.reload('stylesheets/i18n/zh.js')
+        await porter.package.reload('change', 'i18n/zh.js')
       } else {
         // {@link Package#watch} takes time to reload
         await new Promise(resolve => setTimeout(resolve, 1000))
