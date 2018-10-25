@@ -111,23 +111,52 @@ describe('{ cache }', function() {
     const fpath = path.join(root, 'components/stylesheets/common/base.css')
     const source = await readFile(fpath, 'utf8')
     const mark = `/* changed ${Date.now().toString(36)} */`
+    await writeFile(fpath, `${mark}${source}`)
 
-    await writeFile(fpath, `${source}${mark}`)
-    // {@link Package#watch} takes time to reload
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    try {
+      // https://stackoverflow.com/questions/10468504/why-fs-watchfile-called-twice-in-node
+      if (process.platform !== 'darwin' && process.platform !== 'win32') {
+        await porter.package.reload('stylesheets/common/base.css')
+      } else {
+        // {@link Package#watch} takes time to reload
+        await new Promise(resolve => setTimeout(resolve, 1000))
+      }
 
-    const mod = porter.package.files['stylesheets/common/base.css']
-
-    // https://stackoverflow.com/questions/10468504/why-fs-watchfile-called-twice-in-node
-    if (process.platform !== 'darwin' && process.platform !== 'win32') {
-      await mod.reload()
+      const cachePath = path.join(porter.cache.dest, name, version, 'stylesheets/app.css')
+      expect(await exists(cachePath)).to.not.be.ok()
+      await requestPath(`/${name}/${version}/stylesheets/app.css`)
+      expect(await exists(cachePath)).to.be.ok()
+      expect(await readFile(cachePath, 'utf8')).to.contain(mark)
+    } finally {
+      // reset source
+      await writeFile(fpath, source)
     }
+  })
 
-    await requestPath(`/${name}/${version}/stylesheets/common/base.css`)
-    expect(mod.cache.code).to.contain(mark)
+  it('should invalidate generated js if source changed', async function() {
+    const { name, version } = pkg
+    const fpath = path.join(root, 'components/i18n/zh.js')
+    const source = await readFile(fpath, 'utf8')
+    const mark = `/* changed ${Date.now().toString(36)} */`
+    await writeFile(fpath, `${mark}${source}`)
 
-    // reset source
-    await writeFile(fpath, source)
+    try {
+      // https://stackoverflow.com/questions/10468504/why-fs-watchfile-called-twice-in-node
+      if (process.platform !== 'darwin' && process.platform !== 'win32') {
+        await porter.package.reload('stylesheets/i18n/zh.js')
+      } else {
+        // {@link Package#watch} takes time to reload
+        await new Promise(resolve => setTimeout(resolve, 1000))
+      }
+
+      const cachePath = path.join(porter.cache.dest, name, version, 'home.js')
+      expect(await exists(cachePath)).to.not.be.ok()
+      await requestPath(`/${name}/${version}/home.js`)
+      expect(await exists(cachePath)).to.be.ok()
+      expect(await readFile(cachePath, 'utf8')).to.contain(mark)
+    } finally {
+      await writeFile(fpath, source)
+    }
   })
 })
 

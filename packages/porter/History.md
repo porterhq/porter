@@ -1,3 +1,9 @@
+3.0.0 / 2018-10-25
+==================
+
+  * css and js entries are now cached (and removed at process start) by default, which get invalidated when the entries or their dependencies are changed.
+  * upgrade to Babel 7 (`babel-core` => `@babel/core`)
+
 2.2.0 / 2018-10-23
 ==================
 

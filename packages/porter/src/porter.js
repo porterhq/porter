@@ -120,14 +120,12 @@ class Porter {
     }
 
     const { cache } = this
-    if (cache.dest !== this.dest) {
-      await new Promise((resolve, reject) => {
-        rimraf(path.join(cache.dest, '**/*.{css,js,map}'), err => {
-          if (err) reject(err)
-          else resolve()
-        })
+    await new Promise((resolve, reject) => {
+      rimraf(path.join(cache.dest, '**/*.{css,js,map}'), err => {
+        if (err) reject(err)
+        else resolve()
       })
-    }
+    })
   }
 
   async compilePackages(opts) {
@@ -255,9 +253,12 @@ class Porter {
     }
 
     await mkdirp(path.dirname(fpath))
-    await writeFile(mapPath, JSON.stringify(map, (k, v) => {
-      if (k !== 'sourcesContent') return v
-    }))
+    await Promise.all([
+      writeFile(fpath, code),
+      writeFile(mapPath, JSON.stringify(map, (k, v) => {
+        if (k !== 'sourcesContent') return v
+      }))
+    ])
 
     return { code }
   }

@@ -1,15 +1,15 @@
 'use strict'
 
+const crypto = require('crypto')
+const debug = require('debug')('porter')
 const path = require('path')
 const UglifyJS = require('uglify-js')
-const { access, readFile, writeFile } = require('mz/fs')
+const { readFile } = require('mz/fs')
 
 const Module = require('./module')
 const deheredoc = require('../lib/deheredoc')
 const envify = require('../lib/envify')
 const matchRequire = require('../lib/matchRequire')
-const mkdirp = require('../lib/mkdirp')
-
 
 module.exports = class JsModule extends Module {
   matchImport(code) {
@@ -32,13 +32,18 @@ module.exports = class JsModule extends Module {
     if (this.loaded) return
     this.loaded = true
 
+    const { code } = await this.load()
+    const deps = this.deps || this.matchImport(code)
+
     const fpath = path.join(this.package.app.cache.dest, this.id)
     const cache = await readFile(`${fpath}.cache`, 'utf8').catch(() => {})
 
-    if (cache) this.cache = JSON.parse(cache)
-
-    const { code } = await this.load()
-    const deps = this.deps || this.matchImport(code)
+    if (cache) {
+      const data = JSON.parse(cache)
+      if (data.digest === crypto.createHash('md5').update(code).digest('hex')) {
+        this.cache = data
+      }
+    }
 
     await Promise.all(deps.map(this.parseDep, this))
   }
@@ -52,8 +57,20 @@ module.exports = class JsModule extends Module {
 
   async transpile({ code, map }) {
     const { id, deps } = this
-    const result = await this._transpile({ code, map })
-    code = result.code
+    let result
+
+    try {
+      result = await this._transpile({ code, map })
+    } catch (err) {
+      debug('unable to transpile %s', this.fpath)
+      throw err
+    }
+
+    // if fpath is ignored, @babel/core returns nothing
+    if (result) {
+      code = result.code
+      map = result.map
+    }
 
     return {
       code: [
@@ -62,28 +79,6 @@ module.exports = class JsModule extends Module {
       ].join('\n'),
       map
     }
-  }
-
-  async writeCache({ code, map }) {
-    const fpath = path.join(this.package.app.cache.dest, this.id)
-    const dir = path.dirname(fpath)
-
-    try {
-      await access(dir)
-    } catch (err) {
-      await mkdirp(dir)
-    }
-
-    if (typeof map === 'string') map = JSON.parse(map)
-    await writeFile(`${fpath}.cache`, JSON.stringify({ code, map }))
-  }
-
-  async obtain() {
-    if (this.cache) return this.cache
-
-    this.cache = await super.obtain()
-    await this.writeCache(this.cache)
-    return this.cache
   }
 
   async minify() {
@@ -95,8 +90,7 @@ module.exports = class JsModule extends Module {
       if (deps[i].endsWith('heredoc')) deps.splice(i, 1)
     }
     this.deps = deps
-    this.cache = this.tryUglify(await this.transpile({ code, map }))
-    await this.writeCache(this.cache)
+    this.addCache(code, this.tryUglify(await this.transpile({ code, map })))
     return this.cache
   }
 
@@ -137,7 +131,7 @@ module.exports = class JsModule extends Module {
 
   async transpileEcmaScript({ code, }) {
     const { fpath, package: pkg } = this
-    const babel = pkg.tryRequire('babel-core')
+    const babel = pkg.tryRequire('@babel/core')
 
     if (!babel) return { code }
 
@@ -148,7 +142,8 @@ module.exports = class JsModule extends Module {
       ast: false,
       filename: fpath,
       filenameRelative: path.relative(pkg.dir, fpath),
-      sourceFileName: path.relative(pkg.dir, fpath)
+      sourceFileName: path.relative(pkg.dir, fpath),
+      // root: pkg.dir
     })
   }
 

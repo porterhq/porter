@@ -1,6 +1,5 @@
 'use strict'
 
-
 // #34
 require('react-datepicker')
 

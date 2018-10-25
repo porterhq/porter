@@ -1,11 +1,14 @@
 'use strict'
 
+const crypto = require('crypto')
 const debug = require('debug')('porter')
 const path = require('path')
 const querystring = require('querystring')
+const { access, writeFile } = require('mz/fs')
+
+const mkdirp = require('../lib/mkdirp')
 
 const rModuleId = /^((?:@[^\/]+\/)?[^\/]+)(?:\/(\d+\.\d+\.\d+[^\/]*))?(?:\/(.*))?$/
-
 
 module.exports = class Module {
   static get rModuleId() {
@@ -24,6 +27,7 @@ module.exports = class Module {
     this.file = file
     this.fpath = fpath
     this.children = []
+    this.entries = []
   }
 
   get id() {
@@ -73,6 +77,27 @@ module.exports = class Module {
     }, {})
 
     return lock
+  }
+
+  async _addCache() {
+    const fpath = path.join(this.package.app.cache.dest, this.id)
+    const dir = path.dirname(fpath)
+
+    try {
+      await access(dir)
+    } catch (err) {
+      await mkdirp(dir)
+    }
+
+    await writeFile(`${fpath}.cache`, JSON.stringify(this.cache))
+  }
+
+  addCache(source, { code, map }) {
+    const digest = crypto.createHash('md5').update(source).digest('hex')
+
+    if (typeof map === 'string') map = JSON.parse(map)
+    this.cache = { code, digest, map }
+    this._addCache().catch(err => console.error(err.stack))
   }
 
   async parseRelative(dep) {
@@ -178,7 +203,7 @@ module.exports = class Module {
     if (!this.cache) {
       const { code, map } = await this.load()
       this.deps = this.matchImport(code)
-      this.cache = await this.transpile({ code, map })
+      this.addCache(code, await this.transpile({ code, map }))
     }
     return this.cache
   }
@@ -187,7 +212,7 @@ module.exports = class Module {
     debug(`reloading ${this.file} (${this.package.dir})`)
     const { code, map } = await this.load()
     this.deps = await this.checkDeps({ code })
-    this.cache = await this.transpile({ code, map })
+    this.addCache(code, await this.transpile({ code, map }))
   }
 
   async minify() {

@@ -193,10 +193,37 @@ module.exports = class Package {
 
   async reload(eventType, filename) {
     const mod = this.files[filename]
+    const { app } = this
+    const { dest } = app.cache
+    const purge = id => {
+      const fpath = path.join(dest, id)
+      return fs.unlink(fpath)
+        .then(() => debug('purge cache %s', fpath))
+        .catch(() => {})
+    }
 
-    let entry = mod
-    while (entry.parent) entry = entry.parent
-    await (filename.endsWith('.css') ? entry : mod).reload()
+    // the module might be `opts.lazyload`ed
+    await purge(mod.id)
+
+    // packages isolated with `opts.bundle.except` or by other means
+    await Promise.all(Object.values(this.entries).map(m => purge(m.id)))
+
+    // css bundling is handled by postcss-import, which won't use {@link Module@cache}. hence it's unnecessary to reload the changed module.
+    const ext = path.extname(filename)
+    outer: for (const entry of app.entries.filter(file => file.endsWith(ext))) {
+      const entryModule = app.package.entries[entry]
+      for (const descendent of entryModule.family) {
+        if (mod == descendent) {
+          if (entry.endsWith('.css')) await entryModule.reload()
+          await purge(entryModule.id)
+          continue outer
+        }
+      }
+    }
+
+    if (!mod.file.endsWith('.css')) {
+      mod.reload()
+    }
   }
 
   tryRequire(name) {
@@ -241,7 +268,7 @@ module.exports = class Package {
 
     if (!mod) throw new Error(`unknown entry ${entry} (${dir})`)
     entries[mod.file] = files[mod.file] = mod
-    app.entries = Object.keys(entries)
+    if (this === app.package) app.entries = Object.keys(entries)
     await mod.parse()
     return mod
   }
@@ -401,12 +428,14 @@ module.exports = class Package {
       const consumer = await new SourceMapConsumer(map)
       return SourceNode.fromStringWithSourceMap(code, consumer)
     } else {
+      // Source code need to be mapped line by line for debugging in devtols to work.
       const lines = code.split('\n')
       const node = new SourceNode()
       for (let i = 0; i < lines.length; i++) {
         node.add(new SourceNode(i + 1, 0, source, lines[i]))
       }
       return node.join('\n')
+      // return new SourceNode(1, 0, source, code)
     }
   }
 
@@ -452,6 +481,7 @@ module.exports = class Package {
       node.add(await pkg.createSourceNode({ source, code, map }))
     }
 
+    debug('bundle start %s/%s [%s]', this.name, this.version, entries)
     for (const entry of entries) {
       if (entry.endsWith('.css')) continue
       const ancestor = this.files[entry]
@@ -475,6 +505,7 @@ module.exports = class Package {
       node.add(`porter["import"](${JSON.stringify(mod.id)})`)
     }
 
+    debug('bundle end %s/%s [%s]', this.name, this.version, entries)
     return node.join('\n').toStringWithSourceMap({ sourceRoot: '/' })
   }
 
