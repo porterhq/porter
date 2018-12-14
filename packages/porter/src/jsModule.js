@@ -8,7 +8,6 @@ const { readFile } = require('mz/fs')
 
 const Module = require('./module')
 const deheredoc = require('../lib/deheredoc')
-const envify = require('../lib/envify')
 const matchRequire = require('../lib/matchRequire')
 
 module.exports = class JsModule extends Module {
@@ -16,13 +15,37 @@ module.exports = class JsModule extends Module {
     return matchRequire.findAll(code)
   }
 
-  async mightEnvify(fpath, code) {
+  /**
+   * (partially) handle browserify.transform in package.json
+   * @param {string} fpath
+   * @param {string} code
+   */
+  async browserify(fpath, code) {
     const { package: pkg } = this
-    if (pkg.transform.some(name => name == 'envify' || name == 'loose-envify')) {
-      return envify(fpath, code)
-    } else {
-      return code
+    const transforms = (pkg.browserify && pkg.browserify.transform) || []
+    const whitelist = ['envify', 'loose-envify', 'brfs']
+    let stream
+
+    for (const name of transforms) {
+      if (whitelist.includes(name)) {
+        const factory = name == 'envify' || name == 'loose-envify'
+          ? require('loose-envify')
+          : pkg.tryRequire(name)
+        const transform = factory(fpath, {
+          RBOWSER: true,
+          NODE_ENV: process.env.NODE_ENV || 'development',
+        })
+        // normally `transform.end()` should return itself but brfs doesn't yet
+        stream = stream ? stream.pipe(transform) : transform.end(code) || transform
+      }
     }
+
+    if (!stream) return code
+    return new Promise(resolve => {
+      let buf = ''
+      stream.on('data', chunk => buf += chunk)
+      stream.on('end', () => resolve(buf))
+    })
   }
 
   /**
@@ -32,10 +55,11 @@ module.exports = class JsModule extends Module {
     if (this.loaded) return
     this.loaded = true
 
+    const { package: pkg } = this
     const { code } = await this.load()
-    const deps = this.deps || this.matchImport(code)
+    let deps = this.deps || this.matchImport(code).filter(dep => pkg.browser[dep] !== false)
 
-    const fpath = path.join(this.package.app.cache.dest, this.id)
+    const fpath = path.join(pkg.app.cache.dest, this.id)
     const cache = await readFile(`${fpath}.cache`, 'utf8').catch(() => {})
 
     if (cache) {
@@ -50,9 +74,9 @@ module.exports = class JsModule extends Module {
 
   async load() {
     const { fpath } = this
-    const code = this.code || await readFile(fpath, 'utf8')
-    const envified = await this.mightEnvify(fpath, code)
-    return { code: envified }
+    const source = this.code || await readFile(fpath, 'utf8')
+    const code = await this.browserify(fpath, source)
+    return { code }
   }
 
   async transpile({ code, map }) {

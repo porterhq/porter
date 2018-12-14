@@ -10,13 +10,14 @@ const path = require('path')
 const postcss = require('postcss')
 const rimraf = require('rimraf')
 const { SourceMapGenerator } = require('source-map')
+const util = require('util')
 
 const { existsSync } = fs
 const { lstat, readFile, writeFile } = fs
 
 const FakePackage = require('./fakePackage')
 const Package = require('./package')
-const mkdirp = require('../lib/mkdirp')
+const mkdirp = util.promisify(require('mkdirp'))
 
 const rExt = /\.(?:css|gif|jpg|jpeg|js|png|svg|swf|ico)$/i
 const { rModuleId } = require('./module')
@@ -103,6 +104,9 @@ class Porter {
   async prepare(opts = {}) {
     const { package: pkg } = this
     const { entries, lazyload, preload } = this
+
+    // enable envify for root package by default
+    if (!pkg.browserify) pkg.browserify = { transform: ['envify'] }
 
     await pkg.prepare()
     await Promise.all([
@@ -217,7 +221,7 @@ class Porter {
     }
   }
 
-  async parseId(id, { isEntry }) {
+  async parseId(id, { isEntry } = {}) {
     let [, name, version, file] = id.match(rModuleId)
 
     if (!version) {
@@ -274,6 +278,18 @@ class Porter {
       code,
       { 'Last-Modified': mtime.toJSON()
     }]
+  }
+
+  async readJson(id, query) {
+    const mod = await this.parseId(id)
+    if (!mod) return
+    const { mtime } = await lstat(mod.fpath)
+    const { code } = await mod.obtain()
+
+    return [
+      code,
+      { 'Last-Modified': mtime.toJSON(), 'Content-Type': 'application/javascript' }
+    ]
   }
 
   async readBundleJs(id, query) {
@@ -341,6 +357,9 @@ class Porter {
     else if (ext === '.css') {
       result = await this.readCss(file, query)
     }
+    else if (ext === '.json') {
+      result = await this.readJson(file, query)
+    }
     else if (rExt.test(ext)) {
       const [fpath] = await pkg.resolve(file)
       if (fpath) {
@@ -349,11 +368,12 @@ class Porter {
     }
 
     if (result) {
-      Object.assign(result[1], {
+      result[1] = {
         'Cache-Control': 'max-age=0',
         'Content-Type': mime.lookup(ext),
-        ETag: crypto.createHash('md5').update(result[0]).digest('hex')
-      })
+        ETag: crypto.createHash('md5').update(result[0]).digest('hex'),
+        ...result[1]
+      }
     }
 
     return result

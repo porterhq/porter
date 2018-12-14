@@ -283,7 +283,7 @@
       mod.deps.forEach(function(depName) {
         if (rWorkerLoader.test(depName)) return
         var depId = Module.resolve(depName, mod.id)
-        children.push(registry[depId] || new Module(depId))
+        if (depId) children.push(registry[depId] || new Module(depId))
       })
     }
 
@@ -328,6 +328,7 @@
         return workerFactory(context)(specifier.split('!').pop())
       }
       var id = Module.resolve(specifier, mod.id)
+      if (!id) return
       var dep = registry[id]
 
       if (dep.status < MODULE_FETCHED) {
@@ -354,29 +355,29 @@
   }
 
   /**
-   * @param {string} id
+   * @param {string} specifier
    * @param {string} context
    * @example
    * Module.resolve('./lib/foo', 'app/1.0.0/home')
    * Module.resolve('lib/foo', 'app/1.0.0/home')
    * Module.resolve('react', 'app/1.0.0')
    */
-  Module.resolve = function(id, context) {
-    if (rUri.test(id)) return id
-    if (/\/$/.test(id)) id += 'index.js'
+  Module.resolve = function(specifier, context) {
+    if (rUri.test(specifier)) return specifier
+    if (/\/$/.test(specifier)) specifier += 'index.js'
 
     // if lock is not configured yet (which happens if the app is a work in progress)
-    if (!lock[pkg.name]) return suffix(resolve(pkg.name, pkg.version, id))
+    if (!lock[pkg.name]) return suffix(resolve(pkg.name, pkg.version, specifier))
 
     var parent = parseId(context)
-    var opts = lock[parent.name][parent.version]
+    var parentMap = lock[parent.name][parent.version]
 
-    var mod = id.charAt(0) == '.'
-      ? parseId(resolve(dirname(context), id))
-      : parseId(id)
+    var mod = specifier.charAt(0) == '.'
+      ? parseId(resolve(dirname(context), specifier))
+      : parseId(specifier)
 
     if (!(mod.name in lock)) {
-      mod = { name: pkg.name, version: pkg.version, file: id }
+      mod = { name: pkg.name, version: pkg.version, file: specifier }
     }
     var name = mod.name
     var version = mod.version
@@ -386,17 +387,23 @@
       map = lock[name][version]
     }
     if (!version) {
-      if (opts && opts.dependencies && (name in opts.dependencies)) {
-        version = opts.dependencies[name]
+      if (parentMap && parentMap.dependencies && (name in parentMap.dependencies)) {
+        version = parentMap.dependencies[name]
       }
       else if (name == pkg.name) {
         version = pkg.version
       }
     }
     map = lock[name][version]
-
     var file = mod.file || map.main || 'index.js'
-    if (map.alias) file = map.alias[file] || file
+
+    if (map.browser) {
+      if (map.browser[specifier]) file = map.browser[specifier]
+      if (map.browser[specifier] === false) return ''
+    }
+    if (map.folder && map.folder[file]) file += '/index.js'
+    if (file.slice(-1) == '/') file += 'index.js'
+
     return resolve(name, version, suffix(file))
   }
 

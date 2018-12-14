@@ -6,7 +6,9 @@ const { readFile } = require('mz/fs')
 const semver = require('semver')
 const exec = require('child_process').execSync
 const Porter = require('..')
-const glob = require('../lib/glob')
+const util = require('util')
+
+const glob = util.promisify(require('glob'))
 
 const root = path.join(__dirname, '../../porter-app')
 const porter = new Porter({
@@ -26,27 +28,21 @@ describe('package.parseFile()', function() {
   })
 
   it('parse require directory in components', function() {
-    expect(porter.package.alias).to.eql({
-      'i18n': 'i18n/index.js',
-      'require-directory/convert/': 'require-directory/convert/index.js',
-      'require-directory/math': 'require-directory/math/index.js'
+    expect(porter.package.folder).to.eql({
+      'i18n': true,
+      'require-directory/math': true,
     })
   })
 
   it('parse require directory in node_modules', function() {
-    expect(porter.package.dependencies.inferno.alias).to.eql({
-      'dist': 'dist/index.js'
-    })
-
-    expect(porter.package.dependencies['react-datepicker'].alias).to.eql({
-      'lib': 'lib/index.js'
-    })
+    expect(porter.package.dependencies.inferno.folder).to.eql({ 'dist': true })
+    expect(porter.package.dependencies['react-datepicker'].folder).to.eql({ 'lib': true })
   })
 
   it('parse require dir/ in node_modules', function() {
-    expect(porter.package.dependencies['react-stack-grid'].alias).to.eql({
-      'lib/animations/transitions/': 'lib/animations/transitions/index.js',
-    })
+    // no need to track specifiers like require('lib/animations/transitions/')
+    // because loader.js has that kind of specifiers covered already.
+    expect(porter.package.dependencies['react-stack-grid'].folder).to.eql({})
   })
 
   it('recognize css @import', function() {
@@ -141,14 +137,15 @@ describe('package.compile()', function () {
     expect(entries).to.contain(`public/${name}/${version}/${main}.map`)
   })
 
-  it('should compile entry with alias', async function() {
+  it('should compile entry with folder module', async function() {
     const name = 'react-datepicker'
     const pkg = porter.package.find({ name })
-    const { version, main, alias } = pkg
+    const { version, main, folder } = pkg
+    expect(folder[main]).to.be.ok()
     await pkg.compileAll()
     const entries = await glob(`public/${name}/**/*.{css,js,map}`, { cwd: root })
-    expect(entries).to.contain(`public/${name}/${version}/${alias[main]}`)
-    expect(entries).to.contain(`public/${name}/${version}/${alias[main]}.map`)
+    expect(entries).to.contain(`public/${name}/${version}/${main}/index.js`)
+    expect(entries).to.contain(`public/${name}/${version}/${main}/index.js.map`)
   })
 
   it('should compile entry with browser field', async function() {

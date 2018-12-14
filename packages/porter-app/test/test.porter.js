@@ -65,6 +65,10 @@ describe('Porter_readFile()', function() {
     await requestPath('/stylesheets/app.css')
   })
 
+  it('should handle json', async function() {
+    await requestPath(`/${pkg.name}/${pkg.version}/require-json/foo.json`)
+  })
+
   it('should serve raw assets too', async function () {
     await requestPath('/raw/logo.jpg')
   })

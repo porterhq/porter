@@ -13,7 +13,7 @@ describe('mad import', function() {
     for (let i = 0; i < total; i++) {
       require.async('./foo', function(foo) {
         expect(foo).to.eql('foo')
-        if (++count == 10) done()
+        if (++count == total) done()
       })
     }
   })

@@ -3,16 +3,18 @@
 const crypto = require('crypto')
 const debug = require('debug')('porter')
 const fs = require('mz/fs')
+const looseEnvify = require('loose-envify')
 const path = require('path')
 const querystring = require('querystring')
 const { SourceMapConsumer, SourceMapGenerator, SourceNode } = require('source-map')
 const UglifyJS = require('uglify-js')
+const util = require('util')
 
-const envify = require('../lib/envify')
-const mkdirp = require('../lib/mkdirp')
+const mkdirp = util.promisify(require('mkdirp'))
 const Module = require('./module')
 const CssModule = require('./cssModule')
 const JsModule = require('./jsModule')
+const JsonModule = require('./jsonModule')
 
 /**
  * Leave the factory method of Module here to keep from cyclic dependencies.
@@ -20,9 +22,14 @@ const JsModule = require('./jsModule')
  * @returns {Module}
  */
 Module.create = function(opts) {
-  return opts.file.endsWith('.css')
-    ? new CssModule(opts)
-    : new JsModule(opts)
+  switch (path.extname(opts.file)) {
+    case '.css':
+      return new CssModule(opts)
+    case '.json':
+      return new JsonModule(opts)
+    default:
+      return new JsModule(opts)
+  }
 }
 
 const { existsSync } = fs
@@ -30,6 +37,40 @@ const { lstat, readFile, realpath, writeFile } = fs
 
 
 module.exports = class Package {
+  constructor({ app, dir, paths, parent, package: pkg }) {
+    // packageCache is necessary because there might be multiple asynchronous parsing tasks on the same package, such as `a => b` and `a => c => b`, which might return multiple package instance of `b` since neither one can find the other during the `Package.create()` call.
+    const { packageCache } = app
+    if (packageCache[dir]) return packageCache[dir]
+    packageCache[dir] = this
+
+    this.app = app
+    this.dir = dir
+    this.name = pkg.name
+    this.version = pkg.version
+    this.paths = paths || [dir]
+    this.parent = parent
+    this.dependencies = {}
+    this.entries = {}
+    this.files = {}
+    this.folder = {}
+    this.browser = {}
+    this.browserify = pkg.browserify
+    this.depPaths = []
+    this.loaderCache = {}
+
+    if (app.transpile.only.includes(pkg.name) && pkg.babel) {
+      this.transpiler = 'babel'
+      this.transpilerOpts = pkg.babel
+    }
+
+    const main = typeof pkg.browser == 'string' ? pkg.browser : pkg.main
+    this.main = main ? main.replace(/^\.\//, '') : 'index.js'
+
+    if (typeof pkg.browser == 'object') {
+      Object.assign(this.browser, pkg.browser)
+    }
+  }
+
   static async create({ dir, parent, app }) {
     // cnpm (npminstall) dedupes dependencies with symbolic links
     dir = await realpath(dir)
@@ -46,35 +87,6 @@ module.exports = class Package {
     const pkg = new Package({ dir, parent, app, package: data })
     await pkg.prepare()
     return pkg
-  }
-
-  constructor({ app, dir, paths, parent, package: pkg }) {
-    // packageCache is necessary because there might be multiple asynchronous parsing tasks on the same package, such as `a => b` and `a => c => b`, which might return multiple package instance of `b` since neither one can find the other during the `Package.create()` call.
-    const { packageCache } = app
-    if (packageCache[dir]) return packageCache[dir]
-    packageCache[dir] = this
-
-    this.app = app
-    this.dir = dir
-    this.name = pkg.name
-    this.version = pkg.version
-    this.paths = paths || [dir]
-    this.parent = parent
-    this.dependencies = {}
-    this.entries = {}
-    this.files = {}
-    this.alias = {}
-    this.transform = (pkg.browserify && pkg.browserify.transform) || []
-    this.depPaths = []
-    this.loaderCache = {}
-
-    if (app.transpile.only.includes(pkg.name) && pkg.babel) {
-      this.transpiler = 'babel'
-      this.transpilerOpts = pkg.babel
-    }
-
-    const main = typeof pkg.browser == 'string' ? pkg.browser : pkg.main
-    this.main = main ? main.replace(/^\.\//, '') : 'index.js'
   }
 
   get rootPackage() {
@@ -240,14 +252,11 @@ module.exports = class Package {
   }
 
   async parseModule(file) {
-    const { alias, files } = this
+    const { files, folder } = this
     const originFile = file
 
-    if (file.endsWith('/')) {
-      file += 'index.js'
-      alias[originFile] = file
-    }
-    if (!['.css', '.js'].includes(path.extname(file))) file += '.js'
+    if (file.endsWith('/')) file += 'index.js'
+    if (!['.css', '.js', '.json'].includes(path.extname(file))) file += '.js'
     if (file in files) return files[file]
 
     const [fpath, suffix] = await this.resolve(file)
@@ -255,7 +264,7 @@ module.exports = class Package {
     if (fpath) {
       if (suffix.includes('/index')) {
         file = file.replace(/\.\w+$/, suffix)
-        alias[originFile] = file
+        folder[originFile] = true
       }
       // There might be multiple resolves on same file.
       if (file in files) return files[file]
@@ -361,12 +370,15 @@ module.exports = class Package {
 
   get copy() {
     const copy = {}
-    const { dependencies, alias, main, bundleEntries } = this
+    const { dependencies, main, bundleEntries } = this
 
     if (!/^(?:\.\/)?index(?:.js)?$/.test(main)) copy.main = main
 
-    if (alias && Object.keys(alias).length > 0)  {
-      copy.alias = Object.assign({}, copy.alias, alias)
+    for (const name of ['folder', 'browser']) {
+      var obj = this[name]
+      if (Object.keys(obj).length > 0)  {
+        copy[name] = { ...copy[name], ...obj }
+      }
     }
 
     if (Object.keys(bundleEntries).length > 1) {
@@ -398,7 +410,17 @@ module.exports = class Package {
     const fpath = path.join(__dirname, '..', 'loader.js')
     const code = await readFile(fpath, 'utf8')
 
-    return await envify(fpath, code, { loaderConfig })
+    return new Promise(resolve => {
+      const stream = looseEnvify(fpath, {
+        BROWSER: true,
+        NODE_ENV: process.env.NODE_ENV || 'development',
+        loaderConfig
+      })
+      let buf = ''
+      stream.on('data', chunk => buf += chunk)
+      stream.on('end', () => resolve(buf))
+      stream.end(code)
+    })
   }
 
   async obtainLoader(loaderConfig) {

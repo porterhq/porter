@@ -5,7 +5,9 @@ const expect = require('expect.js')
 const exec = require('child_process').execSync
 const { readFile } = require('mz/fs')
 const Porter = require('..')
-const glob = require('../lib/glob')
+const util = require('util')
+
+const glob = util.promisify(require('glob'))
 
 const root = path.join(__dirname, '../../porter-app')
 // The root option of postcss-import seems to be not working. Let's just change the process.cwd() for now.

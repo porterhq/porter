@@ -5,8 +5,9 @@ const debug = require('debug')('porter')
 const path = require('path')
 const querystring = require('querystring')
 const { access, writeFile } = require('mz/fs')
+const util = require('util')
 
-const mkdirp = require('../lib/mkdirp')
+const mkdirp = util.promisify(require('mkdirp'))
 
 const rModuleId = /^((?:@[^\/]+\/)?[^\/]+)(?:\/(\d+\.\d+\.\d+[^\/]*))?(?:\/(.*))?$/
 
