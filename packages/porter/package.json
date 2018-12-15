@@ -26,16 +26,11 @@
     "uglify-js": "^3.4.7"
   },
   "devDependencies": {
-    "expect.js": "^0.3.1",
     "glob": "^7.0.5",
-    "heredoc": "^1.3.1",
-    "istanbul": "^0.4.5",
-    "mocha": "^5.2.0",
-    "semver": "^4.3.6",
-    "supertest": "^3.0.0"
+    "semver": "^4.3.6"
   },
   "scripts": {
-    "cover": "npx istanbul cover ./node_modules/.bin/_mocha -- --timeout 30000",
+    "coveralls": "nyc mocha --exit --timeout 60000 && nyc report --reporter=text-lcov | coveralls",
     "test": "DEBUG=porter mocha --timeout 60000"
   },
   "engines": {

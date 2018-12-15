@@ -14,7 +14,6 @@
     "commander": "^2.8.1",
     "koa": "^2.4.0",
     "koa-static": "^4.0.2",
-    "mocha": "^5.0.0",
     "puppeteer": "^1.0.0"
   },
   "bin": {
@@ -27,9 +26,9 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "expect.js": "^0.3.1"
   },
   "scripts": {
-    "test": "DEBUG=porter,$DEBUG mocha --timeout 5000"
+    "test": "DEBUG=porter,$DEBUG mocha --timeout 5000",
+    "coveralls": "nyc mocha --exit --timeout 5000 && nyc report --reporter=text-lcov | coveralls"
   }
 }

@@ -328,7 +328,8 @@
         return workerFactory(context)(specifier.split('!').pop())
       }
       var id = Module.resolve(specifier, mod.id)
-      if (!id) return
+      // module might be turned off on purpose with `{ foo: false }` in browser field.
+      if (!id) return {}
       var dep = registry[id]
 
       if (dep.status < MODULE_FETCHED) {
