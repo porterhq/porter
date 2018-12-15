@@ -10,7 +10,6 @@
     "chart.js": "2.7.0",
     "cropper": "^3.0.0",
     "express": "^4.16.2",
-    "heredoc": "^1.3.1",
     "inferno": "^3.9.0",
     "jquery": "^3.3.1",
     "koa": "^2.4.1",
@@ -24,15 +23,18 @@
     "yen": "1.2.4"
   },
   "scripts": {
+    "coveralls": "nyc mocha --exit --timeout 15000 && nyc report --reporter=text-lcov | coveralls",
     "precompile": "node bin/assets-precompile",
     "start": "DEBUG=porter,$DEBUG node-dev app.js",
-    "test": "rm -rf public && DEBUG=porter,$DEBUG porter serve --paths browser_modules --headless && DEBUG=porter,$DEBUG mocha --timeout 15000"
+    "test": "rm -rf public && DEBUG=porter,$DEBUG porter serve --paths browser_modules --headless && DEBUG=porter,$DEBUG mocha --exit --timeout 15000"
   },
   "license": "MIT",
   "devDependencies": {
     "@cara/porter-cli": "^3.0.0",
     "brfs": "^2.0.1",
+    "expect.js": "^0.3.1",
     "glob": "^7.1.2",
+    "mocha": "^5.0.0",
     "node-dev": "^3.1.3"
   },
   "browserify": {

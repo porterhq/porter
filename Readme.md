@@ -1,6 +1,7 @@
 [![NPM Downloads](https://img.shields.io/npm/dm/@cara/porter.svg?style=flat)](https://www.npmjs.com/package/@cara/porter)
 [![NPM Version](http://img.shields.io/npm/v/@cara/porter.svg?style=flat)](https://www.npmjs.com/package/@cara/porter)
 [![Build Status](https://travis-ci.org/erzu/porter.svg)](https://travis-ci.org/erzu/porter)
+[![Coverage Status](https://coveralls.io/repos/github/erzu/porter/badge.svg?branch=master)](https://coveralls.io/github/erzu/porter?branch=master)
 
 Porter is **a consolidated browser module solution** which provides a module system for web browsers that is both CommonJS and ES Modules compatible.
 

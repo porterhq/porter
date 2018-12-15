@@ -26,12 +26,13 @@
     "uglify-js": "^3.4.7"
   },
   "devDependencies": {
+    "expect.js": "^0.3.1",
     "glob": "^7.0.5",
     "semver": "^4.3.6"
   },
   "scripts": {
     "coveralls": "nyc mocha --exit --timeout 60000 && nyc report --reporter=text-lcov | coveralls",
-    "test": "DEBUG=porter mocha --timeout 60000"
+    "test": "DEBUG=porter mocha --exit --timeout 60000"
   },
   "engines": {
     "node": ">= 8.6.0"
