@@ -69,6 +69,9 @@ module.exports = class Package {
     if (typeof pkg.browser == 'object') {
       Object.assign(this.browser, pkg.browser)
     }
+
+    // https://github.com/foliojs/brotli.js/pull/22
+    if (this.name == 'brotli') this.browser.fs = false
   }
 
   static async create({ dir, parent, app }) {
@@ -273,8 +276,11 @@ module.exports = class Package {
     }
   }
 
-  async parseEntry(entry = this.main) {
-    const { app, dir, entries, files } = this
+  async parseEntry(entry) {
+    // entry will be '' if `require('foo/')`, make sure it defaults to `main`
+    if (!entry) entry = this.main
+    const { app, browser, dir, entries, files } = this
+    entry = (browser[`./${entry}`] || browser[`./${entry}.js`] || entry).replace(/^[\.\/]+/, '')
     const mod = await this.parseModule(entry)
 
     if (!mod) throw new Error(`unknown entry ${entry} (${dir})`)

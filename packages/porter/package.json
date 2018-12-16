@@ -31,7 +31,7 @@
     "semver": "^4.3.6"
   },
   "scripts": {
-    "coveralls": "nyc mocha --exit --timeout 60000 && nyc report --reporter=text-lcov | coveralls",
+    "coveralls": "nyc mocha --exit --timeout 60000 --cwd ../.. && nyc report --reporter=text-lcov --cwd ../.. | coveralls",
     "test": "DEBUG=porter mocha --exit --timeout 60000"
   },
   "engines": {

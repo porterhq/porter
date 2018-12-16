@@ -53,6 +53,30 @@ describe('package.parseFile()', function() {
       'stylesheets/common/reset.css'
     ])
   })
+
+  it('recognize browser field', function() {
+    const stream = porter.package.find({ name: 'readable-stream' })
+    const files = Object.keys(stream.files)
+    expect(files).to.contain('lib/internal/streams/stream-browser.js')
+    expect(files).to.contain('readable-browser.js')
+    expect(files).to.not.contain('readable.js')
+  })
+
+  it('disable module in browser field', function() {
+    const iconv = porter.package.find({ name: 'iconv-lite' })
+    expect(Object.keys(iconv.files)).to.not.contain('lib/extend-node')
+    expect(Object.keys(iconv.files)).to.not.contain('lib/streams')
+  })
+
+  it('shim stream with readable-stream', function() {
+    const iconv = porter.package.find({ name: 'iconv-lite' })
+    expect(iconv.browser.stream).to.eql('readable-stream')
+    expect('readable-stream' in iconv.dependencies).to.be.ok()
+
+    const stream = porter.package.find({ name: 'readable-stream' })
+    // shouldn't shim itself
+    expect(Object.keys(stream.browser)).to.not.contain('readable-stream')
+  })
 })
 
 describe('package.find()', function() {

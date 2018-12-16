@@ -7,13 +7,18 @@
     "@babel/core": "^7.1.2",
     "@babel/preset-env": "^7.1.0",
     "@cara/porter": "^3.0.0",
+    "brotli": "^1.3.2",
+    "buffer": "^5.2.1",
     "chart.js": "2.7.0",
     "cropper": "^3.0.0",
+    "events": "^3.0.0",
     "express": "^4.16.2",
+    "iconv-lite": "^0.4.24",
     "inferno": "^3.9.0",
     "jquery": "^3.3.1",
     "koa": "^2.4.1",
     "koa-static": "^4.0.2",
+    "path": "^0.12.7",
     "prismjs": "^1.7.0",
     "react": "^16.2.0",
     "react-color": "^2.13.8",
@@ -23,7 +28,7 @@
     "yen": "1.2.4"
   },
   "scripts": {
-    "coveralls": "nyc mocha --exit --timeout 15000 && nyc report --reporter=text-lcov | coveralls",
+    "coveralls": "nyc mocha --exit --timeout 15000 --cwd ../.. && nyc report --reporter=text-lcov --cwd ../.. | coveralls",
     "precompile": "node bin/assets-precompile",
     "start": "DEBUG=porter,$DEBUG node-dev app.js",
     "test": "rm -rf public && DEBUG=porter,$DEBUG porter serve --paths browser_modules --headless && DEBUG=porter,$DEBUG mocha --exit --timeout 15000"

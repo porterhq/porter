@@ -29,7 +29,7 @@
     "expect.js": "^0.3.1"
   },
   "scripts": {
-    "coveralls": "nyc mocha --exit --timeout 15000 && nyc report --reporter=text-lcov | coveralls",
+    "coveralls": "nyc mocha --exit --timeout 15000 --cwd ../.. && nyc report --reporter=text-lcov --cwd ../.. | coveralls",
     "test": "DEBUG=porter,$DEBUG mocha --exit --timeout 15000"
   }
 }

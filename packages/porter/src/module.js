@@ -102,10 +102,11 @@ module.exports = class Module {
   }
 
   async parseRelative(dep) {
-    const file = path.join(path.dirname(this.file), dep)
     const { package: pkg } = this
+    const file = path.join(path.dirname(this.file), dep)
+    const alias = pkg.browser[`./${file}`] || pkg.browser[`./${file}.js`]
 
-    return await pkg.parseFile(file)
+    return pkg.parseFile(alias ? alias.replace(/^[\.\/]+/, '') : file)
   }
 
   async parseNonRelative(dep) {
@@ -138,9 +139,12 @@ module.exports = class Module {
       }
     }
 
+    const { package: pkg } = this
+    if (dep == 'stream') pkg.browser.stream = 'readable-stream'
+    const specifier = pkg.browser[dep] || pkg.browser[`${dep}.js`] || dep
     const mod = dep.startsWith('.')
-      ? await this.parseRelative(dep)
-      : await this.parseNonRelative(dep)
+      ? await this.parseRelative(specifier)
+      : await this.parseNonRelative(specifier)
 
     if (!mod) {
       console.error(new Error(`unmet dependency ${dep} (${this.fpath})`).stack)

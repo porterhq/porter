@@ -137,7 +137,11 @@
 
 
   function suffix(id) {
-    return /\.(?:css|js)$/.test(id) ? id : id + '.js'
+    if (id.slice(-1) == '/') {
+      return id + 'index.js'
+    } else {
+      return /\.(?:css|js)$/.test(id) ? id : id + '.js'
+    }
   }
 
 
@@ -365,13 +369,18 @@
    */
   Module.resolve = function(specifier, context) {
     if (rUri.test(specifier)) return specifier
-    if (/\/$/.test(specifier)) specifier += 'index.js'
 
     // if lock is not configured yet (which happens if the app is a work in progress)
     if (!lock[pkg.name]) return suffix(resolve(pkg.name, pkg.version, specifier))
 
     var parent = parseId(context)
     var parentMap = lock[parent.name][parent.version]
+
+    if (parentMap.browser) {
+      var mapped = parentMap.browser[specifier]
+      if (mapped === false) return ''
+      if (mapped) specifier = mapped
+    }
 
     var mod = specifier.charAt(0) == '.'
       ? parseId(resolve(dirname(context), specifier))
@@ -398,12 +407,8 @@
     map = lock[name][version]
     var file = mod.file || map.main || 'index.js'
 
-    if (map.browser) {
-      if (map.browser[specifier]) file = map.browser[specifier]
-      if (map.browser[specifier] === false) return ''
-    }
+    if (map.browser) file = map.browser[suffix('./' + file)] || file
     if (map.folder && map.folder[file]) file += '/index.js'
-    if (file.slice(-1) == '/') file += 'index.js'
 
     return resolve(name, version, suffix(file))
   }
@@ -473,11 +478,15 @@
   global.porter = system
 
   global.process = {
+    browser: true,
     env: {
       BROWSER: true,
       NODE_ENV: process.env.NODE_ENV
     }
   }
+
+  // certain browserify style packages' use global instead of window for better inter-op
+  global.global = global
 
   /**
    * <script src="/loader.js" data-main="app"></script>
