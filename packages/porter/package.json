@@ -28,10 +28,11 @@
   "devDependencies": {
     "expect.js": "^0.3.1",
     "glob": "^7.0.5",
-    "semver": "^4.3.6"
+    "semver": "^4.3.6",
+    "nyc": "^13.1.0"
   },
   "scripts": {
-    "coveralls": "nyc mocha --exit --timeout 60000 --cwd ../.. && nyc report --reporter=text-lcov --cwd ../.. | coveralls",
+    "coveralls": "nyc --cwd ../.. mocha --exit --timeout 60000",
     "test": "DEBUG=porter mocha --exit --timeout 60000"
   },
   "engines": {

@@ -26,10 +26,11 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "expect.js": "^0.3.1"
+    "expect.js": "^0.3.1",
+    "nyc": "^13.1.0"
   },
   "scripts": {
-    "coveralls": "nyc mocha --exit --timeout 15000 --cwd ../.. && nyc report --reporter=text-lcov --cwd ../.. | coveralls",
+    "coveralls": "nyc --cwd ../.. mocha --exit --timeout 15000",
     "test": "DEBUG=porter,$DEBUG mocha --exit --timeout 15000"
   }
 }

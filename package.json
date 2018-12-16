@@ -11,6 +11,6 @@
   },
   "scripts": {
     "test": "lerna bootstrap && lerna link && lerna run test",
-    "coveralls": "lerna bootstrap && lerna link && lerna run coveralls"
+    "coveralls": "lerna bootstrap && lerna link && lerna run coveralls && nyc report --reporter=text-lcov | coveralls"
   }
 }
