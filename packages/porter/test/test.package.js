@@ -60,6 +60,8 @@ describe('package.parseFile()', function() {
     expect(files).to.contain('lib/internal/streams/stream-browser.js')
     expect(files).to.contain('readable-browser.js')
     expect(files).to.not.contain('readable.js')
+    expect(files).to.contain('errors-browser.js')
+    expect(files).to.not.contain('errors.js')
   })
 
   it('disable module in browser field', function() {

@@ -1,5 +1,7 @@
 'use strict'
 
+window.Buffer = require('buffer').Buffer
+
 // #1 mocha cannot be required directly yet.
 // const mocha = require('mocha')
 require('../require-directory/suite')
@@ -11,3 +13,4 @@ require('../mad-import/suite')
 require('../require-json/suite')
 require('../brfs/suite')
 require('../browser-field/suite')
+require('../global/suite')

@@ -407,7 +407,9 @@
     map = lock[name][version]
     var file = mod.file || map.main || 'index.js'
 
-    if (map.browser) file = map.browser[suffix('./' + file)] || file
+    if (map.browser) {
+      file = map.browser['./' + file] || map.browser['./' + file + '.js'] || file
+    }
     if (map.folder && map.folder[file]) file += '/index.js'
 
     return resolve(name, version, suffix(file))

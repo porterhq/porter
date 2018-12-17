@@ -4,8 +4,6 @@ const expect = require('expect.js')
 
 describe('browser field', function() {
   it('should shim stream with readable stream', function() {
-    // shim Buffer
-    window.Buffer = require('buffer')
     expect(require('stream').Readable).to.be.a(Function)
   })
 
