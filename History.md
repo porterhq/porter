@@ -1,3 +1,18 @@
+3.0.2 / 2018-12-17
+==================
+
+  * Fix: left out `{ "./foo": "./foo-browser.js" }`, the specifiers in browser field may not have extensions.
+
+3.0.1 / 2018-12-17
+==================
+
+  * Fix: better browserify support with following scenarios tested:
+    * brfs
+    * `require('stream')`
+    * object browser field such as `{ "fs": false, "./foo.js": "./foo-browser.js" }`
+    * global
+    * `global.process = { browser: true, env }`
+
 3.0.0 / 2018-10-25
 ==================
 
@@ -77,6 +92,7 @@
 1.0.1 / 2018-02-12
 ==================
 
+  * New: porter-serve --headless
   * Fix: allow require components of current app by fullname, such as `require('@cara/porter-component')`
 
 1.0.0 / 2018-02-11
