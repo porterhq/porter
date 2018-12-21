@@ -104,9 +104,8 @@ module.exports = class Module {
   async parseRelative(dep) {
     const { package: pkg } = this
     const file = path.join(path.dirname(this.file), dep)
-    const alias = pkg.browser[`./${file}`] || pkg.browser[`./${file}.js`]
 
-    return pkg.parseFile(alias ? alias.replace(/^[\.\/]+/, '') : file)
+    return pkg.parseFile(file)
   }
 
   async parseNonRelative(dep) {

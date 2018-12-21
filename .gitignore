@@ -3,6 +3,7 @@ tmp
 coverage
 docs
 .nyc_output
+.porter-cache
 
 packages/*/node_modules
 packages/*/package-lock.json

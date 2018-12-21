@@ -190,9 +190,9 @@
     var name = obj.name
     var version = obj.version
 
-    if (name !== pkg.name) {
-      // lock is empty if loader.js is loaded separately, e.g.
-      // `<script src="/loader.js" data-main="app.js"></script>
+    // lock is empty if loader.js is loaded separately, e.g.
+    // `<script src="/loader.js" data-main="app.js"></script>`
+    if (name in lock) {
       var meta = lock[name][version]
       if (meta.bundle) {
         return baseUrl + resolve(name, version, meta.bundle)
@@ -200,7 +200,7 @@
     }
 
     var url = baseUrl + id
-    if (registry[id].parent.id in system.entries) url += '?entry'
+    if (registry[id].isRootEntry) url += '?entry'
     return url
   }
 
@@ -307,6 +307,11 @@
         allset = false
         break
       }
+    }
+
+    if (allset && predefineModules.length > 0) {
+      swapDefine()
+      return this.ignite()
     }
 
     if (allset) {
@@ -441,6 +446,9 @@
         if (fn) fn.apply(null, mods)
       })
       var entry = registry[entryId]
+      entry.children.slice(preload.length).forEach(function(mod) {
+        mod.isRootEntry = true
+      })
       entry.timeout = setTimeout(function() {
         throw new Error('Ignition timeout ' + specifiers.join(', '))
       }, system.timeout)
@@ -467,11 +475,7 @@
         return suffix(mod.version ? mod.file : specifier)
       })
       rootImport(specifiers, function() {
-        if (predefineModules.length > 0) {
-          swapDefine()
-        } else if (fn) {
-          fn.apply(null, arrayFn.slice.call(arguments, preload.length))
-        }
+        if (fn) fn.apply(null, arrayFn.slice.call(arguments, preload.length))
       })
     }
   })

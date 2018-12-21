@@ -134,7 +134,7 @@ describe('package.compile()', function () {
   })
 
   it('should compile with package.compile(...entries)', async function () {
-    const name = 'yen'
+    const name = 'react'
     const pkg = porter.package.find({ name })
     const { version, main } = pkg
     await pkg.compile(main)

@@ -32,9 +32,9 @@ class Porter {
     const dest = path.resolve(root, opts.dest || 'public')
     const transpile = { only: [], ...opts.transpile }
     const cache = { dest, ...opts.cache }
-    const bundle = { except: [], ...opts.bundle }
+    const bundleExcept = opts.bundle && opts.bundle.except || []
 
-    Object.assign(this, { root, dest, cache, transpile, bundle })
+    Object.assign(this, { root, dest, cache, transpile, bundleExcept })
     const pkg = opts.package || require(path.join(root, 'package.json'))
 
     transpile.only.push(pkg.name)
@@ -118,9 +118,7 @@ class Porter {
     if (preload.length > 0) {
       const entry = await pkg.parseFile(preload[0])
       entry.isPreload = true
-      for (const mod of entry.family) {
-        mod.preloaded = true
-      }
+      for (const mod of entry.family) mod.preloaded = !mod.package.isolated
     }
 
     const { cache } = this
@@ -141,7 +139,7 @@ class Porter {
   }
 
   async compileExclusivePackages(opts) {
-    for (const name of this.bundle.except) {
+    for (const name of this.bundleExcept) {
       const packages = this.package.findAll({ name })
       if (packages.length == 0) throw new Error(`unable to find package ${name}`)
       for (const pkg of packages) await pkg.compileAll(opts)
@@ -234,7 +232,6 @@ class Porter {
     const pkg = this.package.find({ name, version })
 
     if (pkg) {
-      if (file in pkg.files) return pkg.files[file]
       const mod = await (isEntry ? pkg.parseEntry(file) : pkg.parseFile(file))
       // make sure the module is accessed with the correct path.
       if (mod && mod.file === file) return mod
@@ -278,18 +275,6 @@ class Porter {
       code,
       { 'Last-Modified': mtime.toJSON()
     }]
-  }
-
-  async readJson(id, query) {
-    const mod = await this.parseId(id)
-    if (!mod) return
-    const { mtime } = await lstat(mod.fpath)
-    const { code } = await mod.obtain()
-
-    return [
-      code,
-      { 'Last-Modified': mtime.toJSON(), 'Content-Type': 'application/javascript' }
-    ]
   }
 
   async readBundleJs(id, query) {
@@ -356,9 +341,6 @@ class Porter {
     }
     else if (ext === '.css') {
       result = await this.readCss(file, query)
-    }
-    else if (ext === '.json') {
-      result = await this.readJson(file, query)
     }
     else if (rExt.test(ext)) {
       const [fpath] = await pkg.resolve(file)

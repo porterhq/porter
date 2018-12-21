@@ -57,6 +57,7 @@ module.exports = class Package {
     this.browserify = pkg.browserify
     this.depPaths = []
     this.loaderCache = {}
+    this.isolated = app.bundleExcept.includes(pkg.name)
 
     if (app.transpile.only.includes(pkg.name) && pkg.babel) {
       this.transpiler = 'babel'
@@ -221,7 +222,7 @@ module.exports = class Package {
     await purge(mod.id)
 
     if (this.parent) {
-      // packages isolated with `opts.bundle.except` or by other means
+      // packages isolated with `opts.bundleExcept` or by other means
       await Promise.all(Object.values(this.entries).map(m => purge(m.id)))
     }
 
@@ -255,9 +256,10 @@ module.exports = class Package {
   }
 
   async parseModule(file) {
-    const { files, folder } = this
+    const { browser, files, folder } = this
     const originFile = file
 
+    file = (browser[`./${file}`] || browser[`./${file}.js`] || file).replace(/^[\.\/]+/, '')
     if (file.endsWith('/')) file += 'index.js'
     if (!['.css', '.js', '.json'].includes(path.extname(file))) file += '.js'
     if (file in files) return files[file]
@@ -277,16 +279,33 @@ module.exports = class Package {
   }
 
   async parseEntry(entry) {
-    // entry will be '' if `require('foo/')`, make sure it defaults to `main`
+    // entry is '' when `require('foo/')`, should fallback to `this.main`
     if (!entry) entry = this.main
-    const { app, browser, dir, entries, files } = this
-    entry = (browser[`./${entry}`] || browser[`./${entry}.js`] || entry).replace(/^[\.\/]+/, '')
+    const { app, dir, entries, name, version, files } = this
     const mod = await this.parseModule(entry)
 
     if (!mod) throw new Error(`unknown entry ${entry} (${dir})`)
     entries[mod.file] = files[mod.file] = mod
     if (this === app.package) app.entries = Object.keys(entries)
+
     await mod.parse()
+
+    if (this.parent) {
+      const { bundleEntries } = this
+
+      if (app.preload.length > 0 && app.bundleExcept.includes(name)) {
+        const allEntries = bundleEntries.map(file => [name, version, file].join('/'))
+        for (const depName in this.dependencies) {
+          const dep = this.dependencies[depName]
+          allEntries.push(...dep.bundleEntries.map(file => [depName, dep.version, file]))
+        }
+        this.bundleEntry = `~bundle-${crypto.createHash('md5').update(allEntries.join(',')).digest('hex').slice(0, 8)}.js`
+      }
+      else if (app.preload.length == 0 && bundleEntries.length > 1) {
+        this.bundleEntry = `~bundle-${crypto.createHash('md5').update(bundleEntries.join(',')).digest('hex').slice(0, 8)}.js`
+      }
+    }
+
     return mod
   }
 
@@ -362,33 +381,23 @@ module.exports = class Package {
     for (const pkg of this.all) {
       const { name, version,  } = pkg
       const copies = lock[name] || (lock[name] = {})
-      copies[version] || (copies[version] = {})
-      copies[version] = Object.assign(copies[version] || {}, pkg.copy)
+      copies[version] = { ...copies[version], ...pkg.copy }
     }
 
     return lock
   }
 
-  bundleFileName(entries) {
-    const hash = crypto.createHash('md5').update(entries.join(',')).digest('hex')
-    return `~bundle-${hash.slice(0, 8)}.js`
-  }
-
   get copy() {
-    const copy = {}
-    const { dependencies, main, bundleEntries } = this
+    const copy = { bundle: this.bundleEntry }
+    const { dependencies, main } = this
 
     if (!/^(?:\.\/)?index(?:.js)?$/.test(main)) copy.main = main
 
     for (const name of ['folder', 'browser']) {
-      var obj = this[name]
+      const obj = this[name]
       if (Object.keys(obj).length > 0)  {
         copy[name] = { ...copy[name], ...obj }
       }
-    }
-
-    if (Object.keys(bundleEntries).length > 1) {
-      copy.bundle = this.bundleFileName(bundleEntries)
     }
 
     if (dependencies && Object.keys(dependencies).length > 0) {
@@ -484,7 +493,7 @@ module.exports = class Package {
     const loaderConfig = Object.assign(this.loaderConfig, opts.loaderConfig)
     const done = {}
     const node = new SourceNode()
-    const { bundle, root } = this.app
+    const { app } = this
 
     /**
      * Traverse all the dependencies of ancestor module recursively to bundle them accordingly. Dependencies will be skipped if under such circumstances:
@@ -496,19 +505,21 @@ module.exports = class Package {
      */
     async function traverse(mod, ancestor = mod) {
       const { package: pkg } = ancestor
-      const skippable = !(mod instanceof Module) ||
-        done[mod.id] ||
-        (mod.package !== pkg && !opts.all) ||
-        (loaderConfig.preload && !ancestor.isPreload && mod.preloaded) ||
-        (bundle.except.includes(mod.name) && ancestor.name != mod.name) ||
-        (opts.minify && mod.name === 'heredoc')
 
-      if (skippable) return
+      if (done[mod.id]) return
+      if (mod.package !== pkg && !opts.all) return
+      if (loaderConfig.preload && mod.preloaded && !ancestor.isPreload) return
+      if (opts.minify && mod.name == 'heredoc') return
+      if (mod.package !== pkg && mod.package.isolated && !ancestor.isPreload) return
+
       done[mod.id] = true
       for (const child of mod.children) await traverse(child, ancestor)
-      const { code, map } = await (opts.minify ? mod.minify() : mod.obtain())
-      const source = path.relative(root, mod.fpath)
-      node.add(await pkg.createSourceNode({ source, code, map }))
+
+      if (pkg.isolated || !mod.package.isolated) {
+        const { code, map } = await (opts.minify ? mod.minify() : mod.obtain())
+        const source = path.relative(app.root, mod.fpath)
+        node.add(await pkg.createSourceNode({ source, code, map }))
+      }
     }
 
     debug('bundle start %s/%s [%s]', this.name, this.version, entries)
@@ -520,9 +531,9 @@ module.exports = class Package {
     }
 
     const mod = this.files[entries[0]]
-    const lock = opts.all && mod.fake ? mod.lock : this.lock
 
     if (mod.isRootEntry) {
+      const lock = opts.all && mod.fake ? mod.lock : this.lock
       node.prepend(`Object.assign(porter.lock, ${JSON.stringify(lock)})`)
     }
 
@@ -587,7 +598,7 @@ module.exports = class Package {
 
     const { name, version } = this
     const { dest } = this.app
-    const file = entries.length > 1 ? this.bundleFileName(entries) : entries[0]
+    const file = this.bundleEntry || entries[0]
     const fpath = path.join(dest, name, version, file)
 
     debug(`compile ${name}/${version}/${file} start`)

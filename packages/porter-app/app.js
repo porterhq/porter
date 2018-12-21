@@ -4,12 +4,15 @@ const Koa = require('koa')
 const serve = require('koa-static')
 
 const app = new Koa()
-const porter = require('./lib/porter')
+const porter = require('./lib/porter-default')
+// const porter = require('./lib/porter-preload')
+// const porter = require('./lib/porter-isolate')
+
 app.use(serve('views'))
 app.use(serve('public'))
 app.use(porter.async())
 app.use(async function(ctx, next) {
-  if (ctx.path == '/arbitray-path') {
+  if (ctx.path == '/arbitrary-path') {
     ctx.body = 'It works!'
   }
 })
