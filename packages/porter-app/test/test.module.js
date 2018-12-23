@@ -2,9 +2,9 @@
 
 const expect = require('expect.js')
 const path = require('path')
-const Porter = require('..')
+const Porter = require('@cara/porter')
 
-const root = path.join(__dirname, '../../porter-app')
+const root = path.join(__dirname, '..')
 const porter = new Porter({
   root,
   paths: ['components', 'browser_modules'],
@@ -32,5 +32,12 @@ describe('Module', function() {
   it('should be able to generate compact lock', function() {
     expect('react-color' in porter.package.lock).to.be.ok()
     expect('react-color' in porter.package.entries['home.js'].lock).to.not.be.ok()
+  })
+
+  it('should eliminate heredoc when minify', async function() {
+    const mod = porter.package.files['home.js']
+    await mod.minify()
+    const { code } = mod.cache
+    expect(code).to.not.contain('heredoc')
   })
 })

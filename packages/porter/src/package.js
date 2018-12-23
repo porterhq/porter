@@ -506,6 +506,8 @@ module.exports = class Package {
     async function traverse(mod, ancestor = mod) {
       const { package: pkg } = ancestor
 
+      // might be a mocked module from FakePackage
+      if (!(mod instanceof Module)) return
       if (done[mod.id]) return
       if (mod.package !== pkg && !opts.all) return
       if (loaderConfig.preload && mod.preloaded && !ancestor.isPreload) return

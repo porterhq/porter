@@ -5,12 +5,12 @@ const expect = require('expect.js')
 const { readFile } = require('mz/fs')
 const semver = require('semver')
 const exec = require('child_process').execSync
-const Porter = require('..')
+const Porter = require('@cara/porter')
 const util = require('util')
 
 const glob = util.promisify(require('glob'))
 
-const root = path.join(__dirname, '../../porter-app')
+const root = path.join(__dirname, '..')
 const porter = new Porter({
   root,
   paths: ['components', 'browser_modules'],

@@ -9,13 +9,20 @@ const expect = require('expect.js')
 const Koa = require('koa')
 const path = require('path')
 const Porter = require('@cara/porter')
+const porter = require('../lib/porter-default')
 const request = require('supertest')
 const rimraf = require('rimraf')
 const util = require('util')
 const { exists, readFile, writeFile } = require('mz/fs')
 
-const app = require('../app')
-const porter = require('../lib/porter-default')
+const app = new Koa()
+app.use(porter.async())
+app.use(async function(ctx, next) {
+  if (ctx.path == '/arbitrary-path') {
+    ctx.body = 'It works!'
+  }
+})
+
 const root = path.resolve(__dirname, '..')
 
 function requestPath(urlPath, status = 200, listener = app.callback()) {
@@ -48,6 +55,22 @@ describe('Porter_readFile()', function() {
     // #36
     await requestPath(`/${name}/i18n/zh.js`, 404)
     await requestPath('/i18n/zh.js')
+  })
+
+  it('should bundle relative dependencies of components', async function() {
+    const { name, version } = porter.package
+    const res = await requestPath(`/${name}/${version}/home.js?main`)
+
+    // `require('./zh')` in components/i18n/index.js
+    expect(res.text).to.contain(`define("${name}/${version}/i18n/zh.js"`)
+  })
+
+  it('should bundle json components', async function() {
+    const { name, version } = porter.package
+    const res = await requestPath(`/${name}/${version}/require-json/suite.js`)
+
+    // `require('./zh')` in components/i18n/index.js
+    expect(res.text).to.contain(`define("${name}/${version}/require-json/foo.json"`)
   })
 
   it('should handle dependencies', async function () {
@@ -112,7 +135,7 @@ describe('{ cache }', function() {
     const fpath = path.join(root, 'components/stylesheets/common/base.css')
     const source = await readFile(fpath, 'utf8')
     const mark = `/* changed ${Date.now().toString(36)} */`
-    await writeFile(fpath, `${mark}${source}`)
+    await writeFile(fpath, `${source}${mark}`)
 
     try {
       // https://stackoverflow.com/questions/10468504/why-fs-watchfile-called-twice-in-node
@@ -140,7 +163,7 @@ describe('{ cache }', function() {
     const source = await readFile(fpath, 'utf8')
     const mark = `/* changed ${Date.now().toString(36)} */`
     await requestPath(`/${name}/${version}/home.js`)
-    await writeFile(fpath, `${mark}${source}`)
+    await writeFile(fpath, `${source}${mark}`)
 
     try {
       // https://stackoverflow.com/questions/10468504/why-fs-watchfile-called-twice-in-node

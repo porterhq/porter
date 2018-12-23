@@ -7,6 +7,7 @@ const Chart = require('chart.js')
 const $ = require('jquery')
 require('cropper')
 const Prism = require('prismjs')
+const heredoc = require('heredoc')
 
 function htmlSafe(code) {
   return code
@@ -118,7 +119,7 @@ function demoRequireAsync() {
 function demoMap() {
   // test map
   const i18n = require('i18n')
-  console.log(i18n.zh.hello())
+  console.log(i18n.zh.hello)
 }
 
 function main() {
@@ -128,6 +129,11 @@ function main() {
   demoRequireAsync()
   demoMap()
   Prism.highlightAll()
+
+  // test deheredoc
+  console.log(heredoc(function() {/*
+    Hello world!
+  */}))
 }
 
 main()

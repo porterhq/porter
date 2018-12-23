@@ -32,7 +32,8 @@
     "semver": "^4.3.6"
   },
   "scripts": {
-    "coveralls": "nyc --cwd ../.. mocha --exit --timeout 60000",
+    "coveralls": "nyc --no-clean --cwd ../.. mocha --exit --timeout 60000",
+    "coverage": "nyc mocha --exit --timeout 60000",
     "test": "DEBUG=porter mocha --exit --timeout 60000"
   },
   "engines": {

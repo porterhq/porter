@@ -1,5 +1,6 @@
 'use strict'
 
-exports.hello = function() {
-  return '你好'
+module.exports = {
+  hello: '你好',
+  world: '世界'
 }

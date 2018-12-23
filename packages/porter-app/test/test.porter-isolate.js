@@ -1,6 +1,7 @@
 'use strict'
 
 const assert = require('assert').strict
+const expect = require('expect.js')
 const Koa = require('koa')
 const request = require('supertest')
 const porter = require('../lib/porter-isolate')
@@ -24,6 +25,7 @@ describe('Porter_readFile()', function() {
   it('should isolate package from entry bundle', async function() {
     const { name, version } = porter.package
     const { text: mainText } = await requestPath(`/${name}/${version}/home.js?main`)
+    // expect(mainText).to.contain('define') hangs if test fails
     assert.ok(mainText.includes(`define("${name}/${version}/home.js"`))
     const react = porter.package.find({ name: 'react' })
     assert.ok(!mainText.includes(`define("react/${react.version}/${react.main}"`))
@@ -44,19 +46,19 @@ describe('Porter_readFile()', function() {
     const reactDom = porter.package.find({ name: 'react-dom' })
     const { text: reactText } = await requestPath(`/react-dom/${reactDom.version}/${reactDom.bundleEntry}`)
 
-    const rdefine = /define\("([^"]+)"/g
+    const rdefine = /define\("[^"]+"/g
     const mainIds = mainText.match(rdefine)
     const preloadIds = preloadText.match(rdefine)
     const reactIds = reactText.match(rdefine)
 
     for (const id of mainIds) {
-      assert.ok(!preloadIds.includes(id))
-      assert.ok(!reactIds.includes(id))
+      expect(preloadIds).to.not.contain(id)
+      expect(reactIds).to.not.contain(id)
     }
 
     for (const id of preloadIds) {
-      assert.ok(!mainIds.includes(id))
-      assert.ok(!reactIds.includes(id), `${id} shouldn't present in react bundle`)
+      expect(mainIds).to.not.contain(id)
+      expect(reactIds).to.not.contain(id)
     }
   })
 })

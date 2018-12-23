@@ -3,15 +3,13 @@
 const path = require('path')
 const expect = require('expect.js')
 const exec = require('child_process').execSync
-const { readFile } = require('mz/fs')
-const Porter = require('..')
+const Porter = require('@cara/porter')
 const util = require('util')
 
 const glob = util.promisify(require('glob'))
+const { readFile } = require('mz/fs')
 
-const root = path.join(__dirname, '../../porter-app')
-// The root option of postcss-import seems to be not working. Let's just change the process.cwd() for now.
-process.chdir(root)
+const root = path.join(__dirname, '..')
 const porter = new Porter({
   root,
   paths: ['components', 'browser_modules'],
@@ -64,7 +62,6 @@ describe('porter.compileAll()', function() {
     const fpath = path.join(root, `public/${name}/${version}/test/suite.js.map`)
     const map = JSON.parse(await readFile(fpath, 'utf8'))
     expect(map.sources).to.contain('browser_modules/test/suite.js')
-    expect(map.sources).to.contain('browser_modules/cyclic-modules/suite.js')
     expect(map.sources).to.contain('browser_modules/require-directory/convert/index.js')
   })
 

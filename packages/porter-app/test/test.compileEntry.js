@@ -2,9 +2,9 @@
 
 const path = require('path')
 const expect = require('expect.js')
-const Porter = require('..')
+const Porter = require('@cara/porter')
 
-const root = path.join(__dirname, '../../porter-app')
+const root = path.join(__dirname, '..')
 const porter = new Porter({ root, preload: 'preload' })
 
 describe('.compileEntry({ entry, code })', function () {
@@ -42,7 +42,7 @@ describe('.compileEntry({ entry, deps, code })', function() {
   })
 })
 
-describe('.compileEntry(entry, { loaderConfig })', function() {
+describe('.compileEntry({ entry, code }, { loaderConfig })', function() {
   let code
 
   before(async function() {

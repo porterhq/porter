@@ -15,7 +15,7 @@ describe('require directory', function() {
 
   it('require node_modules that require dir/', function() {
     const StackGrid = require('react-stack-grid')
-    expect(StackGrid.default.name).to.equal('StackGrid')
+    expect(StackGrid.default).to.be.a(Function)
   })
 
   it('require node_modules that has its main set to dir', function() {
