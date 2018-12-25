@@ -239,6 +239,11 @@ module.exports = class Package {
       }
     }
 
+    // if the root module is not treated as `entries`, try traversing up
+    let ancestor = mod
+    while (ancestor.parent) ancestor = ancestor.parent
+    await purge(ancestor.id)
+
     if (!mod.file.endsWith('.css')) {
       await mod.reload()
     }
@@ -534,7 +539,7 @@ module.exports = class Package {
 
     const mod = this.files[entries[0]]
 
-    if (mod.isRootEntry) {
+    if (mod.isRootEntry && !mod.isPreload) {
       const lock = opts.all && mod.fake ? mod.lock : this.lock
       node.prepend(`Object.assign(porter.lock, ${JSON.stringify(lock)})`)
     }

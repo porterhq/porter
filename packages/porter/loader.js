@@ -200,7 +200,7 @@
     }
 
     var url = baseUrl + id
-    if (registry[id].isRootEntry) url += '?entry'
+    if (registry[id].parent.id in system.entries) url += '?entry'
     return url
   }
 
@@ -446,9 +446,6 @@
         if (fn) fn.apply(null, mods)
       })
       var entry = registry[entryId]
-      entry.children.slice(preload.length).forEach(function(mod) {
-        mod.isRootEntry = true
-      })
       entry.timeout = setTimeout(function() {
         throw new Error('Ignition timeout ' + specifiers.join(', '))
       }, system.timeout)

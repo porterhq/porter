@@ -1,3 +1,15 @@
+3.0.4 / 2018-12-25
+==================
+
+  * reload `opts.preload`ed entries if their dependencies change.
+
+3.0.3 / 2018-12-24
+==================
+
+  * rename package bundle entry if the bundle contains dependencies other than itself, e.g. change from `/pixi.js/4.8.4/lib/index.js` to `/pixi.js/4.8.4/~bundle-7745fb29.js`.
+  * bump test coverage.
+  * drop `/${name}/${version}/foo.json` and `/foo.json` route because it might cause `/package.json` being accessible.
+
 3.0.2 / 2018-12-17
 ==================
 
