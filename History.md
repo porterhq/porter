@@ -1,3 +1,9 @@
+3.0.5 / 2019-01-11
+==================
+
+  * enable watch/reload no matter the package needs transpile or not (because we always cache in either case)
+  * try to purge `/${file}?main` cache if it's the root package
+
 3.0.4 / 2018-12-25
 ==================
 
