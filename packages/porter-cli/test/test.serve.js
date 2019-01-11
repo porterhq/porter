@@ -12,7 +12,7 @@ const appRoot = path.join(__dirname, '../../porter-app')
 
 describe('porter-serve --port', function() {
   it('should be able to change port with --port', async function() {
-    const proc = spawn(cmd, ['--port', 9527], { cwd: componentRoot, stdio: ['pipe', 'pipe', process.stderr] })
+    const proc = spawn(cmd, ['--port', 9527, '--paths', '.'], { cwd: componentRoot, stdio: ['pipe', 'pipe', process.stderr] })
     await new Promise(resolve => {
       proc.stdout.on('data', chunk => {
         if (chunk.includes('Server started')) resolve()

@@ -14,8 +14,8 @@ program
 program.on('--help', function() {
   console.log('  Examples:')
   console.log('')
-  console.log('    $ ocean ip')
-  console.log('    $ ocean serve')
+  console.log('    $ porter build')
+  console.log('    $ porter serve')
   console.log('')
 })
 

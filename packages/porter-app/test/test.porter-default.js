@@ -37,6 +37,37 @@ function requestPath(urlPath, status = 200, listener = app.callback()) {
   })
 }
 
+async function checkReload({ sourceFile, targetFile, pathname }) {
+  sourceFile = sourceFile || targetFile
+  const sourceModule = await porter.package.parseFile(sourceFile)
+  const targetModule = await porter.package.parseFile(targetFile)
+  pathname = pathname || `/${targetModule.id}`
+
+  const { fpath: sourcePath } = sourceModule
+  const cachePath = path.join(porter.cache.dest, pathname.slice(1))
+
+  const source = await readFile(sourcePath, 'utf8')
+  const mark = `/* changed ${Date.now().toString(36)} */`
+  await writeFile(sourcePath, `${source}${mark}`)
+
+  try {
+    // https://stackoverflow.com/questions/10468504/why-fs-watchfile-called-twice-in-node
+    if (process.platform !== 'darwin' && process.platform !== 'win32') {
+      await porter.package.reload('change', sourceFile)
+    } else {
+      // {@link Package#watch} takes time to reload
+      await new Promise(resolve => setTimeout(resolve, 1000))
+    }
+
+    expect(await exists(cachePath)).to.not.be.ok()
+    await requestPath(pathname)
+    expect(await exists(cachePath)).to.be.ok()
+    expect(await readFile(cachePath, 'utf8')).to.contain(mark)
+  } finally {
+    await writeFile(sourcePath, source)
+  }
+}
+
 describe('Porter_readFile()', function() {
   before(async function() {
     await porter.ready
@@ -131,57 +162,30 @@ describe('{ cache }', function() {
   })
 
   it('should invalidate generated style if source changed', async function () {
-    const { name, version } = porter.package
-    const fpath = path.join(root, 'components/stylesheets/common/base.css')
-    const source = await readFile(fpath, 'utf8')
-    const mark = `/* changed ${Date.now().toString(36)} */`
-    await writeFile(fpath, `${source}${mark}`)
-
-    try {
-      // https://stackoverflow.com/questions/10468504/why-fs-watchfile-called-twice-in-node
-      if (process.platform !== 'darwin' && process.platform !== 'win32') {
-        await porter.package.reload('change', 'stylesheets/common/base.css')
-      } else {
-        // {@link Package#watch} takes time to reload
-        await new Promise(resolve => setTimeout(resolve, 1000))
-      }
-
-      const cachePath = path.join(porter.cache.dest, name, version, 'stylesheets/app.css')
-      expect(await exists(cachePath)).to.not.be.ok()
-      await requestPath(`/${name}/${version}/stylesheets/app.css`)
-      expect(await exists(cachePath)).to.be.ok()
-      expect(await readFile(cachePath, 'utf8')).to.contain(mark)
-    } finally {
-      // reset source
-      await writeFile(fpath, source)
-    }
+    await checkReload({
+      sourceFile: 'stylesheets/common/base.css',
+      targetFile: 'stylesheets/app.css'
+    })
   })
 
   it('should invalidate generated js if source changed', async function() {
-    const { name, version } = porter.package
-    const fpath = path.join(root, 'components/i18n/zh.js')
-    const source = await readFile(fpath, 'utf8')
-    const mark = `/* changed ${Date.now().toString(36)} */`
-    await requestPath(`/${name}/${version}/home.js`)
-    await writeFile(fpath, `${source}${mark}`)
+    await checkReload({ targetFile: 'home.js' })
+  })
 
-    try {
-      // https://stackoverflow.com/questions/10468504/why-fs-watchfile-called-twice-in-node
-      if (process.platform !== 'darwin' && process.platform !== 'win32') {
-        await porter.package.reload('change', 'i18n/zh.js')
-      } else {
-        // {@link Package#watch} takes time to reload
-        await new Promise(resolve => setTimeout(resolve, 1000))
-      }
+  it('should invalidate generated js if dependencies changed', async function() {
+    await checkReload({
+      sourceFile: 'i18n/zh.js',
+      targetFile: 'home.js'
+    })
+  })
 
-      const cachePath = path.join(porter.cache.dest, name, version, 'home.js')
-      expect(await exists(cachePath)).to.not.be.ok()
-      await requestPath(`/${name}/${version}/home.js`)
-      expect(await exists(cachePath)).to.be.ok()
-      expect(await readFile(cachePath, 'utf8')).to.contain(mark)
-    } finally {
-      await writeFile(fpath, source)
-    }
+  // GET /home.js?main
+  it('should invalidate generated js of shortcut components', async function() {
+    await checkReload({
+      sourceFile: 'i18n/zh.js',
+      targetFile: 'home.js',
+      pathname: '/home.js'
+    })
   })
 })
 

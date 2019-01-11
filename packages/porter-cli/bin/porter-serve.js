@@ -20,7 +20,7 @@ program
 program.on('--help', function() {
   console.log('  Examples:')
   console.log('')
-  console.log('    $ ocean serve --port 4000')
+  console.log('    $ porter serve --port 4000')
   console.log('')
 })
 

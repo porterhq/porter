@@ -24,6 +24,40 @@ function requestPath(urlPath, status = 200, listener = app.callback()) {
   })
 }
 
+async function checkReload({ sourceFile, targetFile, pathname }) {
+  sourceFile = sourceFile || targetFile
+  const sourceModule = await porter.package.parseFile(sourceFile)
+  const targetModule = await porter.package.parseFile(targetFile)
+  pathname = pathname || `/${targetModule.id}`
+
+  const { fpath: sourcePath } = sourceModule
+  const cachePath = path.join(porter.cache.dest, pathname.slice(1))
+
+  await requestPath(pathname)
+  expect(await exists(cachePath)).to.be.ok()
+
+  const source = await readFile(sourcePath, 'utf8')
+  const mark = `/* changed ${Date.now().toString(36)} */`
+  await writeFile(sourcePath, `${source}${mark}`)
+
+  try {
+    // https://stackoverflow.com/questions/10468504/why-fs-watchfile-called-twice-in-node
+    if (process.platform !== 'darwin' && process.platform !== 'win32') {
+      await porter.package.reload('change', sourceFile)
+    } else {
+      // {@link Package#watch} takes time to reload
+      await new Promise(resolve => setTimeout(resolve, 1000))
+    }
+
+    expect(await exists(cachePath)).to.not.be.ok()
+    await requestPath(pathname)
+    expect(await exists(cachePath)).to.be.ok()
+    expect(await readFile(cachePath, 'utf8')).to.contain(mark)
+  } finally {
+    await writeFile(sourcePath, source)
+  }
+}
+
 describe('Porter_readFile()', function() {
   it('should bundle all dependencies unless preloaded', async function() {
     const { name, version } = porter.package
@@ -60,31 +94,10 @@ describe('Porter_readFile()', function() {
   })
 
   it('should invalidate opts.preload if dependencies change', async function() {
-    const { name, version, dir } = porter.package
-    const fpath = path.join(dir, 'components/foo.js')
-    const source = await readFile(fpath, 'utf8')
-
-    const mark = `/* changed ${Date.now().toString(36)} */`
-    await requestPath(`/${name}/${version}/preload.js?entry`)
-    await writeFile(fpath, `${source}${mark}`)
-
-    try {
-      // https://stackoverflow.com/questions/10468504/why-fs-watchfile-called-twice-in-node
-      if (process.platform !== 'darwin' && process.platform !== 'win32') {
-        await porter.package.reload('change', 'i18n/zh.js')
-      } else {
-        // {@link Package#watch} takes time to reload
-        await new Promise(resolve => setTimeout(resolve, 1000))
-      }
-
-      const cachePath = path.join(porter.cache.dest, name, version, 'preload.js')
-      expect(await exists(cachePath)).to.not.be.ok()
-      await requestPath(`/${name}/${version}/preload.js`)
-      expect(await exists(cachePath)).to.be.ok()
-      expect(await readFile(cachePath, 'utf8')).to.contain(mark)
-    } finally {
-      await writeFile(fpath, source)
-    }
+    await checkReload({
+      sourceFile: 'foo.js',
+      targetFile: 'preload.js'
+    })
   })
 
   it('should not override lock in preload', async function() {

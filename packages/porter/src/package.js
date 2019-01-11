@@ -191,12 +191,11 @@ module.exports = class Package {
       ? ['.js', '.ts', '/index.js', '/index.ts']
       : ['.js', '/index.js']
 
-    if (process.env.NODE_ENV !== 'production' && this.transpiler && !this.watching) {
-      this.watching = true
-      for (const dir of this.paths) {
+    if (process.env.NODE_ENV !== 'production' && (!this.parent || this.transpiler) && !this.watchers) {
+      this.watchers = this.paths.map(dir => {
         debug('watching %s', dir)
-        fs.watch(dir, { persistent: false, recursive: true }, this.watch.bind(this))
-      }
+        return fs.watch(dir, { persistent: false, recursive: true }, this.watch.bind(this))
+      })
     }
   }
 
@@ -224,6 +223,8 @@ module.exports = class Package {
     if (this.parent) {
       // packages isolated with `opts.bundleExcept` or by other means
       await Promise.all(Object.values(this.entries).map(m => purge(m.id)))
+    } else {
+      await purge(mod.file)
     }
 
     // css bundling is handled by postcss-import, which won't use {@link Module@cache}.
