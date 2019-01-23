@@ -14,8 +14,5 @@ module.exports = new Porter({
   preload: 'preload',
   bundle: {
     except: ['react-dom']
-  },
-  map: {
-    'i18n': '/i18n'
   }
 })

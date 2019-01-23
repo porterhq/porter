@@ -9,8 +9,5 @@ module.exports = new Porter({
   source: {
     serve: true,
     root: 'http://localhost:5000'
-  },
-  map: {
-    'i18n': '/i18n'
   }
 })

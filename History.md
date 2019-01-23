@@ -1,3 +1,8 @@
+3.0.6 / 2019-01-23
+==================
+
+  * check if the speficier is mistakenly resolved because of case insensitive filesystem.
+
 3.0.5 / 2019-01-11
 ==================
 

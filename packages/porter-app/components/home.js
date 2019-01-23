@@ -8,6 +8,10 @@ const $ = require('jquery')
 require('cropper')
 const Prism = require('prismjs')
 const heredoc = require('heredoc')
+require('./home-dep')
+
+// #34
+require('react-datepicker')
 
 function htmlSafe(code) {
   return code
@@ -109,25 +113,10 @@ function demoCropper() {
   })
 }
 
-function demoRequireAsync() {
-  require.async('yen', function(yen) {
-    // amd style
-    console.log(yen)
-  })
-}
-
-function demoMap() {
-  // test map
-  const i18n = require('i18n')
-  console.log(i18n.zh.hello)
-}
-
 function main() {
   intro()
   demoChart()
   demoCropper()
-  demoRequireAsync()
-  demoMap()
   Prism.highlightAll()
 
   // test deheredoc
@@ -137,3 +126,4 @@ function main() {
 }
 
 main()
+/* changed jr8pgydh */

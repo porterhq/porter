@@ -11,8 +11,5 @@ module.exports = new Porter({
     serve: true,
     root: 'http://localhost:5000'
   },
-  preload: 'preload',
-  map: {
-    'i18n': '/i18n'
-  }
+  preload: 'preload'
 })

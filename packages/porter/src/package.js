@@ -10,6 +10,7 @@ const { SourceMapConsumer, SourceMapGenerator, SourceNode } = require('source-ma
 const UglifyJS = require('uglify-js')
 const util = require('util')
 
+const glob = util.promisify(require('glob'))
 const mkdirp = util.promisify(require('mkdirp'))
 const Module = require('./module')
 const CssModule = require('./cssModule')
@@ -224,6 +225,7 @@ module.exports = class Package {
       // packages isolated with `opts.bundleExcept` or by other means
       await Promise.all(Object.values(this.entries).map(m => purge(m.id)))
     } else {
+      // components (which has no parent) might be accessed without `${name}/${version}`
       await purge(mod.file)
     }
 
@@ -273,6 +275,8 @@ module.exports = class Package {
     const [fpath, suffix] = await this.resolve(file)
 
     if (fpath) {
+      const fPath = (await glob(fpath, { nocase: true, cwd: this.dir}))[0]
+      if (fpath !== fPath) throw new Error(`case mismatch ${file} (${fPath})`)
       if (suffix.includes('/index')) {
         file = file.replace(/\.\w+$/, suffix)
         folder[originFile] = true

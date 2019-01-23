@@ -46,7 +46,7 @@ async function checkReload({ sourceFile, targetFile, pathname }) {
       await porter.package.reload('change', sourceFile)
     } else {
       // {@link Package#watch} takes time to reload
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      await new Promise(resolve => setTimeout(resolve, 200))
     }
 
     expect(await exists(cachePath)).to.not.be.ok()
@@ -55,6 +55,7 @@ async function checkReload({ sourceFile, targetFile, pathname }) {
     expect(await readFile(cachePath, 'utf8')).to.contain(mark)
   } finally {
     await writeFile(sourcePath, source)
+    await new Promise(resolve => setTimeout(resolve, 200))
   }
 }
 
@@ -95,7 +96,7 @@ describe('Porter_readFile()', function() {
 
   it('should invalidate opts.preload if dependencies change', async function() {
     await checkReload({
-      sourceFile: 'foo.js',
+      sourceFile: 'preload-dep.js',
       targetFile: 'preload.js'
     })
   })

@@ -1,5 +1,6 @@
 'use strict'
 
+const assert = require('assert').strict
 const path = require('path')
 const expect = require('expect.js')
 const { readFile } = require('mz/fs')
@@ -29,7 +30,6 @@ describe('package.parseFile()', function() {
 
   it('parse require directory in components', function() {
     expect(porter.package.folder).to.eql({
-      'i18n': true,
       'require-directory/math': true,
     })
   })
@@ -44,6 +44,14 @@ describe('package.parseFile()', function() {
     // because loader.js has that kind of specifiers covered already.
     expect(porter.package.dependencies['react-stack-grid'].folder).to.eql({})
   })
+
+  if (process.platform == 'darwin' || process.platform == 'win32') {
+    it('throw error if specifier is resolved only because fs is case insensitive', async function() {
+      await assert.rejects(async function() {
+        await porter.package.parseFile('Home.js')
+      })
+    })
+  }
 
   it('recognize css @import', function() {
     const cssFiles = Object.keys(porter.package.files).filter(file => file.endsWith('.css'))

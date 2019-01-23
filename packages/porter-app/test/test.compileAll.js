@@ -14,7 +14,7 @@ const porter = new Porter({
   root,
   paths: ['components', 'browser_modules'],
   preload: 'preload',
-  lazyload: ['i18n/index.js'],
+  lazyload: ['lazyload.js'],
   source: { root: 'http://localhost:3000/' }
 })
 
@@ -33,7 +33,7 @@ describe('porter.compileAll()', function() {
     const { name, version } = porter.package
     const fpath = path.join(root, `public/${name}/${version}/home.js`)
     const content = await readFile(fpath, 'utf8')
-    expect(content).to.contain(`define("${name}/${version}/i18n/index.js",`)
+    expect(content).to.contain(`define("${name}/${version}/home-dep.js",`)
     expect(content).to.contain('porter.lock')
   })
 
@@ -45,7 +45,7 @@ describe('porter.compileAll()', function() {
 
   it('should compile lazyload files', async function () {
     const { name, version } = porter.package
-    expect(entries).to.contain(`public/${name}/${version}/i18n/index.js`)
+    expect(entries).to.contain(`public/${name}/${version}/lazyload.js`)
   })
 
   it('should generate source map of entries', async function() {
@@ -53,8 +53,7 @@ describe('porter.compileAll()', function() {
     const fpath = path.join(root, `public/${name}/${version}/home.js.map`)
     const map = JSON.parse(await readFile(fpath, 'utf8'))
     expect(map.sources).to.contain('components/home.js')
-    expect(map.sources).to.contain('components/i18n/index.js')
-    expect(map.sources).to.contain('components/i18n/zh.js')
+    expect(map.sources).to.contain('components/home-dep.js')
   })
 
   it('should generate source map of components from other paths', async function() {

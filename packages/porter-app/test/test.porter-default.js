@@ -56,7 +56,7 @@ async function checkReload({ sourceFile, targetFile, pathname }) {
       await porter.package.reload('change', sourceFile)
     } else {
       // {@link Package#watch} takes time to reload
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      await new Promise(resolve => setTimeout(resolve, 200))
     }
 
     expect(await exists(cachePath)).to.not.be.ok()
@@ -65,6 +65,7 @@ async function checkReload({ sourceFile, targetFile, pathname }) {
     expect(await readFile(cachePath, 'utf8')).to.contain(mark)
   } finally {
     await writeFile(sourcePath, source)
+    await new Promise(resolve => setTimeout(resolve, 200))
   }
 }
 
@@ -82,25 +83,21 @@ describe('Porter_readFile()', function() {
 
   it('should handle components', async function () {
     const { name, version } = porter.package
-    await requestPath(`/${name}/${version}/i18n/index.js`)
+    await requestPath(`/${name}/${version}/home.js`)
     // #36
-    await requestPath(`/${name}/i18n/zh.js`, 404)
-    await requestPath('/i18n/zh.js')
+    await requestPath(`/${name}/home.js`, 404)
+    await requestPath('/home.js')
   })
 
   it('should bundle relative dependencies of components', async function() {
     const { name, version } = porter.package
     const res = await requestPath(`/${name}/${version}/home.js?main`)
-
-    // `require('./zh')` in components/i18n/index.js
-    expect(res.text).to.contain(`define("${name}/${version}/i18n/zh.js"`)
+    expect(res.text).to.contain(`define("${name}/${version}/home-dep.js"`)
   })
 
   it('should bundle json components', async function() {
     const { name, version } = porter.package
     const res = await requestPath(`/${name}/${version}/require-json/suite.js`)
-
-    // `require('./zh')` in components/i18n/index.js
     expect(res.text).to.contain(`define("${name}/${version}/require-json/foo.json"`)
   })
 
@@ -126,8 +123,8 @@ describe('Porter_readFile()', function() {
   })
 
   it('should handle fake entries', async function() {
-    await porter.package.parseFakeEntry({ entry: 'foo.js', deps: [], code: "'use strict'" })
-    await requestPath('/foo.js')
+    await porter.package.parseFakeEntry({ entry: 'baz.js', deps: [], code: "'use strict'" })
+    await requestPath('/baz.js')
   })
 
   it('should handle package bundles', async function() {
@@ -174,7 +171,7 @@ describe('{ cache }', function() {
 
   it('should invalidate generated js if dependencies changed', async function() {
     await checkReload({
-      sourceFile: 'i18n/zh.js',
+      sourceFile: 'home-dep.js',
       targetFile: 'home.js'
     })
   })
@@ -182,7 +179,7 @@ describe('{ cache }', function() {
   // GET /home.js?main
   it('should invalidate generated js of shortcut components', async function() {
     await checkReload({
-      sourceFile: 'i18n/zh.js',
+      sourceFile: 'home-dep.js',
       targetFile: 'home.js',
       pathname: '/home.js'
     })
