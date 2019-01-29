@@ -93,11 +93,11 @@ module.exports = class Module {
     await writeFile(`${fpath}.cache`, JSON.stringify(this.cache))
   }
 
-  addCache(source, { code, map }) {
+  addCache(source, opts) {
     const digest = crypto.createHash('md5').update(source).digest('hex')
+    const map = typeof opts.map === 'string' ? JSON.parse(opts.map) : opts.map
 
-    if (typeof map === 'string') map = JSON.parse(map)
-    this.cache = { code, digest, map }
+    this.cache = { ...opts, map, digest }
     this._addCache().catch(err => console.error(err.stack))
   }
 

@@ -1,11 +1,8 @@
-3.0.6 / 2019-01-23
+3.0.5 / 2019-01-29
 ==================
 
+  * invalidate dev cache when minify.
   * check if the speficier is mistakenly resolved because of case insensitive filesystem.
-
-3.0.5 / 2019-01-11
-==================
-
   * enable watch/reload no matter the package needs transpile or not (because we always cache in either case)
   * try to purge `/${file}?main` cache if it's the root package
 

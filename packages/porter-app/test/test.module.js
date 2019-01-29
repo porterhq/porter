@@ -29,7 +29,7 @@ describe('Module', function() {
     }
   })
 
-  it('should be able to generate compact lock', function() {
+  it('should generate compact lock', function() {
     expect('react-color' in porter.package.lock).to.be.ok()
     expect('react-color' in porter.package.entries['home.js'].lock).to.not.be.ok()
   })
@@ -39,5 +39,18 @@ describe('Module', function() {
     await mod.minify()
     const { code } = mod.cache
     expect(code).to.not.contain('heredoc')
+  })
+
+  it('should invalidate dev cache when minify', async function() {
+    const mod = porter.package.files['home.js']
+
+    // create dev cache
+    mod.cache = null
+    await mod.obtain()
+    const devCache = mod.cache
+
+    await mod.minify()
+    expect(mod.cache.minified).to.be.ok()
+    expect(devCache.code).to.not.eql(mod.cache.code)
   })
 })

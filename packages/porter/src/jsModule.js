@@ -106,7 +106,7 @@ module.exports = class JsModule extends Module {
   }
 
   async minify() {
-    if (this.cache) return this.cache
+    if (this.cache && this.cache.minified) return this.cache
 
     const { code, map } = await this.load()
     const deps = this.deps || this.matchImport(code)
@@ -114,7 +114,11 @@ module.exports = class JsModule extends Module {
       if (deps[i].endsWith('heredoc')) deps.splice(i, 1)
     }
     this.deps = deps
-    this.addCache(code, this.tryUglify(await this.transpile({ code, map })))
+    this.addCache(code, {
+      ...this.tryUglify(await this.transpile({ code, map })),
+      minified: true
+    })
+
     return this.cache
   }
 
