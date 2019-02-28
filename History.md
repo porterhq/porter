@@ -1,3 +1,8 @@
+3.0.6 / 2019-02-28
+==================
+
+  * drop fake module cache once the compile process finished.
+
 3.0.5 / 2019-01-29
 ==================
 

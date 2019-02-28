@@ -39,6 +39,8 @@ describe('.compileEntry({ entry, deps, code })', function() {
 
     const { name, version, main } = porter.package.find({ name: 'jquery' })
     expect(code).to.contain(`${name}/${version}/${main}`)
+    // fake modules should be removed afterwards
+    expect(Object.keys(porter.package.files)).to.not.contain('fake/entry.js')
   })
 })
 

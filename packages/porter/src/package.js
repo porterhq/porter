@@ -614,11 +614,16 @@ module.exports = class Package {
     const fpath = path.join(dest, name, version, file)
 
     debug(`compile ${name}/${version}/${file} start`)
+    const mod = this.files[entries[0]]
     const result = file.endsWith('.js') && (opts.package || opts.all)
       ? await this.bundle(entries, opts)
-      : await this.files[entries[0]].minify()
+      : await mod.minify()
 
     const { code, map } = this.setSourceMap({ file, ...result })
+    if (mod.fake) {
+      delete this.files[mod.file]
+      delete this.entries[mod.file]
+    }
     if (!opts.writeFile) return { code, map }
 
     await mkdirp(path.dirname(fpath))
