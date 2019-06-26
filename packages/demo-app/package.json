@@ -1,5 +1,5 @@
 {
-  "name": "@cara/porter-app",
+  "name": "@cara/demo-app",
   "description": "A web app built with koa and porter",
   "version": "3.0.6",
   "private": true,

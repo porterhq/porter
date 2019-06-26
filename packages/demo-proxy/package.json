@@ -1,6 +1,6 @@
 {
-  "name": "@cara/porter-proxy",
-  "description": "A Porter proxy demo",
+  "name": "@cara/demo-proxy",
+  "description": "A demo proxy with FakePackage",
   "version": "3.0.6",
   "private": true,
   "dependencies": {

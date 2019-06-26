@@ -24,7 +24,7 @@ describe('package.parseFile()', function() {
   })
 
   it('parse into recursive dependencies map by traversing components', function() {
-    expect(porter.package.name).to.be('@cara/porter-app')
+    expect(porter.package.name).to.be('@cara/demo-app')
     expect(porter.package.dependencies.yen.version).to.equal('1.2.4')
   })
 

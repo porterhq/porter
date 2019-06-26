@@ -49,7 +49,7 @@ In `app.css`, we can `@import` css dependencies:
 The files shall be organized like below.
 
 ```bash
-➜  porter-demo git:(master) tree -L 2 -I node_modules
+➜  demo-cli git:(master) tree -L 2 -I node_modules
 .
 ├── components
 │   ├── app.css
@@ -62,7 +62,7 @@ The files shall be organized like below.
 We can now start the app with Porter.
 
 ```bash
-➜  porter-demo git:(master) npx porter serve
+➜  demo-cli git:(master) npx porter serve
 Server started at 5000
 ```
 
@@ -74,7 +74,7 @@ Porter consists of two major packages, [porter](https://github.com/erzu/porter/t
 
 The rest of the packages are mostly for demo or test purpose. For users interested in porter-cli,
 
-- porter-component may be referenced as a demo of using porter-cli to develop a browser module.
-- porter-demo may be referenced as a demo of using porter-cli to develop a web application.
+- demo-component may be referenced as a demo of using porter-cli to develop a browser module.
+- demo-cli may be referenced as a demo of using porter-cli to develop a web application.
 
-As of porter-app, users interested in porter the middleware may take the `app.js` in porter-app for example. Many options of porter the middleware, and edge cases of browser modules in NPM, are tested in porter-app. Pardon if you find the code within porter-app a bit messy.
+As of demo-app, users interested in porter the middleware may take the `app.js` in demo-app for example. Many options of porter the middleware, and edge cases of browser modules in NPM, are tested in demo-app. Pardon if you find the code within demo-app a bit messy.

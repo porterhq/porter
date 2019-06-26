@@ -1,0 +1,21 @@
+{
+  "name": "@cara/demo-postcss",
+  "description": "a demo of custom postcss plugins",
+  "version": "3.0.6",
+  "private": true,
+  "dependencies": {
+    "@cara/porter": "^3.0.6",
+    "koa": "^2.6.2",
+    "koa-static": "^5.0.0"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "postcss-preset-env": "^6.6.0"
+  },
+  "scripts": {
+    "coveralls": "nyc --no-clean --cwd ../.. mocha --exit --timeout 10000",
+    "coverage": "nyc mocha --exit --timeout 10000",
+    "start": "DEBUG=porter,$DEBUG node-dev app.js",
+    "test": "DEBUG=porter,$DEBUG mocha --exit --timeout 10000"
+  }
+}

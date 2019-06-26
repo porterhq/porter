@@ -7,8 +7,8 @@ const path = require('path')
 const { spawn } = require('child_process')
 
 const cmd = path.join(__dirname, '../bin/porter-serve.js')
-const componentRoot = path.join(__dirname, '../../porter-component')
-const appRoot = path.join(__dirname, '../../porter-app')
+const componentRoot = path.join(__dirname, '../../demo-component')
+const appRoot = path.join(__dirname, '../../demo-app')
 
 describe('porter-serve --port', function() {
   it('should be able to change port with --port', async function() {

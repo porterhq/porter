@@ -1,7 +1,7 @@
 'use strict'
 
 var $ = require('yen')
-require('@cara/porter-component')
+require('@cara/demo-component')
 var expect = require('expect.js')
 
 describe('yen.fn.reveal()', function() {

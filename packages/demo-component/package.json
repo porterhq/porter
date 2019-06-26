@@ -1,5 +1,5 @@
 {
-  "name": "@cara/porter-component",
+  "name": "@cara/demo-component",
   "description": "A component managed by porter-cli",
   "version": "3.0.6",
   "private": true,

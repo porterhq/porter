@@ -5,7 +5,7 @@ const path = require('path')
 const { readFile } = require('mz/fs')
 const matchRequire = require('../lib/matchRequire')
 
-const root = path.join(__dirname, '../../porter-app')
+const root = path.join(__dirname, '../../demo-app')
 
 describe('matchRequire', function() {
   it('match require call statement', async function () {

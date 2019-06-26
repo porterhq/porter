@@ -1,13 +1,13 @@
 'use strict'
 
 const atImport = require('postcss-import')
+const autoprefixer = require('autoprefixer')
 const crypto = require('crypto')
 const debug = require('debug')('porter')
 const fs = require('mz/fs')
 const mime = require('mime')
 const path = require('path')
 const postcss = require('postcss')
-const postcssPresetEnv = require('postcss-preset-env')
 const rimraf = require('rimraf')
 const { SourceMapGenerator } = require('source-map')
 const util = require('util')
@@ -22,16 +22,6 @@ const mkdirp = util.promisify(require('mkdirp'))
 const rExt = /\.(?:css|gif|jpg|jpeg|js|png|svg|swf|ico)$/i
 const { rModuleId } = require('./module')
 
-const defaultPresetEnvOpts = {
-  stage: 2,
-  features: {
-    'nesting-rules': true
-  },
-  browserlist: [
-    '> 1%',
-    'not ie < 8'
-  ],
-}
 
 class Porter {
   constructor(opts) {
@@ -67,14 +57,16 @@ class Porter {
     this.lazyload = [].concat(opts.lazyload || [])
 
     this.source = { serve: false, root: '/', ...opts.source }
-    this.cssLoader = postcss().use(
+    this.cssLoader = postcss([
       atImport({
         path: paths,
         resolve: this.atImportResolve.bind(this)
       })
-    )
+    ])
 
-    this.cssTranspiler = postcss().use(postcssPresetEnv(Object.assign({}, defaultPresetEnvOpts, { autoprefixer : opts.autoprefixer }, opts.postcssPresetEnv)))
+    this.cssTranspiler = postcss(
+      (opts.postcssPlugins || []).concat(autoprefixer(opts.autoprefixer))
+    )
     this.ready = this.prepare(opts)
   }
 

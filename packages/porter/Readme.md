@@ -35,10 +35,10 @@ app.use(porter.func())
 
 ## Modules
 
-With the default setup, browser modules at `./components` folder is now accessible with `/path/to/file.js` or `/${pkg.name}/${pkg.version}/path/to/file.js`. Take [porter-demo](https://github.com/erzu/porter/packages/porter-demo) for example, the file structure shall resemble that of below:
+With the default setup, browser modules at `./components` folder is now accessible with `/path/to/file.js` or `/${pkg.name}/${pkg.version}/path/to/file.js`. Take [demo-cli](https://github.com/erzu/porter/packages/demo-cli) for example, the file structure shall resemble that of below:
 
 ```bash
-➜  porter-demo git:(master) tree -L 2
+➜  demo-cli git:(master) tree -L 2
 .
 ├── components        # browser modules
 │   ├── app.css
@@ -200,7 +200,7 @@ Assume the root package is:
 
 ```json
 {
-  "name": "@cara/porter-demo",
+  "name": "@cara/demo-cli",
   "version": "2.0.0"
 }
 ```
@@ -223,7 +223,7 @@ After `porter.compileAll({ entries: ['app.js'] })`, the files in `./public` shou
 ```bash
 public
 ├── @cara
-│   └── porter-app
+│   └── demo-app
 │       └── 2.0.0-3
 |           ├── app.js
 |           └── app.js.map

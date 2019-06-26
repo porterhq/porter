@@ -9,7 +9,7 @@ const serve = require('koa-static')
 async function createApp() {
   // existing app
   const app = new Koa()
-  const root = path.join(__dirname, '../porter-app')
+  const root = path.join(__dirname, '../demo-app')
   const porter = new Porter({
     root,
     paths: ['components', 'browser_modules' ],

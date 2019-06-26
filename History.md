@@ -118,7 +118,7 @@
 ==================
 
   * New: porter-serve --headless
-  * Fix: allow require components of current app by fullname, such as `require('@cara/porter-component')`
+  * Fix: allow require components of current app by fullname, such as `require('@cara/demo-component')`
 
 1.0.0 / 2018-02-11
 ==================

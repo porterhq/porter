@@ -26,7 +26,7 @@ or as one of the project's `devDependencies`:
 Conventionally, the structure of web application should look like below:
 
 ```bash
-➜  porter-demo git:(master) tree -L 2
+➜  demo-cli git:(master) tree -L 2
 .
 ├── components        # browser modules
 │   ├── app.css
@@ -43,23 +43,23 @@ Conventionally, the structure of web application should look like below:
 It's worth noting that the frontend code of the web application above is in the directory `./components`, which is the default load paths for browser modules. To start the web app, the default settings shall suffice:
 
 ```bash
-➜  porter-demo git:(master) npx porter serve
+➜  demo-cli git:(master) npx porter serve
 Server started at 5000
 ```
 
 The equivalent command of the above is:
 
 ```bash
-➜  porter-demo git:(master) npx porter serve --paths components --dest public --port 5000
+➜  demo-cli git:(master) npx porter serve --paths components --dest public --port 5000
 Server started at 5000
 ```
 
 ## Developing Browser Modules
 
-Unlike web applications, when developing isolated browser modules (that is meant to be shared as an npm package), the code resides in package root rather than `./components`. Take [porter-component](https://github.com/erzu/porter/tree/master/packages/porter-component) for example.
+Unlike web applications, when developing isolated browser modules (that is meant to be shared as an npm package), the code resides in package root rather than `./components`. Take [demo-component](https://github.com/erzu/porter/tree/master/packages/demo-component) for example.
 
 ```bash
-➜  porter-component git:(master) tree . -I node_modules
+➜  demo-component git:(master) tree . -I node_modules
 .
 ├── index.js
 ├── package.json
@@ -70,7 +70,7 @@ Unlike web applications, when developing isolated browser modules (that is meant
 To start the server for this browser module, we need to change the default paths.
 
 ```bash
-➜  porter-component git:(master) npx porter serve --paths .
+➜  demo-component git:(master) npx porter serve --paths .
 Server started at 5000
 ```
 
@@ -79,9 +79,9 @@ A default `/runner.html` is provided as well, which use Mocha as the test framew
 To run the test cases automatically at command line, just pass the `--headless` option.
 
 ```bash
-➜  porter-component git:(master) npx porter serve --paths . --headless --suite test/suite.js
+➜  demo-component git:(master) npx porter serve --paths . --headless --suite test/suite.js
 
-> @cara/porter-component@2.0.0-3 test /Users/nil/Projects/erzu/porter/packages/porter-component
+> @cara/demo-component@2.0.0-3 test /Users/nil/Projects/erzu/porter/packages/demo-component
 > DEBUG=porter,$DEBUG porter serve --paths . --headless
 
 Server started at 50106
@@ -100,7 +100,7 @@ Porter CLI has [Mocha](http://mochajs.org/) opt-in, which means with the default
 3. `/runner.js` tries to load `test/suite.js`, which is the default entry of current package's test cases.
 4. `mocha.run()` at last.
 
-As the developer of current package, no matter it's web application or browser module, the only thing to worry about here is how to put down meaningful test cases into `test/suite.js`. Take the [test cases of porter-app](https://github.com/erzu/porter/tree/master/packages/porter-app/browser_modules/test/suite.js) for example, `test/suite.js` is just an entry of test cases.
+As the developer of current package, no matter it's web application or browser module, the only thing to worry about here is how to put down meaningful test cases into `test/suite.js`. Take the [test cases of demo-app](https://github.com/erzu/porter/tree/master/packages/demo-app/browser_modules/test/suite.js) for example, `test/suite.js` is just an entry of test cases.
 
 We can override the default Mocha settings by search parameters, such as <http://localhost:5000/runner.html?ui=tdd&timeout=60000>.
 
@@ -114,7 +114,7 @@ This puts Porter CLI in headless mode, which not only start the server, but also
 
 ```json
 {
-  "name": "@cara/porter-component",
+  "name": "@cara/demo-component",
   "devDependencies": {
     "@cara/porter-cli": "^2.0.0-3"
   },

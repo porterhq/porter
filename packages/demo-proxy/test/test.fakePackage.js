@@ -2,7 +2,7 @@
 
 const expect = require('expect.js')
 const request = require('supertest')
-const porter = require('../../porter-app/lib/porter-default')
+const porter = require('../../demo-app/lib/porter-default')
 let proxyApp
 
 function requestPath(urlPath, status = 200, listener = proxyApp.callback()) {
