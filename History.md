@@ -1,3 +1,8 @@
+3.1.0 / 2019-06-26
+==================
+
+  * New: customize postcss plugins with `opts.postcssPlugins`
+
 3.0.6 / 2019-02-28
 ==================
 
