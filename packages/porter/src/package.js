@@ -179,6 +179,7 @@ module.exports = class Package {
           } catch (err) {
             throw new Error(`${err.message} (${configPath})`)
           }
+          break
         }
       }
       // If enabled but not specified any transpiler, use the default one.
