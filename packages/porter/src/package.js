@@ -196,7 +196,12 @@ module.exports = class Package {
     if (process.env.NODE_ENV !== 'production' && (!this.parent || this.transpiler) && !this.watchers) {
       this.watchers = this.paths.map(dir => {
         debug('watching %s', dir)
-        return fs.watch(dir, { persistent: false, recursive: true }, this.watch.bind(this))
+        const watchOpts = {
+          persistent: false,
+          // https://nodejs.org/api/fs.html#fs_fs_watch_filename_options_listener
+          recursive: process.platform !== 'linux',
+        };
+        return fs.watch(dir, watchOpts, this.watch.bind(this))
       })
     }
   }

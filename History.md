@@ -4,7 +4,7 @@
   * Fix: .Map not found
 
 
-3.1.1~3.1.2 / 2019-12-12
+3.1.2 / 2019-12-12
 ==================
 
   * Fix: break if babel config were found first
