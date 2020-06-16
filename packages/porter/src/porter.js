@@ -317,6 +317,13 @@ class Porter {
     return [code, { 'Last-Modified': mtime }]
   }
 
+  async readMap(id) {
+    const fpath = path.join(this.cache.dest, id)
+    if (existsSync(fpath)) {
+      return this.readFilePath(fpath)
+    }
+  }
+
   async readFile(file, query) {
     await this.ready
 
@@ -344,6 +351,9 @@ class Porter {
     }
     else if (ext === '.css') {
       result = await this.readCss(file, query)
+    }
+    else if (ext === '.map') {
+      result = await this.readMap(file)
     }
     else if (rExt.test(ext)) {
       const [fpath] = await pkg.resolve(file)
