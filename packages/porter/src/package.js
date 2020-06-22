@@ -16,6 +16,7 @@ const Module = require('./module')
 const CssModule = require('./cssModule')
 const JsModule = require('./jsModule')
 const JsonModule = require('./jsonModule')
+const WasmModule = require('./wasmModule')
 
 /**
  * Leave the factory method of Module here to keep from cyclic dependencies.
@@ -28,6 +29,8 @@ Module.create = function(opts) {
       return new CssModule(opts)
     case '.json':
       return new JsonModule(opts)
+    case '.wasm':
+      return new WasmModule(opts)
     default:
       return new JsModule(opts)
   }
@@ -65,7 +68,8 @@ module.exports = class Package {
       this.transpilerOpts = pkg.babel
     }
 
-    const main = typeof pkg.browser == 'string' ? pkg.browser : pkg.main
+    // should prefer pkg.module but since we don't have tree shaking yet...
+    const main = typeof pkg.browser == 'string' ? pkg.browser : (pkg.main || pkg.module)
     this.main = main ? main.replace(/^\.\//, '') : 'index.js'
 
     if (typeof pkg.browser == 'object') {
@@ -273,16 +277,25 @@ module.exports = class Package {
     const { browser, files, folder } = this
     const originFile = file
 
+    // "browser" mapping in package.json
     file = (browser[`./${file}`] || browser[`./${file}.js`] || file).replace(/^[\.\/]+/, '')
+
+    // explicit directory require
     if (file.endsWith('/')) file += 'index.js'
-    if (!['.css', '.js', '.json'].includes(path.extname(file))) file += '.js'
+
+    // extension duduction
+    if (!['.css', '.js', '.json', '.wasm'].includes(path.extname(file))) {
+      file += '.js'
+    }
+
+    // if parsed already
     if (file in files) return files[file]
 
     const [fpath, suffix] = await this.resolve(file)
 
     if (fpath) {
-      const fPath = (await glob(fpath, { nocase: true, cwd: this.dir}))[0]
-      if (fpath !== fPath) throw new Error(`case mismatch ${file} (${fPath})`)
+      const realpath = (await glob(fpath, { nocase: true, cwd: this.dir}))[0]
+      if (fpath !== realpath) throw new Error(`case mismatch ${file} (${realpath})`)
       if (suffix.includes('/index')) {
         file = file.replace(/\.\w+$/, suffix)
         folder[originFile] = true
@@ -296,7 +309,7 @@ module.exports = class Package {
 
   async parseEntry(entry) {
     // entry is '' when `require('foo/')`, should fallback to `this.main`
-    if (!entry) entry = this.main
+    if (!entry) entry = this.module || this.main
     const { app, dir, entries, name, version, files } = this
     const mod = await this.parseModule(entry)
 
@@ -529,6 +542,7 @@ module.exports = class Package {
       if (loaderConfig.preload && mod.preloaded && !ancestor.isPreload) return
       if (opts.minify && mod.name == 'heredoc') return
       if (mod.package !== pkg && mod.package.isolated && !ancestor.isPreload) return
+      if (mod.isolated) return
 
       done[mod.id] = true
       for (const child of mod.children) await traverse(child, ancestor)
