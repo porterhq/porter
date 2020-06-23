@@ -273,6 +273,7 @@
         if (mod.status < MODULE_FETCHED) mod.status = MODULE_FETCHED
         mod.uri = uri
         mod.ignite()
+        fetching[uri] = null
       })
     }
   }
