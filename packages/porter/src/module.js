@@ -48,7 +48,7 @@ module.exports = class Module {
         iterable.done[this.id] = true
         for (const child of Object.values(this.children)) {
           if (iterable.done[child.id]) continue
-          if (child.family) {
+          if (child instanceof Module){
             yield* Object.assign(child.family, { done: iterable.done })
           }
         }
