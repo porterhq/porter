@@ -337,7 +337,7 @@ module.exports = class Package {
   }
 
   /**
-   * Parse an entry that has code or deps (or both) specified already..
+   * Parse an entry that has code or deps (or both) specified already.
    * @param {Object} opts
    * @param {string} opts.entry
    * @param {string[]} opts.deps
