@@ -44,16 +44,16 @@ module.exports = class Module {
   get family() {
     const iterable = { done: {} }
     iterable[Symbol.iterator] = function* () {
-      if (!iterable.done[this.id]) {
-        iterable.done[this.id] = true
+      const { done } = iterable;
+      if (!done[this.id]) {
+        done[this.id] = true
         for (const child of Object.values(this.children)) {
-          if (iterable.done[child.id]) continue
-          if (child instanceof Module){
-            yield* Object.assign(child.family, { done: iterable.done })
+          if (child instanceof Module && !done[child.id]) {
+            yield* Object.assign(child.family, { done })
           }
         }
-        yield this
       }
+      yield this
     }.bind(this)
     return iterable
   }
