@@ -1,0 +1,15 @@
+{
+  "name": "@cara/hello-wasm",
+  "collaborators": [
+    "Chen Yangjian <252317+cyjake@users.noreply.github.com>"
+  ],
+  "version": "0.1.0",
+  "files": [
+    "hello_wasm_bg.wasm",
+    "hello_wasm.js",
+    "hello_wasm.d.ts"
+  ],
+  "module": "hello_wasm.js",
+  "types": "hello_wasm.d.ts",
+  "sideEffects": false
+}
