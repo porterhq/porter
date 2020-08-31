@@ -229,6 +229,7 @@
     this.factory = opts.factory
     this.exports = {}
     this.status = MODULE_INIT
+    this.meta = { url: baseUrl + id }
     registry[id] = this
   }
 
@@ -358,8 +359,9 @@
     }
     mod.status = MODULE_LOADED
 
+    // function(require, exports, module, __module) {}
     var exports = typeof factory === 'function'
-      ? factory.call(null, require, mod.exports, mod)
+      ? factory.call(null, require, mod.exports, mod, mod)
       : factory
 
     if (exports) mod.exports = exports

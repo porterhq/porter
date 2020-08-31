@@ -324,6 +324,25 @@ class Porter {
     }
   }
 
+  async readWasm(id) {
+    let [, name, version, file] = id.match(rModuleId)
+    let pkg
+
+    if (!version) {
+      pkg = this.package
+      name = pkg.name
+      version = pkg.version
+      file = id
+    } else {
+      pkg = this.package.find({ name, version })
+    }
+
+    const mod = await pkg.parseFile(file)
+    const { code } = await mod.obtain()
+    const mtime = (await lstat(mod.fpath)).mtime.toJSON()
+    return [code, { 'Last-Modified': mtime }]
+  }
+
   async readFile(file, query) {
     await this.ready
 
@@ -354,6 +373,9 @@ class Porter {
     }
     else if (ext === '.map') {
       result = await this.readMap(file)
+    }
+    else if (ext === '.wasm') {
+      result = await this.readWasm(file)
     }
     else if (rExt.test(ext)) {
       const [fpath] = await pkg.resolve(file)

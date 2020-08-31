@@ -98,7 +98,7 @@ module.exports = class JsModule extends Module {
 
     return {
       code: [
-        `define(${JSON.stringify(id)}, ${JSON.stringify(deps)}, function(require, exports, module) {${code}`,
+        `define(${JSON.stringify(id)}, ${JSON.stringify(deps)}, function(require, exports, module, __module) {${code}`,
         '})'
       ].join('\n'),
       map
