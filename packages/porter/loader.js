@@ -92,6 +92,7 @@
       })
       el.async = true
       el.src = url
+      el.crossOrigin = ''
 
       // baseElement cannot be undefined in IE8-.
       head.insertBefore(el, baseElement)
