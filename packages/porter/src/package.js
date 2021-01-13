@@ -630,8 +630,7 @@ module.exports = class Package {
 
     const { name, version } = this
     const { dest } = this.app
-    const file = this.bundleEntry || entries[0]
-    const fpath = path.join(dest, name, version, file)
+    let file = this.bundleEntry || entries[0]
 
     debug(`compile ${name}/${version}/${file} start`)
     const mod = this.files[entries[0]]
@@ -645,6 +644,13 @@ module.exports = class Package {
       delete this.entries[mod.file]
     }
     if (!opts.writeFile) return { code, map }
+
+    if (this.bundleEntry) {
+      // md5 by content
+      this.bundleEntry = `~bundle-${crypto.createHash('md5').update(result.code).digest('hex').slice(0, 8)}.js`
+      file = this.bundleEntry
+    }
+    const fpath = path.join(dest, name, version, file)
 
     await mkdirp(path.dirname(fpath))
     await Promise.all([
