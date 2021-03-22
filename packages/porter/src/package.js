@@ -280,6 +280,9 @@ module.exports = class Package {
     // "browser" mapping in package.json
     file = (browser[`./${file}`] || browser[`./${file}.js`] || file).replace(/^[\.\/]+/, '')
 
+    // if the mapped result is empty, default to index.js
+    if (!file) file = 'index.js'
+
     // explicit directory require
     if (file.endsWith('/')) file += 'index.js'
 
