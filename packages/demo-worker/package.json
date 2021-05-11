@@ -1,10 +1,9 @@
 {
-  "name": "@cara/demo-wasm",
-  "description": "A WebAssembly consumption demo",
+  "name": "@cara/demo-worker",
+  "description": "A Web Worker demo",
   "version": "3.2.3",
   "private": true,
   "dependencies": {
-    "@cara/hello-wasm": "file:../hello-wasm/pkg",
     "@cara/porter": "^3.2.3",
     "koa": "^2.4.1",
     "koa-static": "^4.0.2",

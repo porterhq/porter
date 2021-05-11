@@ -495,39 +495,41 @@
   // certain browserify style packages' use global instead of window for better inter-op
   global.global = global
 
-  /**
-   * <script src="/loader.js" data-main="app"></script>
-   */
-  var currentScript = document.currentScript
+  if (global.document) {
+    /**
+     * <script src="/loader.js" data-main="app"></script>
+     */
+    var currentScript = document.currentScript
 
-  /**
-   * This works in IE 6-10
-   */
-  if (!currentScript) {
-    var scripts = document.getElementsByTagName('script')
-    for (var i = scripts.length - 1; i >= 0; i--) {
-      var script = scripts[i]
-      if (script.readyState == 'interactive') {
-        currentScript = script
-        break
+    /**
+     * This works in IE 6-10
+     */
+    if (!currentScript) {
+      var scripts = document.getElementsByTagName('script')
+      for (var i = scripts.length - 1; i >= 0; i--) {
+        var script = scripts[i]
+        if (script.readyState == 'interactive') {
+          currentScript = script
+          break
+        }
       }
     }
-  }
 
-  /**
-   * This should only be necessary in IE 11 because it's the only browser that does
-   * not support `document.currentScript`, or `script.readyState`.
-   */
-  if (!currentScript) {
-    try {
-      currentScript = document.querySelector('script[data-main]')
-    } catch (err) {
-      // ignored
+    /**
+     * This should only be necessary in IE 11 because it's the only browser that does
+     * not support `document.currentScript`, or `script.readyState`.
+     */
+    if (!currentScript) {
+      try {
+        currentScript = document.querySelector('script[data-main]')
+      } catch (err) {
+        // ignored
+      }
     }
-  }
 
-  if (currentScript) {
-    var main = currentScript.getAttribute('data-main')
-    if (main) system['import'](main)
+    if (currentScript) {
+      var main = currentScript.getAttribute('data-main')
+      if (main) system['import'](main)
+    }
   }
 })(this)
