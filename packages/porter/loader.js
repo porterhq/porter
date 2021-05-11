@@ -40,7 +40,8 @@
   var lock = system.lock
   var registry = system.registry
   var preload = system.preload
-  var baseUrl = system.baseUrl.replace(/([^\/])$/, '$1/')
+  var basePath = system.baseUrl.replace(/([^\/])$/, '$1/')
+  var baseUrl = new URL(basePath, global.location.origin).toString()
   var pkg = system.package
 
 
@@ -196,11 +197,11 @@
     if (name in lock) {
       var meta = lock[name][version]
       if (meta.bundle) {
-        return baseUrl + resolve(name, version, meta.bundle)
+        return basePath + resolve(name, version, meta.bundle)
       }
     }
 
-    var url = baseUrl + id
+    var url = basePath + id
     if (registry[id].parent.id in system.entries) url += '?entry'
     return url
   }
@@ -356,7 +357,7 @@
 
     require.async = importFactory(context)
     require.resolve = function(specifier) {
-      return baseUrl + Module.resolve(specifier, mod.id)
+      return basePath + Module.resolve(specifier, mod.id)
     }
     mod.status = MODULE_LOADED
 
@@ -460,7 +461,7 @@
 
   function workerFactory(context) {
     return function(id) {
-      var url = baseUrl + resolve(context, suffix(id))
+      var url = basePath + resolve(context, suffix(id))
       return function createWorker() {
         return new Worker([url, 'main'].join(url.indexOf('?') > 0 ? '&' : '?'))
       }
