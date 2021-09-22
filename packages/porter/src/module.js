@@ -3,7 +3,6 @@
 const crypto = require('crypto')
 const debug = require('debug')('porter')
 const path = require('path')
-const querystring = require('querystring')
 const { access, writeFile } = require('mz/fs')
 const util = require('util')
 
@@ -136,7 +135,10 @@ module.exports = class Module {
       dep = segments.pop()
       for (const segment of segments) {
         const [loader, opts] = segment.split('?')
-        loaders[loader] = querystring.parse(opts)
+        const searchParams = new URLSearchParams(opts)
+        const result = {}
+        for (const key of searchParams.keys()) result[key] = searchParams.get(key)
+        loaders[loader] = result
       }
     }
 

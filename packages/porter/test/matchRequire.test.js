@@ -3,6 +3,7 @@
 const expect = require('expect.js')
 const path = require('path')
 const { readFile } = require('mz/fs')
+
 const matchRequire = require('../lib/matchRequire')
 
 const root = path.join(__dirname, '../../demo-app')

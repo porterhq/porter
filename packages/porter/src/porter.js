@@ -201,7 +201,7 @@ class Porter {
     if (!this.source.serve) return false
 
     if (file.startsWith('node_modules')) {
-      const [, name] = file.replace(/^node_modules\//, '').replace(/^_(?:@[^\/]+\/)?[^@]+@[^@]+@/, '').match(rModuleId)
+      const [, name] = file.replace(/^node_modules\//, '').replace(/^_@?[^@]+@[^@]+@/, '').match(rModuleId)
       // #1 cannot require('mocha') just yet
       return this.package.find({ name }) || name == 'mocha'
     }

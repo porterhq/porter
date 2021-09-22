@@ -2,9 +2,10 @@
 
 const path = require('path')
 const expect = require('expect.js')
-const Porter = require('@cara/porter')
 
-const root = path.join(__dirname, '..')
+const Porter = require('..')
+
+const root = path.resolve(__dirname, '../../demo-app')
 const porter = new Porter({ root, preload: 'preload' })
 
 describe('.compileEntry({ entry, code })', function () {
