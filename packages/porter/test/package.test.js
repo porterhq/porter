@@ -3,15 +3,15 @@
 const assert = require('assert').strict
 const path = require('path')
 const expect = require('expect.js')
-const { readFile } = require('mz/fs')
+const { readFile } = require('fs').promises
 const semver = require('semver')
 const exec = require('child_process').execSync
-const Porter = require('@cara/porter')
 const util = require('util')
 
 const glob = util.promisify(require('glob'))
 
-const root = path.join(__dirname, '..')
+const Porter = require('..')
+const root = path.resolve(__dirname, '../../demo-app')
 const porter = new Porter({
   root,
   paths: ['components', 'browser_modules'],

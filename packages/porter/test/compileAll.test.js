@@ -3,13 +3,13 @@
 const path = require('path')
 const expect = require('expect.js')
 const exec = require('child_process').execSync
-const Porter = require('@cara/porter')
 const util = require('util')
+const { readFile } = require('fs').promises
 
+const Porter = require('..')
 const glob = util.promisify(require('glob'))
-const { readFile } = require('mz/fs')
 
-const root = path.join(__dirname, '..')
+const root = path.resolve(__dirname, '../../demo-app')
 const porter = new Porter({
   root,
   paths: ['components', 'browser_modules'],
@@ -28,6 +28,7 @@ describe('porter.compileAll()', function() {
     })
     entries = await glob('public/**/*.{css,js,map}', { cwd: root })
   })
+
 
   it('should compile entries with same-package dependencies bundled', async function () {
     const { name, version } = porter.package

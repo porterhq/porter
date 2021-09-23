@@ -5,7 +5,6 @@ const debug = require('debug')('porter')
 const fs = require('mz/fs')
 const looseEnvify = require('loose-envify')
 const path = require('path')
-const querystring = require('querystring')
 const { SourceMapConsumer, SourceMapGenerator, SourceNode } = require('source-map')
 const UglifyJS = require('uglify-js')
 const util = require('util')
@@ -478,7 +477,9 @@ module.exports = class Package {
 
   async minifyLoader(loaderConfig = {}) {
     const { loaderCache } = this
-    const cacheKey = querystring.stringify(loaderConfig)
+    const searchParams = new URLSearchParams();
+    for (const key in loaderConfig) searchParams.set(key, loaderConfig[key])
+    const cacheKey = searchParams.toString()
     if (loaderCache[cacheKey]) return loaderCache[cacheKey]
     const code = await this.parseLoader(loaderConfig)
 

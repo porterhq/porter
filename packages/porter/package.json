@@ -11,7 +11,7 @@
     "access": "public"
   },
   "dependencies": {
-    "autoprefixer": "^9.6.0",
+    "autoprefixer": "^10.3.5",
     "debug": "^3.1.0",
     "glob": "^7.0.5",
     "js-tokens": "^4.0.0",
@@ -21,6 +21,7 @@
     "mz": "^2.6.0",
     "postcss": "^8.2.10",
     "postcss-import": "^12.0.1",
+    "postcss-loader": "^6.1.1",
     "rimraf": "^2.6.2",
     "source-map": "^0.7.3",
     "uglify-es": "^3.3.9",
@@ -28,13 +29,14 @@
   },
   "devDependencies": {
     "expect.js": "^0.3.1",
+    "mocha": "^9.1.1",
     "nyc": "^13.1.0",
     "semver": "^4.3.6"
   },
   "scripts": {
     "coveralls": "nyc --no-clean --cwd ../.. mocha --exit --timeout 60000",
     "coverage": "nyc mocha --exit --timeout 60000",
-    "test": "DEBUG=porter mocha --exit --timeout 60000"
+    "test": "DEBUG=porter mocha --require test/hooks.mjs --exit --timeout 60000"
   },
   "engines": {
     "node": ">= 8.6.0"

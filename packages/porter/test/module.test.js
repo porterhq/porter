@@ -2,9 +2,10 @@
 
 const expect = require('expect.js')
 const path = require('path')
-const Porter = require('@cara/porter')
 
-const root = path.join(__dirname, '..')
+const Porter = require('..')
+
+const root = path.resolve(__dirname, '../../demo-app')
 const porter = new Porter({
   root,
   paths: ['components', 'browser_modules'],
