@@ -2,7 +2,6 @@
   "name": "porter-universe",
   "private": true,
   "devDependencies": {
-    "coveralls": "^3.0.2",
     "expect.js": "^0.3.1",
     "lerna": "^2.11.0",
     "mocha": "^5.0.0",
@@ -11,7 +10,6 @@
     "supertest": "^3.0.0"
   },
   "scripts": {
-    "test": "lerna bootstrap && lerna link && lerna run test",
-    "coveralls": "lerna bootstrap && lerna link && rm -rf .nyc_output && lerna run coveralls && nyc report --reporter=text-lcov | coveralls"
+    "test": "lerna bootstrap && lerna link && rm -rf .nyc_output && lerna run coverage && nyc report --reporter=lcov"
   }
 }
