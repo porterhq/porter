@@ -1,0 +1,48 @@
+---
+layout: default
+---
+
+<div id="header">
+  <div class="container-lg px-3">
+    <a class="logo" href="{{ '/' | relative_url }}">Porter</a>
+    <nav>
+      <ul>
+        <li class="nav-item">
+          <a href="{{ '/' | relative_url }}">Home</a>
+        </li>
+        <li class="nav-item">
+          <a href="{{ '/starter' | relative_url }}">Home</a>
+        </li>
+        <li class="nav-item dropdown-trigger">
+          <a href="{{ '/basics' | relative_url }}">Guides</a>
+          <ul class="dropdown-list">
+            <li><a href="{{ '/basics' | relative_url }}">Basics</a></li>
+            <li><a href="{{ '/modules' | relative_url }}">Modules</a></li>
+            <li><a href="{{ '/packets' | relative_url }}">Packets</a></li>
+            <li><a href="{{ '/dynamic-import' | relative_url }}">Dynamic Import</a></li>
+            <li><a href="{{ '/wasm' | relative_url }}">WebAssembly</a></li>
+          </ul>
+        </li>
+        <li class="nav-item">
+          <a href="{{ '/contributing/guides' | relative_url }}">How to Contribute</a>
+        </li>
+        <li class="nav-item dropdown-trigger">
+          <a href="{{ page.url | prepend: '/zh' | relative_url }}">中文</a>
+        </li>
+      </ul>
+    </nav>
+  </div>
+</div>
+<div class="container-lg px-3 my-5 markdown-body">
+  {% if page.title and site.title != page.title %}
+    <h1><a href="{{ page.url | absolute_url }}">{{ page.title }}</a></h1>
+  {% endif %}
+
+  {{ content }}
+
+  {% if site.github.private != true and site.github.license %}
+  <div class="footer border-top border-gray-light mt-5 pt-3 text-right text-gray">
+    This site is open source. {% github_edit_link "Improve this page" %}.
+  </div>
+  {% endif %}
+</div>

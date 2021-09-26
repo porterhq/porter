@@ -1,0 +1,48 @@
+---
+layout: default
+---
+
+<div id="header">
+  <div class="container-lg px-3">
+    <a class="logo" href="{{ '/zh' | relative_url }}">Porter</a>
+    <nav>
+      <ul>
+        <li class="nav-item">
+          <a href="{{ '/zh' | relative_url }}">首页</a>
+        </li>
+        <li class="nav-item">
+          <a href="{{ '/zh/starter' | relative_url }}">快速上手</a>
+        </li>
+        <li class="nav-item dropdown-trigger">
+          <a href="{{ '/zh/basics' | relative_url }}">帮助手册</a>
+          <ul class="dropdown-list">
+            <li><a href="{{ '/zh/basics' | relative_url }}">基础说明</a></li>
+            <li><a href="{{ '/zh/modules' | relative_url }}">模块</a></li>
+            <li><a href="{{ '/zh/packets' | relative_url }}">包</a></li>
+            <li><a href="{{ '/zh/dynamic-import' | relative_url }}">动态加载</a></li>
+            <li><a href="{{ '/zh/wasm' | relative_url }}">WebAssembly</a></li>
+          </ul>
+        </li>
+        <li class="nav-item">
+          <a href="{{ '/zh/contributing/guides' | relative_url }}">如何参与</a>
+        </li>
+        <li class="nav-item dropdown-trigger">
+          <a href="{{ page.url | replace: '/zh', '' | relative_url }}">English</a>
+        </li>
+      </ul>
+    </nav>
+  </div>
+</div>
+<div class="container-lg px-3 my-5 markdown-body">
+  {% if page.title and site.title != page.title %}
+    <h1><a href="{{ page.url | absolute_url }}">{{ page.title }}</a></h1>
+  {% endif %}
+
+  {{ content }}
+
+  {% if site.github.private != true and site.github.license %}
+  <div class="footer border-top border-gray-light mt-5 pt-3 text-right text-gray">
+    站点开源，{% github_edit_link "修改页面" %}。
+  </div>
+  {% endif %}
+</div>

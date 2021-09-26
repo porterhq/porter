@@ -5,7 +5,7 @@
 const program = require('commander')
 
 program
-  .option('-D --dest [dest]', 'public folder', 'public')
+  .option('-D --dest [dest]', 'distribute folder', 'dist')
   .option('-E --entry [entry]', 'entry module', '')
   .option('-P --package', 'bundle dependencies at package scope')
 
