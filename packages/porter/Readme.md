@@ -26,9 +26,6 @@ const app = new Koa()
 const porter = new Porter()
 app.use(porter.async())
 
-// koa 1.x
-app.use(porter.gen())
-
 // express
 app.use(porter.func())
 ```

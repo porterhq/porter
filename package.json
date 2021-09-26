@@ -1,5 +1,5 @@
 {
-  "name": "porter-universe",
+  "name": "@cara/porter-workspace",
   "private": true,
   "devDependencies": {
     "expect.js": "^0.3.1",
