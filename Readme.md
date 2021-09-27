@@ -9,7 +9,7 @@ Porter is a bundler which makes web applications with hybrid module formats easi
 
 It is recommended starting with our [starter](https://erzu.github.io/porter/starter) documentation or the thorough [user guides](https://erzu.github.io/porter/basics).
 
-推荐阅读《[快速上手](https://erzu.github.io/porter/zh/starter)》和《[帮助手册]](https://erzu.github.io/porter/zh/basics)》。
+推荐阅读《[快速上手](https://erzu.github.io/porter/zh/starter)》和《[帮助手册](https://erzu.github.io/porter/zh/basics)》。
 
 ## Packages
 
@@ -26,4 +26,4 @@ As of demo-app, users interested in porter the middleware may take the `app.js` 
 
 To learn more about the project setup of Porter, please read our [contributing guides](https://erzu.github.io/porter/contributing/guides).
 
-无论是提问题还是需求，是参与开发还是编写文档，我们都非常欢迎大家参与，可以阅读我们的《[如何参与](https://erzu.github.io/porter/zh/contributing/guides)》帮助文档了解更多。
+无论是提问题还是需求，是参与开发还是编写文档，Porter 都非常需要大家的参与，欢迎阅读《[如何参与](https://erzu.github.io/porter/zh/contributing/guides)》一文了解更多。

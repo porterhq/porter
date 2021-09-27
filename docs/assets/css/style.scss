@@ -125,7 +125,7 @@
     }
 
     a.logo {
-      background: url("{{ site.baseurl }}/favicon.ico") no-repeat 32px 8px;
+      background: url("{{ site.baseurl }}/favicon.svg") no-repeat 32px 8px;
       background-size: 40px;
       display: block;
       height: 56px;
@@ -202,6 +202,7 @@
 
 @media(min-width: 1600px) {
   #header {
+    width: auto;
     min-width: 230px;
   }
 }

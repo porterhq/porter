@@ -52,7 +52,7 @@ $ npm run test -- test/module.test.js
 
 ## 编写帮助文档
 
-Porter 的帮助文档使用 Github Pages 服务自动构建，Github Pages 是 Github 基于 Jekyll 命令提供的静态站点发布服务，Jekyll 的具体安装方式可以参考 [macOS 安装 Ruby](https://mac.install.guide/ruby/index.html)，或者参考 Moncef Belyamani 的 [Ruby 安装脚本](https://www.moncefbelyamani.com/ruby-script/)。如果你只想要安装 Jekyll，也可以使用 HomeBrew 安装 Ruby，然后再安装 Jekyll 即可：
+Porter 的帮助文档使用 GitHub Pages 服务自动构建，GitHub Pages 是 Github 基于 Jekyll 命令提供的静态站点发布服务，Jekyll 的具体安装方式可以参考 [macOS 安装 Ruby](https://mac.install.guide/ruby/index.html)，或者参考 Moncef Belyamani 的 [Ruby 安装脚本](https://www.moncefbelyamani.com/ruby-script/)。如果你只想要安装 Jekyll，也可以使用 Homebrew 安装 Ruby，然后再安装 Jekyll 即可：
 
 ```bash
 $ brew install ruby

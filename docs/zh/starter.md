@@ -9,7 +9,7 @@ title: 快速上手
 1. 目录
 {:toc}
 
-## 配置开发环境
+## 开发环境
 
 假设我们要开始编写一个前端项目，这个项目没有服务段逻辑，只需要完成前端 HTML/JavaScript/CSS 的编写，有前端依赖比如 React、PrismJS 等需要通过 npm 安装：
 
@@ -91,7 +91,7 @@ ReactDOM.render(<App />, document.querySelector('#ReactApp'));
 
 也可以克隆 [Porter 源码](https://github.com/erzu/porter)，访问 packages/demo-cli 目录了解这个演示应用。
 
-### 启动开发环境
+### 启动
 
 运行 `@cara/porter-cli` 提供的 porter 命令，启动开发环境：
 
