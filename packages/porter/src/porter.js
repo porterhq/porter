@@ -290,7 +290,7 @@ class Porter {
     const result = await pkg.bundle(entries, { minify: false, all: this.preload.length > 0 })
     const { code } = await this.writeSourceMap({ id, name, ...result })
 
-    return [code, { 'Last-Modified': new Date() }]
+    return [code, { 'Last-Modified': (new Date()).toGMTString() }]
   }
 
   async readJs(id, query) {
@@ -301,7 +301,7 @@ class Porter {
     if (!mod) return
 
     const { fake, package: pkg } = mod
-    const mtime = fake ? new Date() : (await lstat(mod.fpath)).mtime.toJSON()
+    const mtime = fake ? (new Date()).toGMTString() : (await lstat(mod.fpath)).mtime.toJSON()
 
     const { preload } = pkg.app
     const result = await pkg.bundle([mod.file], {
@@ -356,7 +356,7 @@ class Porter {
     else if (file === 'loaderConfig.json') {
       result = [
         JSON.stringify(Object.assign(pkg.loaderConfig, { lock: pkg.lock })),
-        { 'Last-Modified': new Date() }
+        { 'Last-Modified': (new Date()).toGMTString() }
       ]
     }
     else if (await this.isRawFile(file)) {
