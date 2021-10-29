@@ -1,18 +1,18 @@
-'use strict'
+'use strict';
 
-const crypto = require('crypto')
-const debug = require('debug')('porter')
-const path = require('path')
-const UglifyJS = require('uglify-js')
-const { readFile } = require('mz/fs')
+const crypto = require('crypto');
+const debug = require('debug')('porter');
+const path = require('path');
+const UglifyJS = require('uglify-js');
+const { readFile } = require('mz/fs');
 
-const Module = require('./module')
-const deheredoc = require('../lib/deheredoc')
-const matchRequire = require('../lib/matchRequire')
+const Module = require('./module');
+const deheredoc = require('../lib/deheredoc');
+const matchRequire = require('../lib/matchRequire');
 
 module.exports = class JsModule extends Module {
   matchImport(code) {
-    return matchRequire.findAll(code)
+    return matchRequire.findAll(code);
   }
 
   /**
@@ -21,79 +21,79 @@ module.exports = class JsModule extends Module {
    * @param {string} code
    */
   async browserify(fpath, code) {
-    const { package: pkg } = this
-    const transforms = (pkg.browserify && pkg.browserify.transform) || []
-    const whitelist = ['envify', 'loose-envify', 'brfs']
-    let stream
+    const { package: pkg } = this;
+    const transforms = (pkg.browserify && pkg.browserify.transform) || [];
+    const whitelist = ['envify', 'loose-envify', 'brfs'];
+    let stream;
 
     for (const name of transforms) {
       if (whitelist.includes(name)) {
         const factory = name == 'envify' || name == 'loose-envify'
           ? require('loose-envify')
-          : pkg.tryRequire(name)
+          : pkg.tryRequire(name);
         const transform = factory(fpath, {
           RBOWSER: true,
           NODE_ENV: process.env.NODE_ENV || 'development',
-        })
+        });
         // normally `transform.end()` should return itself but brfs doesn't yet
-        stream = stream ? stream.pipe(transform) : transform.end(code) || transform
+        stream = stream ? stream.pipe(transform) : transform.end(code) || transform;
       }
     }
 
-    if (!stream) return code
+    if (!stream) return code;
     return new Promise(resolve => {
-      let buf = ''
-      stream.on('data', chunk => buf += chunk)
-      stream.on('end', () => resolve(buf))
-    })
+      let buf = '';
+      stream.on('data', chunk => buf += chunk);
+      stream.on('end', () => resolve(buf));
+    });
   }
 
   /**
    * parse the module code and contruct dependencies.
    */
   async parse() {
-    if (this.loaded) return
-    this.loaded = true
+    if (this.loaded) return;
+    this.loaded = true;
 
-    const { package: pkg } = this
-    const { code } = await this.load()
-    let deps = this.deps || this.matchImport(code).filter(dep => pkg.browser[dep] !== false)
+    const { package: pkg } = this;
+    const { code } = await this.load();
+    let deps = this.deps || this.matchImport(code).filter(dep => pkg.browser[dep] !== false);
 
-    const fpath = path.join(pkg.app.cache.dest, this.id)
-    const cache = await readFile(`${fpath}.cache`, 'utf8').catch(() => {})
+    const fpath = path.join(pkg.app.cache.dest, this.id);
+    const cache = await readFile(`${fpath}.cache`, 'utf8').catch(() => {});
 
     if (cache) {
-      const data = JSON.parse(cache)
+      const data = JSON.parse(cache);
       if (data.digest === crypto.createHash('md5').update(code).digest('hex')) {
-        this.cache = data
+        this.cache = data;
       }
     }
 
-    await Promise.all(deps.map(this.parseDep, this))
+    await Promise.all(deps.map(this.parseDep, this));
   }
 
   async load() {
-    const { fpath } = this
-    const source = this.code || await readFile(fpath, 'utf8')
-    const code = await this.browserify(fpath, source)
-    return { code }
+    const { fpath } = this;
+    const source = this.code || await readFile(fpath, 'utf8');
+    const code = await this.browserify(fpath, source);
+    return { code };
   }
 
   async transpile({ code, map }) {
-    const { id, deps } = this
-    let result
+    const { id, deps } = this;
+    let result;
 
     try {
-      result = await this._transpile({ code, map })
+      result = await this._transpile({ code, map });
     } catch (err) {
-      debug('unable to transpile %s', this.fpath)
-      throw err
+      debug('unable to transpile %s', this.fpath);
+      throw err;
     }
 
     // if fpath is ignored, @babel/core returns nothing
     if (result) {
-      code = result.code
-      map = result.map
+      code = result.code;
+      map = result.map;
     }
 
     return {
@@ -102,51 +102,51 @@ module.exports = class JsModule extends Module {
         '})'
       ].join('\n'),
       map
-    }
+    };
   }
 
   async minify() {
-    if (this.cache && this.cache.minified) return this.cache
+    if (this.cache && this.cache.minified) return this.cache;
 
-    const { code, map } = await this.load()
-    const deps = this.deps || this.matchImport(code)
+    const { code, map } = await this.load();
+    const deps = this.deps || this.matchImport(code);
     for (let i = deps.length - 1; i >= 0; i--) {
-      if (deps[i].endsWith('heredoc')) deps.splice(i, 1)
+      if (deps[i].endsWith('heredoc')) deps.splice(i, 1);
     }
-    this.deps = deps
+    this.deps = deps;
     this.addCache(code, {
       ...this.tryUglify(await this.transpile({ code, map })),
       minified: true
-    })
+    });
 
-    return this.cache
+    return this.cache;
   }
 
   transpileTypeScript({ code, }) {
-    const { fpath, id, package: pkg } = this
-    const ts = pkg.tryRequire('typescript')
+    const { fpath, id, package: pkg } = this;
+    const ts = pkg.tryRequire('typescript');
 
-    if (!ts) return { code }
+    if (!ts) return { code };
 
-    const { compilerOptions } = pkg.transpilerOpts
+    const { compilerOptions } = pkg.transpilerOpts;
     const { outputText, diagnostics, sourceMapText } = ts.transpileModule(code, {
       compilerOptions: { ...compilerOptions, module: 'commonjs' }
-    })
-    const map = JSON.parse(sourceMapText)
+    });
+    const map = JSON.parse(sourceMapText);
 
-    map.sources = [path.relative(pkg.app.root, fpath)]
-    map.file = id
-    map.sourceRoot = '/'
+    map.sources = [path.relative(pkg.app.root, fpath)];
+    map.file = id;
+    map.sourceRoot = '/';
 
     if (diagnostics.length) {
       for (const diagnostic of diagnostics) {
         if (diagnostic.file) {
-          let { line, character } = diagnostic.file.getLineAndCharacterOfPosition(diagnostic.start)
-          let message = ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')
-          console.log(`${diagnostic.file.fileName} (${line + 1},${character + 1}): ${message}`)
+          let { line, character } = diagnostic.file.getLineAndCharacterOfPosition(diagnostic.start);
+          let message = ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n');
+          console.log(`${diagnostic.file.fileName} (${line + 1},${character + 1}): ${message}`);
         }
         else {
-          console.log(`${ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')}`)
+          console.log(`${ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')}`);
         }
       }
     }
@@ -154,14 +154,14 @@ module.exports = class JsModule extends Module {
     return {
       code: outputText.replace(/\/\/# sourceMappingURL=.*$/, ''),
       map
-    }
+    };
   }
 
   async transpileEcmaScript({ code, }) {
-    const { fpath, package: pkg } = this
-    const babel = pkg.tryRequire('@babel/core')
+    const { fpath, package: pkg } = this;
+    const babel = pkg.tryRequire('@babel/core');
 
-    if (!babel) return { code }
+    if (!babel) return { code };
 
     return await babel.transform(code, {
       ...pkg.transpilerOpts,
@@ -172,50 +172,50 @@ module.exports = class JsModule extends Module {
       filenameRelative: path.relative(pkg.dir, fpath),
       sourceFileName: path.relative(pkg.dir, fpath),
       // root: pkg.dir
-    })
+    });
   }
 
   async _transpile({ code, map }) {
-    const { fpath, package: pkg } = this
+    const { fpath, package: pkg } = this;
 
     /**
      * `babel.transform` finds presets and plugins relative to `fpath`. If `fpath`
      * doesn't start with pkg.dir, it's quite possible that the needed presets or
      * plugins might not be found.
      */
-    if (!fpath.startsWith(pkg.dir)) return { code, map }
+    if (!fpath.startsWith(pkg.dir)) return { code, map };
 
     switch (pkg.transpiler) {
     case 'babel':
-      return this.transpileEcmaScript({ code, map })
+      return this.transpileEcmaScript({ code, map });
     case 'typescript':
-      return this.transpileTypeScript({ code, map })
+      return this.transpileTypeScript({ code, map });
     default:
-      return { code, map }
+      return { code, map };
     }
   }
 
   tryUglify({ code, map }) {
     try {
-      return this.uglify({ code, map }, UglifyJS)
+      return this.uglify({ code, map }, UglifyJS);
     } catch (err) {
-      return this.uglify({ code, map }, require('uglify-es'))
+      return this.uglify({ code, map }, require('uglify-es'));
     }
   }
 
   uglify({ code, map }, uglifyjs) {
-    const { fpath } = this
-    const source = path.relative(this.package.app.root, fpath)
+    const { fpath } = this;
+    const source = path.relative(this.package.app.root, fpath);
     const parseResult = uglifyjs.minify({ [source]: code }, {
       parse: {},
       compress: false,
       mangle: false,
       output: { ast: true, code: false }
-    })
+    });
 
     if (parseResult.error) {
-      const err = parseResult.error
-      throw new Error(`${err.message} (${err.filename}:${err.line}:${err.col})`)
+      const err = parseResult.error;
+      throw new Error(`${err.message} (${err.filename}:${err.line}:${err.col})`);
     }
 
     const result = uglifyjs.minify(deheredoc(parseResult.ast), {
@@ -235,12 +235,12 @@ module.exports = class JsModule extends Module {
         content: map,
         root: '/'
       }
-    })
+    });
 
     if (result.error) {
-      const err = result.error
-      throw new Error(`${err.message} (${err.filename}:${err.line}:${err.col})`)
+      const err = result.error;
+      throw new Error(`${err.message} (${err.filename}:${err.line}:${err.col})`);
     }
-    return result
+    return result;
   }
-}
+};

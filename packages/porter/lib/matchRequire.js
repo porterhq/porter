@@ -1,11 +1,11 @@
-'use strict'
+'use strict';
 
-const jsTokens = require('js-tokens').default
+const jsTokens = require('js-tokens').default;
 
-const rEqualOp = /^===?$/
-const rNotEqualOp = /^!==?$/
-const rSpace = /^\s+$/
-const rString = /^(['"'])([^\1]+)\1$/
+const rEqualOp = /^===?$/;
+const rNotEqualOp = /^!==?$/;
+const rSpace = /^\s+$/;
+const rString = /^(['"'])([^\1]+)\1$/;
 
 /**
  * Finds all of the dependencies `require`d or `import`ed in the code passed in.
@@ -13,77 +13,77 @@ const rString = /^(['"'])([^\1]+)\1$/
  * @returns {Array}
  */
 exports.findAll = function(content) {
-  const parts = content.match(jsTokens)
-  const deps = []
-  let i = 0
-  let part
+  const parts = content.match(jsTokens);
+  const deps = [];
+  let i = 0;
+  let part;
 
   function next() {
-    part = parts[i++]
+    part = parts[i++];
   }
 
   function space() {
     do {
-      next()
-    } while (rSpace.test(part))
+      next();
+    } while (rSpace.test(part));
   }
 
   function findRequire() {
     // to rule out module.require()
-    if (parts[i - 2] == '.') return
+    if (parts[i - 2] == '.') return;
 
-    space()
+    space();
     if (part == '(') {
-      space()
-      const m = part.match(rString)
-      space()
+      space();
+      const m = part.match(rString);
+      space();
       if (m && part == ')') {
-        deps.push(m[2])
+        deps.push(m[2]);
       }
     }
   }
 
   // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/import
   function findImport() {
-    space()
+    space();
     // import "foo"
-    const m = part.match(rString)
+    const m = part.match(rString);
     if (m) {
-      deps.push(m[2])
+      deps.push(m[2]);
     } else {
-      findImportFrom()
+      findImportFrom();
     }
   }
 
   function findImportFrom() {
-    while (part && part != 'from') next()
+    while (part && part != 'from') next();
     if (part == 'from') {
-      space()
-      const m = part.match(rString)
-      if (m) deps.push(m[2])
+      space();
+      const m = part.match(rString);
+      if (m) deps.push(m[2]);
     }
   }
 
   function findExportFrom() {
-    while (part && part != '\n' && part != 'from') next()
+    while (part && part != '\n' && part != 'from') next();
     if (part == 'from') {
-      space()
-      const m = part.match(rString)
-      if (m) deps.push(m[2])
+      space();
+      const m = part.match(rString);
+      if (m) deps.push(m[2]);
     }
   }
 
   function findRequireInBlock() {
     if (part == '{') {
       while (part && part != '}') {
-        if (part == 'require') findRequire()
-        next()
+        if (part == 'require') findRequire();
+        next();
       }
     } else {
       // when comes to spaces, `part` can be something like `"\n  "`.
       while (part && part != ';' && part[0] != '\n') {
-        if (part == 'require') findRequire()
-        next()
+        if (part == 'require') findRequire();
+        next();
       }
     }
   }
@@ -105,100 +105,100 @@ exports.findAll = function(content) {
   function sillyEval(temp) {
     if (temp.length == 3 && (rEqualOp.test(temp[1]) || rNotEqualOp.test(temp[1]))) {
       if (rString.test(temp[0]) && rString.test(temp[2])) {
-        return (temp[0].match(rString)[2] == temp[2].match(rString)[2]) == rEqualOp.test(temp[1])
+        return (temp[0].match(rString)[2] == temp[2].match(rString)[2]) == rEqualOp.test(temp[1]);
       }
       else if (temp[0] == 'true' || temp[0] == 'false') {
-        return temp[0] == temp[2]
+        return temp[0] == temp[2];
       }
     }
     else if (temp.length == 1 && (temp[0] == 'true' || temp[0] == 'false')) {
-      return temp[0] == 'true'
+      return temp[0] == 'true';
     }
   }
 
   function skipBlock() {
     if (part == '{') {
-      space()
-      while (part != '}') next()
+      space();
+      while (part != '}') next();
     } else {
-      space()
-      while (part && part != ';' && part[0] != '\n') next()
+      space();
+      while (part && part != ';' && part[0] != '\n') next();
     }
   }
 
   function findConditionalRequire() {
-    space()
-    if (part != '(') return
+    space();
+    if (part != '(') return;
 
-    space()
-    const temp = []
+    space();
+    const temp = [];
     while (part != ')') {
-      if (!rSpace.test(part)) temp.push(part)
-      next()
+      if (!rSpace.test(part)) temp.push(part);
+      next();
     }
-    space()
+    space();
 
-    let result = sillyEval(temp)
+    let result = sillyEval(temp);
     if (result === true) {
-      findRequireInBlock()
-      space()
+      findRequireInBlock();
+      space();
       if (part == 'else') {
-        space()
-        skipBlock()
+        space();
+        skipBlock();
       }
     }
     else if (result === false) {
-      skipBlock()
-      space()
+      skipBlock();
+      space();
       if (part == 'else') {
-        space()
-        findRequireInBlock()
+        space();
+        findRequireInBlock();
       }
     }
   }
 
   function findTernaryRequire() {
-    let prev
+    let prev;
     for (let j = i - 2; j >= 0; j--) {
-      prev = parts[j]
-      if (!rSpace.test(prev)) break
+      prev = parts[j];
+      if (!rSpace.test(prev)) break;
     }
 
     if (prev == 'true') {
       while (part && part != ':') {
-        if (part == 'require') findRequire()
-        next()
+        if (part == 'require') findRequire();
+        next();
       }
-      while (part && part != ';' && part != ')' && part[0] != '\n') next()
+      while (part && part != ';' && part != ')' && part[0] != '\n') next();
     }
     else if (prev == 'false') {
-      while (part && part != ':') next()
+      while (part && part != ':') next();
       while (part && part != ';' && part != ')' && part[0] != '\n') {
-        if (part == 'require') findRequire()
-        next()
+        if (part == 'require') findRequire();
+        next();
       }
     }
   }
 
-  next()
+  next();
   while (part) {
     if (part == 'if') {
-      findConditionalRequire()
+      findConditionalRequire();
     }
     else if (part == '?') {
-      findTernaryRequire()
+      findTernaryRequire();
     }
     else if (part == 'require') {
-      findRequire()
+      findRequire();
     }
     else if (part == 'import') {
-      findImport()
+      findImport();
     }
     else if (part == 'export') {
-      findExportFrom()
+      findExportFrom();
     }
-    next()
+    next();
   }
 
-  return deps
-}
+  return deps;
+};
