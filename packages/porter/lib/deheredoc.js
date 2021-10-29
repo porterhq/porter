@@ -1,10 +1,10 @@
-'use strict'
+'use strict';
 
 /**
  * @module
  */
 
-const UglifyJS = require('uglify-js')
+const UglifyJS = require('uglify-js');
 
 
 /**
@@ -22,41 +22,41 @@ function deheredoc(ast) {
       node.args[0].end.comments_before.length === 1 &&
       node.args[0].end.comments_before[0].type === 'comment2'
     ) {
-      var value = node.args[0].end.comments_before[0].value
-      value = value.replace(/^\s*?\n|\s*\n$/g, '')
-      var arg = node.args[0].argnames[0]
-      var argname = arg ? arg.name : ''
+      var value = node.args[0].end.comments_before[0].value;
+      value = value.replace(/^\s*?\n|\s*\n$/g, '');
+      var arg = node.args[0].argnames[0];
+      var argname = arg ? arg.name : '';
       if (argname === 'raw') {
         // do nothing
       } else if (argname === 'oneline') {
-        value = value.replace(/\s*^\s*|$/mg, '')
+        value = value.replace(/\s*^\s*|$/mg, '');
       } else {
         var shortest = value.split('\n').map(function (str) {
-          return str.match(/^\s*/)[0].length
+          return str.match(/^\s*/)[0].length;
         }).sort(function (a, b) {
-          return a - b
-        })[0]
-        value = value.replace(new RegExp('^.{' + shortest + '}', 'mg'), '')
+          return a - b;
+        })[0];
+        value = value.replace(new RegExp('^.{' + shortest + '}', 'mg'), '');
       }
       return new UglifyJS.AST_String({
         end: node.end,
         start: node.start,
         value
-      })
+      });
     }
     if (node instanceof UglifyJS.AST_Var) {
       if (node.definitions.length === 1 &&
         isHeredocDefinition(node.definitions[0])) {
-        return new UglifyJS.AST_EmptyStatement()
+        return new UglifyJS.AST_EmptyStatement();
       } else {
         node.definitions = node.definitions.filter(function (definition) {
-          return !isHeredocDefinition(definition)
-        })
+          return !isHeredocDefinition(definition);
+        });
       }
     }
-    descend(node, this)
-    return node
-  })
+    descend(node, this);
+    return node;
+  });
 
   /*
    * 要排除的情景：
@@ -76,10 +76,10 @@ function deheredoc(ast) {
       definition.value.expression.expression.name === 'require' &&
       definition.value.expression.args.length === 1 &&
       definition.value.expression.args[0].value.indexOf('heredoc') > -1
-    )
+    );
   }
-  return ast.transform(treeTransformer)
+  return ast.transform(treeTransformer);
 }
 
 
-module.exports = deheredoc
+module.exports = deheredoc;

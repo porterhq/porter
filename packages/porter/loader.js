@@ -3,146 +3,146 @@
 (function(global) {
 
   // do not override
-  if (global.porter) return
+  if (global.porter) return;
 
-  var arrayFn = Array.prototype
+  var arrayFn = Array.prototype;
 
   if (!Object.assign) {
     Object.assign = function() {
-      var args = arrayFn.slice.call(arguments)
-      var target = args.shift()
+      var args = arrayFn.slice.call(arguments);
+      var target = args.shift();
 
       while (args.length) {
-        var source = args.shift()
+        var source = args.shift();
 
         for (var p in source) {
           if (source != null) {
             if (source.hasOwnProperty(p)) {
-              target[p] = source[p]
+              target[p] = source[p];
             }
           }
         }
       }
 
-      return target
-    }
+      return target;
+    };
   }
 
   if (!Date.now) {
     Date.now = function() {
-      return +new Date()
-    }
+      return +new Date();
+    };
   }
 
 
-  var system = { lock: {}, registry: {}, entries: {}, preload: [] }
-  Object.assign(system, process.env.loaderConfig)
-  var lock = system.lock
-  var registry = system.registry
-  var preload = system.preload
-  var basePath = system.baseUrl.replace(/([^\/])$/, '$1/')
-  var baseUrl = new URL(basePath, global.location.origin).toString()
-  var pkg = system.package
+  var system = { lock: {}, registry: {}, entries: {}, preload: [] };
+  Object.assign(system, process.env.loaderConfig);
+  var lock = system.lock;
+  var registry = system.registry;
+  var preload = system.preload;
+  var basePath = system.baseUrl.replace(/([^\/])$/, '$1/');
+  var baseUrl = new URL(basePath, global.location.origin).toString();
+  var pkg = system.package;
 
 
   function onload(el, callback) {
     if ('onload' in el) {
       el.onload = function() {
-        callback()
-      }
+        callback();
+      };
       el.onerror = function() {
-        callback(new Error('Failed to fetch ' + el.src))
-      }
+        callback(new Error('Failed to fetch ' + el.src));
+      };
     }
     else {
       // get called multiple times
       // https://msdn.microsoft.com/en-us/library/ms534359(v=vs.85).aspx
       el.onreadystatechange = function() {
         if (/loaded|complete/.test(el.readyState)) {
-          callback()
+          callback();
         }
-      }
+      };
     }
   }
 
-  var request
+  var request;
 
   if (typeof importScripts == 'function') {
     /* eslint-env worker */
     request = function loadScript(url, callback) {
       try {
-        importScripts(url)
+        importScripts(url);
       } catch (err) {
-        return callback(err)
+        return callback(err);
       }
-      callback()
-    }
+      callback();
+    };
   }
   else {
-    var doc = document
-    var head = doc.head || doc.getElementsByTagName('head')[0] || doc.documentElement
-    var baseElement = head.getElementsByTagName('base')[0] || null
+    var doc = document;
+    var head = doc.head || doc.getElementsByTagName('head')[0] || doc.documentElement;
+    var baseElement = head.getElementsByTagName('base')[0] || null;
 
     request = function loadScript(url, callback) {
-      var el = doc.createElement('script')
+      var el = doc.createElement('script');
 
       onload(el, function(err) {
-        el = el.onload = el.onerror = el.onreadystatechange = null
+        el = el.onload = el.onerror = el.onreadystatechange = null;
         // head.removeChild(el)
-        callback(err)
-      })
-      el.async = true
-      el.src = url
-      el.crossOrigin = ''
+        callback(err);
+      });
+      el.async = true;
+      el.src = url;
+      el.crossOrigin = '';
 
       // baseElement cannot be undefined in IE8-.
-      head.insertBefore(el, baseElement)
-    }
+      head.insertBefore(el, baseElement);
+    };
   }
 
 
   /*
    * resolve paths
    */
-  var RE_DIRNAME = /([^?#]*)\//
+  var RE_DIRNAME = /([^?#]*)\//;
 
   function dirname(fpath) {
-    var m = fpath.match(RE_DIRNAME)
-    return m ? m[1] : '.'
+    var m = fpath.match(RE_DIRNAME);
+    return m ? m[1] : '.';
   }
 
   function resolve() {
-    var args = arrayFn.slice.call(arguments)
-    var levels = []
-    var i = 0
+    var args = arrayFn.slice.call(arguments);
+    var levels = [];
+    var i = 0;
 
     while (i < args.length) {
-      var parts = args[i++].split('/')
-      var j = 0
+      var parts = args[i++].split('/');
+      var j = 0;
       while (j < parts.length) {
-        var part = parts[j++]
+        var part = parts[j++];
         if (part === '..') {
           if (levels.length) {
-            levels.pop()
+            levels.pop();
           } else {
-            throw new Error('Top level reached.')
+            throw new Error('Top level reached.');
           }
         }
         else if (part !== '.' && part !== '.') {
-          levels.push(part)
+          levels.push(part);
         }
       }
     }
 
-    return levels.join('/')
+    return levels.join('/');
   }
 
 
   function suffix(id) {
     if (id.slice(-1) == '/') {
-      return id + 'index.js'
+      return id + 'index.js';
     } else {
-      return /\.(?:css|js)$/.test(id) ? id : id + '.js'
+      return /\.(?:css|js)$/.test(id) ? id : id + '.js';
     }
   }
 
@@ -150,27 +150,27 @@
   /*
    * Resovle id with the version tree
    */
-  var rModuleId = /^((?:@[^\/]+\/)?[^\/]+)(?:\/(\d+\.\d+\.\d+[^\/]*))?(?:\/(.*))?$/
+  var rModuleId = /^((?:@[^\/]+\/)?[^\/]+)(?:\/(\d+\.\d+\.\d+[^\/]*))?(?:\/(.*))?$/;
 
   function parseId(id) {
-    var m = id.match(rModuleId)
-    return { name: m[1], version: m[2], file: m[3] }
+    var m = id.match(rModuleId);
+    return { name: m[1], version: m[2], file: m[3] };
   }
 
 
   function parseMap(uri) {
-    var map = system.map
-    var ret = uri
+    var map = system.map;
+    var ret = uri;
 
     if (map) {
       for (var pattern in map) {
-        ret = uri.replace(new RegExp('^' + pattern), map[pattern])
+        ret = uri.replace(new RegExp('^' + pattern), map[pattern]);
         // Only apply the first matched rule
-        if (ret !== uri) break
+        if (ret !== uri) break;
       }
     }
 
-    return ret
+    return ret;
   }
 
 
@@ -181,37 +181,37 @@
    * - //example.com/baz.js
    * - /qux/quux.js
    */
-  var rUri = /^(?:https?:)?\//
+  var rUri = /^(?:https?:)?\//;
 
   function parseUri(id) {
-    var id = parseMap(id)
+    var id = parseMap(id);
 
-    if (rUri.test(id)) return id
+    if (rUri.test(id)) return id;
 
-    var obj = parseId(id)
-    var name = obj.name
-    var version = obj.version
+    var obj = parseId(id);
+    var name = obj.name;
+    var version = obj.version;
 
     // lock is empty if loader.js is loaded separately, e.g.
     // `<script src="/loader.js" data-main="app.js"></script>`
     if (name in lock) {
-      var meta = lock[name][version]
+      var meta = lock[name][version];
       if (meta.bundle) {
-        return basePath + resolve(name, version, meta.bundle)
+        return basePath + resolve(name, version, meta.bundle);
       }
     }
 
-    var url = basePath + id
-    if (registry[id].parent.id in system.entries) url += '?entry'
-    return url
+    var url = basePath + id;
+    if (registry[id].parent.id in system.entries) url += '?entry';
+    return url;
   }
 
 
-  var MODULE_INIT = 0
-  var MODULE_FETCHING = 1
-  var MODULE_FETCHED = 2
-  var MODULE_LOADED = 3
-  var MODULE_ERROR = 4
+  var MODULE_INIT = 0;
+  var MODULE_FETCHING = 1;
+  var MODULE_FETCHED = 2;
+  var MODULE_LOADED = 3;
+  var MODULE_ERROR = 4;
 
   /**
    * The Module class
@@ -224,150 +224,150 @@
    * new Module('//g.alicdn.com/alilog/mlog/aplus_v2.js')
    */
   function Module(id, opts) {
-    opts = opts || {}
-    this.id = id
-    this.deps = opts.deps
-    this.children = []
-    this.factory = opts.factory
-    this.exports = {}
-    this.status = MODULE_INIT
-    this.meta = { url: baseUrl + id }
-    registry[id] = this
+    opts = opts || {};
+    this.id = id;
+    this.deps = opts.deps;
+    this.children = [];
+    this.factory = opts.factory;
+    this.exports = {};
+    this.status = MODULE_INIT;
+    this.meta = { url: baseUrl + id };
+    registry[id] = this;
   }
 
-  var fetching = {}
-  var predefineModules = []
+  var fetching = {};
+  var predefineModules = [];
 
   function cacheDefine(id, deps, factory) {
-    predefineModules.push([id, deps, factory])
+    predefineModules.push([id, deps, factory]);
   }
 
   function swapDefine() {
     for (var i = 0; i < predefineModules.length; i++) {
-      define.apply(null, predefineModules[i])
+      define.apply(null, predefineModules[i]);
     }
-    predefineModules = []
-    global.define = define
+    predefineModules = [];
+    global.define = define;
     for (var name in system.entries) {
-      var mod = registry[name]
-      mod.status = MODULE_FETCHED
-      mod.ignite()
+      var mod = registry[name];
+      mod.status = MODULE_FETCHED;
+      mod.ignite();
     }
   }
 
   Module.prototype.fetch = function() {
-    var mod = this
+    var mod = this;
 
     if (predefineModules.length > 0) {
       for (var i = 0; i < predefineModules.length; i++) {
         if (predefineModules[i][0] == mod.id) {
-          mod.status = MODULE_FETCHED
+          mod.status = MODULE_FETCHED;
         }
       }
     }
 
     if (mod.status < MODULE_FETCHING) {
-      mod.status = MODULE_FETCHING
-      var uri = parseUri(mod.id)
-      if (fetching[uri]) return
-      fetching[uri] = true
+      mod.status = MODULE_FETCHING;
+      var uri = parseUri(mod.id);
+      if (fetching[uri]) return;
+      fetching[uri] = true;
       request(uri, function(err) {
-        if (err) mod.status = MODULE_ERROR
-        if (mod.status < MODULE_FETCHED) mod.status = MODULE_FETCHED
-        mod.uri = uri
-        mod.ignite()
-        fetching[uri] = null
-      })
+        if (err) mod.status = MODULE_ERROR;
+        if (mod.status < MODULE_FETCHED) mod.status = MODULE_FETCHED;
+        mod.uri = uri;
+        mod.ignite();
+        fetching[uri] = null;
+      });
     }
-  }
+  };
 
-  var rWorkerLoader = /^worker-loader[?!]/
+  var rWorkerLoader = /^worker-loader[?!]/;
 
   Module.prototype.resolve = function() {
-    var mod = this
-    var children = mod.children = []
+    var mod = this;
+    var children = mod.children = [];
 
     if (mod.deps) {
       mod.deps.forEach(function(depName) {
-        if (rWorkerLoader.test(depName)) return
-        var depId = Module.resolve(depName, mod.id)
-        if (depId) children.push(registry[depId] || new Module(depId))
-      })
+        if (rWorkerLoader.test(depName)) return;
+        var depId = Module.resolve(depName, mod.id);
+        if (depId) children.push(registry[depId] || new Module(depId));
+      });
     }
 
     children.forEach(function(child) {
-      if (!child.parent) child.parent = mod
+      if (!child.parent) child.parent = mod;
       setTimeout(function() {
-        child.fetch()
-      }, 0)
-    })
-  }
+        child.fetch();
+      }, 0);
+    });
+  };
 
   Module.prototype.ignite = function() {
-    var allset = true
+    var allset = true;
 
     for (var id in registry) {
       if (registry[id].status < MODULE_FETCHED) {
-        allset = false
-        break
+        allset = false;
+        break;
       }
     }
 
     if (allset && predefineModules.length > 0) {
-      swapDefine()
-      return this.ignite()
+      swapDefine();
+      return this.ignite();
     }
 
     if (allset) {
       // a copy of entry ids is needed because `mod.execute()` might update `system.entries`
-      var ids = Object.keys(system.entries)
+      var ids = Object.keys(system.entries);
       for (var i = 0; i < ids.length; i++) {
-        var mod = registry[ids[i]]
-        clearTimeout(mod.timeout)
-        mod.execute()
+        var mod = registry[ids[i]];
+        clearTimeout(mod.timeout);
+        mod.execute();
       }
     }
-  }
+  };
 
   Module.prototype.execute = function() {
-    var factory = this.factory
-    var mod = this
-    var context = dirname(mod.id)
+    var factory = this.factory;
+    var mod = this;
+    var context = dirname(mod.id);
 
-    if (mod.status >= MODULE_LOADED) return
+    if (mod.status >= MODULE_LOADED) return;
 
     function require(specifier) {
       if (rWorkerLoader.test(specifier)) {
-        return workerFactory(context)(specifier.split('!').pop())
+        return workerFactory(context)(specifier.split('!').pop());
       }
-      var id = Module.resolve(specifier, mod.id)
+      var id = Module.resolve(specifier, mod.id);
       // module might be turned off on purpose with `{ foo: false }` in browser field.
-      if (!id) return {}
-      var dep = registry[id]
+      if (!id) return {};
+      var dep = registry[id];
 
       if (dep.status < MODULE_FETCHED) {
-        throw new Error('Module ' + specifier + ' (' + mod.id + ') is not ready')
+        throw new Error('Module ' + specifier + ' (' + mod.id + ') is not ready');
       }
       else if (dep.status < MODULE_LOADED) {
-        dep.execute()
+        dep.execute();
       }
 
-      return dep.exports
+      return dep.exports;
     }
 
-    require.async = importFactory(context)
+    require.async = importFactory(context);
     require.resolve = function(specifier) {
-      return basePath + Module.resolve(specifier, mod.id)
-    }
-    mod.status = MODULE_LOADED
+      return basePath + Module.resolve(specifier, mod.id);
+    };
+    mod.status = MODULE_LOADED;
 
     // function(require, exports, module, __module) {}
     var exports = typeof factory === 'function'
       ? factory.call(null, require, mod.exports, mod, mod)
-      : factory
+      : factory;
 
-    if (exports) mod.exports = exports
-  }
+    if (exports) mod.exports = exports;
+  };
 
   /**
    * @param {string} specifier
@@ -378,112 +378,112 @@
    * Module.resolve('react', 'app/1.0.0')
    */
   Module.resolve = function(specifier, context) {
-    if (rUri.test(specifier)) return specifier
+    if (rUri.test(specifier)) return specifier;
 
     // if lock is not configured yet (which happens if the app is a work in progress)
-    if (!lock[pkg.name]) return suffix(resolve(pkg.name, pkg.version, specifier))
+    if (!lock[pkg.name]) return suffix(resolve(pkg.name, pkg.version, specifier));
 
-    var parent = parseId(context)
-    var parentMap = lock[parent.name][parent.version]
+    var parent = parseId(context);
+    var parentMap = lock[parent.name][parent.version];
 
     if (parentMap.browser) {
-      var mapped = parentMap.browser[specifier]
-      if (mapped === false) return ''
-      if (mapped) specifier = mapped
+      var mapped = parentMap.browser[specifier];
+      if (mapped === false) return '';
+      if (mapped) specifier = mapped;
     }
 
     var mod = specifier.charAt(0) == '.'
       ? parseId(resolve(dirname(context), specifier))
-      : parseId(specifier)
+      : parseId(specifier);
 
     if (!(mod.name in lock)) {
-      mod = { name: pkg.name, version: pkg.version, file: specifier }
+      mod = { name: pkg.name, version: pkg.version, file: specifier };
     }
-    var name = mod.name
-    var version = mod.version
-    var map
+    var name = mod.name;
+    var version = mod.version;
+    var map;
 
     if (version) {
-      map = lock[name][version]
+      map = lock[name][version];
     }
     if (!version) {
       if (parentMap && parentMap.dependencies && (name in parentMap.dependencies)) {
-        version = parentMap.dependencies[name]
+        version = parentMap.dependencies[name];
       }
       else if (name == pkg.name) {
-        version = pkg.version
+        version = pkg.version;
       }
     }
-    map = lock[name][version]
-    var file = mod.file || map.main || 'index.js'
+    map = lock[name][version];
+    var file = mod.file || map.main || 'index.js';
 
     if (map.browser) {
-      file = map.browser['./' + file] || map.browser['./' + file + '.js'] || file
+      file = map.browser['./' + file] || map.browser['./' + file + '.js'] || file;
     }
-    if (map.folder && map.folder[file]) file += '/index.js'
+    if (map.folder && map.folder[file]) file += '/index.js';
 
-    return resolve(name, version, suffix(file))
-  }
+    return resolve(name, version, suffix(file));
+  };
 
 
   function define(id, deps, factory) {
     if (!factory) {
-      factory = deps
-      deps = []
+      factory = deps;
+      deps = [];
     }
-    id = suffix(id)
-    var mod = registry[id] || new Module(id)
+    id = suffix(id);
+    var mod = registry[id] || new Module(id);
 
-    mod.deps = deps
-    mod.factory = factory
-    mod.status = MODULE_FETCHED
-    mod.resolve()
+    mod.deps = deps;
+    mod.factory = factory;
+    mod.status = MODULE_FETCHED;
+    mod.resolve();
   }
 
-  var importEntryId = 0
+  var importEntryId = 0;
   function importFactory(context) {
     return function(specifiers, fn) {
-      specifiers = [].concat(specifiers)
-      var entryId = resolve(context, 'import-' + (importEntryId++) + '.js')
-      system.entries[entryId] = true
+      specifiers = [].concat(specifiers);
+      var entryId = resolve(context, 'import-' + (importEntryId++) + '.js');
+      system.entries[entryId] = true;
       define(entryId, specifiers, function(require) {
-        var mods = specifiers.map(require)
-        if (fn) fn.apply(null, mods)
-      })
-      var entry = registry[entryId]
+        var mods = specifiers.map(require);
+        if (fn) fn.apply(null, mods);
+      });
+      var entry = registry[entryId];
       entry.timeout = setTimeout(function() {
-        throw new Error('Ignition timeout ' + specifiers.join(', '))
-      }, system.timeout)
+        throw new Error('Ignition timeout ' + specifiers.join(', '));
+      }, system.timeout);
       // Try ignite at the first place, which is necessary when the script is inline.
-      entry.ignite()
-    }
+      entry.ignite();
+    };
   }
 
   function workerFactory(context) {
     return function(id) {
-      var url = basePath + resolve(context, suffix(id))
+      var url = basePath + resolve(context, suffix(id));
       return function createWorker() {
-        return new Worker([url, 'main'].join(url.indexOf('?') > 0 ? '&' : '?'))
-      }
-    }
+        return new Worker([url, 'main'].join(url.indexOf('?') > 0 ? '&' : '?'));
+      };
+    };
   }
 
-  var rootImport = importFactory(pkg.name + '/' + pkg.version)
+  var rootImport = importFactory(pkg.name + '/' + pkg.version);
 
   Object.assign(system, {
     'import': function Porter_import(specifiers, fn) {
       specifiers = preload.concat(specifiers).map(function(specifier) {
-        var mod = parseId(specifier)
-        return suffix(mod.version ? mod.file : specifier)
-      })
+        var mod = parseId(specifier);
+        return suffix(mod.version ? mod.file : specifier);
+      });
       rootImport(specifiers, function() {
-        if (fn) fn.apply(null, arrayFn.slice.call(arguments, preload.length))
-      })
+        if (fn) fn.apply(null, arrayFn.slice.call(arguments, preload.length));
+      });
     }
-  })
+  });
 
-  global.define = preload.length > 0 ? cacheDefine : define
-  global.porter = system
+  global.define = preload.length > 0 ? cacheDefine : define;
+  global.porter = system;
 
   global.process = {
     browser: true,
@@ -491,27 +491,27 @@
       BROWSER: true,
       NODE_ENV: process.env.NODE_ENV
     }
-  }
+  };
 
   // certain browserify style packages' use global instead of window for better inter-op
-  global.global = global
+  global.global = global;
 
   if (global.document) {
     /**
      * <script src="/loader.js" data-main="app"></script>
      */
-    var currentScript = document.currentScript
+    var currentScript = document.currentScript;
 
     /**
      * This works in IE 6-10
      */
     if (!currentScript) {
-      var scripts = document.getElementsByTagName('script')
+      var scripts = document.getElementsByTagName('script');
       for (var i = scripts.length - 1; i >= 0; i--) {
-        var script = scripts[i]
+        var script = scripts[i];
         if (script.readyState == 'interactive') {
-          currentScript = script
-          break
+          currentScript = script;
+          break;
         }
       }
     }
@@ -522,15 +522,15 @@
      */
     if (!currentScript) {
       try {
-        currentScript = document.querySelector('script[data-main]')
+        currentScript = document.querySelector('script[data-main]');
       } catch (err) {
         // ignored
       }
     }
 
     if (currentScript) {
-      var main = currentScript.getAttribute('data-main')
-      if (main) system['import'](main)
+      var main = currentScript.getAttribute('data-main');
+      if (main) system['import'](main);
     }
   }
-})(this)
+})(this);

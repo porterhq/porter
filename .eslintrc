@@ -1,7 +1,8 @@
 {
-  "parser": "babel-eslint",
+  "parser": "@babel/eslint-parser",
   "parserOptions": {
-    "sourceType": "script"
+    "sourceType": "script",
+    "requireConfigFile": false
   },
   "env": {
     "node": true,
@@ -11,7 +12,7 @@
     "curly": [2, "multi-line"],
     "consistent-return": 0,
     "quotes": [2, "single", { "avoidEscape": true }],
-    "semi": [2, "never"],
+    "semi": [2, "always"],
     "strict": [2, "global"],
     "no-const-assign": 2,
     "no-undef": 2,

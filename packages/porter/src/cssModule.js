@@ -1,45 +1,45 @@
-'use strict'
+'use strict';
 
-const path = require('path')
-const { readFile } = require('mz/fs')
+const path = require('path');
+const { readFile } = require('mz/fs');
 
-const Module = require('./module')
+const Module = require('./module');
 
-const rAtImport = /(?:^|\n)\s*@import\s+(['"])([^'"]+)\1;/g
+const rAtImport = /(?:^|\n)\s*@import\s+(['"])([^'"]+)\1;/g;
 
 module.exports = class CssModule extends Module {
   matchImport(code) {
-    const deps = []
-    let m
+    const deps = [];
+    let m;
 
-    rAtImport.lastIndex = 0
+    rAtImport.lastIndex = 0;
     while ((m = rAtImport.exec(code))) {
-      deps.push(m[2])
+      deps.push(m[2]);
     }
 
-    return deps
+    return deps;
   }
 
   /**
    * Parse the module code and contruct dependencies. Unlike {@link JsModule}, CssModule uses the original code to parse dependencies instead because the code returned by {@link CssModule#load} would have `@import`s expanded and replaced.
    */
   async parse() {
-    if (this.loaded) return
-    this.loaded = true
+    if (this.loaded) return;
+    this.loaded = true;
 
-    const { fpath } = this
-    const code = this.code || (await readFile(fpath, 'utf8'))
-    const deps = this.deps || this.matchImport(code)
+    const { fpath } = this;
+    const code = this.code || (await readFile(fpath, 'utf8'));
+    const deps = this.deps || this.matchImport(code);
 
-    await Promise.all(deps.map(this.parseDep, this))
+    await Promise.all(deps.map(this.parseDep, this));
   }
 
   async load() {
-    const { fpath } = this
-    const code = this.code || await readFile(fpath, 'utf8')
+    const { fpath } = this;
+    const code = this.code || await readFile(fpath, 'utf8');
 
-    const { id } = this
-    const { cssLoader, root } = this.package.app
+    const { id } = this;
+    const { cssLoader, root } = this.package.app;
 
     /**
      * `from` must be absolute path to make sure the `baseDir` in
@@ -56,14 +56,14 @@ module.exports = class CssModule extends Module {
         from: path.relative(root, fpath),
         sourcesContent: false
       }
-    })
+    });
 
-    return { code: css, map: map.toJSON() }
+    return { code: css, map: map.toJSON() };
   }
 
   async transpile({ code, map }) {
-    const { fpath, id } = this
-    const { cssTranspiler, root } = this.package.app
+    const { fpath, id } = this;
+    const { cssTranspiler, root } = this.package.app;
 
     /**
      * PostCSS doesn't support sourceRoot yet
@@ -78,16 +78,16 @@ module.exports = class CssModule extends Module {
         from: path.relative(root, fpath),
         sourcesContent: false
       }
-    })
+    });
 
-    map = JSON.parse(result.map)
-    map.sourceRoot = '/'
+    map = JSON.parse(result.map);
+    map.sourceRoot = '/';
 
-    return { code: result.css, map }
+    return { code: result.css, map };
   }
 
   async minify() {
-    const { code, map } = await this.load()
-    return this.transpile({ code, map })
+    const { code, map } = await this.load();
+    return this.transpile({ code, map });
   }
-}
+};
