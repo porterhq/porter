@@ -8,7 +8,7 @@ const { readFile } = require('mz/fs');
 
 const Module = require('./module');
 const deheredoc = require('../lib/deheredoc');
-const matchRequire = require('../lib/matchRequire');
+const matchRequire = require('../lib/match_require');
 
 module.exports = class JsModule extends Module {
   matchImport(code) {
@@ -122,46 +122,17 @@ module.exports = class JsModule extends Module {
     return this.cache;
   }
 
-  transpileTypeScript({ code, }) {
-    const { fpath, id, package: pkg } = this;
-    const ts = pkg.tryRequire('typescript');
-
-    if (!ts) return { code };
-
-    const { compilerOptions } = pkg.transpilerOpts;
-    const { outputText, diagnostics, sourceMapText } = ts.transpileModule(code, {
-      compilerOptions: { ...compilerOptions, module: 'commonjs' }
-    });
-    const map = JSON.parse(sourceMapText);
-
-    map.sources = [path.relative(pkg.app.root, fpath)];
-    map.file = id;
-    map.sourceRoot = '/';
-
-    if (diagnostics.length) {
-      for (const diagnostic of diagnostics) {
-        if (diagnostic.file) {
-          let { line, character } = diagnostic.file.getLineAndCharacterOfPosition(diagnostic.start);
-          let message = ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n');
-          console.log(`${diagnostic.file.fileName} (${line + 1},${character + 1}): ${message}`);
-        }
-        else {
-          console.log(`${ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')}`);
-        }
-      }
-    }
-
-    return {
-      code: outputText.replace(/\/\/# sourceMappingURL=.*$/, ''),
-      map
-    };
-  }
-
-  async transpileEcmaScript({ code, }) {
+  async _transpile({ code, }) {
     const { fpath, package: pkg } = this;
-    const babel = pkg.tryRequire('@babel/core');
+    const babel = pkg.transpiler === 'babel' && pkg.tryRequire('@babel/core');
+    if (!babel) return;
 
-    if (!babel) return { code };
+    /**
+     * `babel.transform` finds presets and plugins relative to `fpath`. If `fpath`
+     * doesn't start with pkg.dir, it's quite possible that the needed presets or
+     * plugins might not be found.
+     */
+     if (!fpath.startsWith(pkg.dir)) return;
 
     return await babel.transform(code, {
       ...pkg.transpilerOpts,
@@ -173,26 +144,6 @@ module.exports = class JsModule extends Module {
       sourceFileName: path.relative(pkg.dir, fpath),
       // root: pkg.dir
     });
-  }
-
-  async _transpile({ code, map }) {
-    const { fpath, package: pkg } = this;
-
-    /**
-     * `babel.transform` finds presets and plugins relative to `fpath`. If `fpath`
-     * doesn't start with pkg.dir, it's quite possible that the needed presets or
-     * plugins might not be found.
-     */
-    if (!fpath.startsWith(pkg.dir)) return { code, map };
-
-    switch (pkg.transpiler) {
-    case 'babel':
-      return this.transpileEcmaScript({ code, map });
-    case 'typescript':
-      return this.transpileTypeScript({ code, map });
-    default:
-      return { code, map };
-    }
   }
 
   tryUglify({ code, map }) {

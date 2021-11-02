@@ -1,6 +1,6 @@
 'use strict';
 
-const Package = require('./package');
+const Package = require('./packet');
 
 /**
  * FakePackage is used to anticipate a Porter project. With FakePackage we can

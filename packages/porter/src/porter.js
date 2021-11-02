@@ -15,8 +15,8 @@ const util = require('util');
 const { existsSync } = fs;
 const { lstat, readFile, writeFile } = fs;
 
-const FakePackage = require('./fakePackage');
-const Package = require('./package');
+const FakePackage = require('./fake_packet');
+const Package = require('./packet');
 const mkdirp = util.promisify(require('mkdirp'));
 
 const rExt = /\.(?:css|gif|jpg|jpeg|js|png|svg|swf|ico)$/i;
@@ -235,12 +235,9 @@ class Porter {
     const pkg = this.package.find({ name, version });
 
     if (pkg) {
-      const mod = await (isEntry ? pkg.parseEntry(file) : pkg.parseFile(file));
-      // make sure the module is accessed with the correct path.
-      if (mod && mod.file === file) return mod;
-    } else {
-      return await this.package.parsePackage({ name, entry: file });
+      return await (isEntry ? pkg.parseEntry(file) : pkg.parseFile(file));
     }
+    return await this.package.parsePackage({ name, entry: file });
   }
 
   async writeSourceMap({ id, isMain, name, code, map }) {

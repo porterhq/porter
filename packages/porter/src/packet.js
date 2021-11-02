@@ -12,10 +12,11 @@ const util = require('util');
 const glob = util.promisify(require('glob'));
 const mkdirp = util.promisify(require('mkdirp'));
 const Module = require('./module');
-const CssModule = require('./cssModule');
-const JsModule = require('./jsModule');
-const JsonModule = require('./jsonModule');
-const WasmModule = require('./wasmModule');
+const CssModule = require('./css_module');
+const JsModule = require('./js_module');
+const TsModule = require('./ts_module');
+const JsonModule = require('./json_module');
+const WasmModule = require('./wasm_module');
 
 /**
  * Leave the factory method of Module here to keep from cyclic dependencies.
@@ -30,6 +31,9 @@ Module.create = function(opts) {
       return new JsonModule(opts);
     case '.wasm':
       return new WasmModule(opts);
+    case '.ts':
+    case '.tsx':
+      return new TsModule(opts);
     default:
       return new JsModule(opts);
   }
@@ -192,9 +196,10 @@ module.exports = class Package {
       }
     }
 
-    this.extensions = this.transpiler == 'typescript'
-      ? ['.js', '.ts', '/index.js', '/index.ts']
-      : ['.js', '/index.js'];
+    this.extensions = [
+      '.js', '.jsx', '/index.js', '/index.jsx',
+      '.ts', '.tsx', '/index.ts', '/index.tsx',
+    ];
 
     if (process.env.NODE_ENV !== 'production' && (!this.parent || this.transpiler) && !this.watchers) {
       this.watchers = this.paths.map(dir => {
@@ -222,9 +227,8 @@ module.exports = class Package {
     const { dest } = app.cache;
     const purge = id => {
       const fpath = path.join(dest, id);
-      return fs.unlink(fpath)
-        .then(() => debug('purge cache %s', fpath))
-        .catch(() => {});
+      debug('purge cache %s', fpath)
+      return fs.unlink(fpath).catch(() => {});
     };
 
     // the module might be `opts.lazyload`ed
@@ -269,7 +273,7 @@ module.exports = class Package {
         // ignored
       }
     }
-    console.error(new Error(`Cannot find module ${name} (${this.dir})`).stack);
+    console.error(new Error(`Cannot find module ${name} (${this.dir})`));
   }
 
   async parseModule(file) {
@@ -286,7 +290,7 @@ module.exports = class Package {
     if (file.endsWith('/')) file += 'index.js';
 
     // extension duduction
-    if (!['.css', '.js', '.json', '.wasm'].includes(path.extname(file))) {
+    if (!['.css', '.js', '.jsx', '.ts', '.tsx', '.json', '.wasm'].includes(path.extname(file))) {
       file += '.js';
     }
 
@@ -298,10 +302,15 @@ module.exports = class Package {
     if (fpath) {
       const fullPath = (await glob(fpath, { nocase: true, cwd: this.dir}))[0];
       if (fpath !== fullPath) throw new Error(`case mismatch ${file} (${fullPath})`);
-      if (suffix.includes('/index')) {
+
+      if ([ '.ts', '.tsx' ].includes(suffix)) {
+        file = file.replace(/\.\w+$/, suffix);
+      }
+      else if (suffix.includes('/index')) {
         file = file.replace(/\.\w+$/, suffix);
         folder[originFile] = true;
       }
+
       // There might be multiple resolves on same file.
       if (file in files) return files[file];
       const mod = Module.create({ file, fpath, pkg: this });
@@ -390,7 +399,7 @@ module.exports = class Package {
 
   async resolve(file) {
     const [, fname, ext] = file.match(/^(.*?)(\.(?:\w+))$/);
-    const suffixes = ext == '.js' ? this.extensions : [ext];
+    const suffixes = /\.[jt]sx?$/.test(ext) ? this.extensions : [ext];
 
     for (const dir of this.paths) {
       for (const suffix of suffixes) {

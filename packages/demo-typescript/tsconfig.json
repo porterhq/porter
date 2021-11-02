@@ -1,9 +1,16 @@
 {
   "compilerOptions": {
+    "outDir": "dist",
     "module": "commonjs",
+    "target": "ES2015",
     "noImplicitAny": true,
-    "removeComments": true,
-    "preserveConstEnums": true,
-    "sourceMap": true
-  }
+    "sourceMap": true,
+    "esModuleInterop": true,
+    "jsx": "react",
+    "allowJs": true,
+    "checkJs": false
+  },
+  "include": [
+    "components"
+  ]
 }
