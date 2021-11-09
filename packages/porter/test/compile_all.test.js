@@ -6,7 +6,7 @@ const exec = require('child_process').execSync;
 const util = require('util');
 const { readFile } = require('fs').promises;
 
-const Porter = require('..');
+const Porter = require('../src/porter');
 const glob = util.promisify(require('glob'));
 
 const root = path.resolve(__dirname, '../../demo-app');

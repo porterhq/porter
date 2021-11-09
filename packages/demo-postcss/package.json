@@ -13,8 +13,6 @@
     "postcss-preset-env": "^6.6.0"
   },
   "scripts": {
-    "coverage": "nyc --no-clean --cwd ../.. mocha --exit --timeout 10000",
-    "start": "DEBUG=porter,$DEBUG node-dev app.js",
-    "test": "DEBUG=porter,$DEBUG mocha --exit --timeout 10000"
+    "start": "DEBUG=porter,$DEBUG node-dev app.js"
   }
 }

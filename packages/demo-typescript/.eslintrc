@@ -1,0 +1,13 @@
+{
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "sourceType": "module"
+  },
+  "plugins": ["jsx", "typescript"],
+  "env": {
+    "browser": true
+  },
+  "rules": {
+    "no-use-before-define": "off"
+  }
+}

@@ -31,7 +31,7 @@ module.exports = class Module {
   }
 
   get id() {
-    return [this.name, this.version, this.file].join('/');
+    return [this.name, this.version, this.file.replace(/\.tsx?/, '.js')].join('/');
   }
 
   get isRootEntry() {

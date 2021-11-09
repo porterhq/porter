@@ -10,7 +10,7 @@ const util = require('util');
 
 const glob = util.promisify(require('glob'));
 
-const Porter = require('..');
+const Porter = require('../src/porter');
 const root = path.resolve(__dirname, '../../demo-app');
 const porter = new Porter({
   root,

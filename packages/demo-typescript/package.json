@@ -8,15 +8,26 @@
   },
   "license": "MIT",
   "devDependencies": {
+    "@babel/core": "^7.15.8",
+    "@babel/preset-env": "^7.15.8",
+    "@babel/preset-react": "^7.14.5",
     "@cara/porter-cli": "^3.2.6",
     "@types/expect.js": "^0.3.29",
+    "@types/mocha": "^9.0.0",
     "@types/prismjs": "^1.9.0",
+    "@types/react": "^17.0.33",
+    "@types/react-dom": "^17.0.10",
+    "@typescript-eslint/parser": "^5.2.0",
+    "eslint-plugin-jsx": "^0.1.0",
+    "eslint-plugin-typescript": "^0.14.0",
     "expect.js": "^0.3.1",
     "mocha": "^3.5.3",
-    "typescript": "^2.8.3"
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2",
+    "typescript": "^4.4.4"
   },
   "scripts": {
-    "start": "DEBUG=porter,$DEBUG porter serve",
-    "test": "DEBUG=porter,$DEBUG porter serve --headless"
+    "start": "rm -rf public && DEBUG=porter,$DEBUG porter serve",
+    "test": "rm -rf public && DEBUG=porter,$DEBUG porter serve --headless"
   }
 }

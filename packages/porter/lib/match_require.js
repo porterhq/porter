@@ -12,7 +12,7 @@ const rString = /^(['"'])([^\1]+)\1$/;
  * @param {string} content
  * @returns {Array}
  */
-exports.findAll = function(content) {
+exports.findAll = function findAll(content) {
   const parts = content.match(jsTokens);
   const deps = [];
   let i = 0;

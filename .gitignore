@@ -1,5 +1,6 @@
 node_modules
 tmp
+dist
 coverage
 .nyc_output
 .porter-cache
