@@ -3,7 +3,7 @@
 const crypto = require('crypto');
 const debug = require('debug')('porter');
 const path = require('path');
-const { access, writeFile } = require('mz/fs');
+const { promises: { access, writeFile } } = require('fs');
 const util = require('util');
 
 const mkdirp = util.promisify(require('mkdirp'));
@@ -11,9 +11,7 @@ const mkdirp = util.promisify(require('mkdirp'));
 const rModuleId = /^((?:@[^\/]+\/)?[^\/]+)(?:\/(\d+\.\d+\.\d+[^\/]*))?(?:\/(.*))?$/;
 
 module.exports = class Module {
-  static get rModuleId() {
-    return rModuleId;
-  }
+  static rModuleId = rModuleId;
 
   constructor({ file, fpath, pkg }) {
     const { moduleCache } = pkg.app;
@@ -31,7 +29,9 @@ module.exports = class Module {
   }
 
   get id() {
-    return [this.name, this.version, this.file.replace(/\.tsx?/, '.js')].join('/');
+    const file = this.file.replace(/\.tsx?/, '.js');
+    if (!this.package.parent) return file;
+    return [this.name, this.version, file].join('/');
   }
 
   get isRootEntry() {

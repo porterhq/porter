@@ -1,17 +1,17 @@
-'use strict'
+'use strict';
 
-require('yen')
+require('yen');
 // require an extra entry to test package bundling
-require('yen/events')
-const Chart = require('chart.js')
-const $ = require('jquery')
-require('cropper')
-const Prism = require('prismjs')
-const heredoc = require('heredoc')
-require('./home-dep')
+require('yen/events');
+const Chart = require('chart.js');
+const $ = require('jquery');
+require('cropper');
+const Prism = require('prismjs');
+const heredoc = require('heredoc');
+require('./home_dep');
 
 // #34
-require('react-datepicker')
+require('react-datepicker');
 
 function htmlSafe(code) {
   return code
@@ -19,7 +19,7 @@ function htmlSafe(code) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;')
+    .replace(/'/g, '&apos;');
 }
 
 function intro() {
@@ -55,16 +55,16 @@ require.async('prismjs', function(Prism) {
 
 body { color: navy; }
 `
-  }
+  };
 
   for (var key in snippets) {
-    $('#example-' + key).html(htmlSafe(snippets[key]).trim())
+    $('#example-' + key).html(htmlSafe(snippets[key]).trim());
   }
 }
 
 function demoChart() {
   // http://www.chartjs.org/docs/latest/
-  const ctx = document.getElementById('example-chart').getContext('2d')
+  const ctx = document.getElementById('example-chart').getContext('2d');
   new Chart(ctx, {
       type: 'bar',
       data: {
@@ -100,7 +100,7 @@ function demoChart() {
               }]
           }
       }
-  })
+  });
 }
 
 function demoCropper() {
@@ -108,22 +108,22 @@ function demoCropper() {
     aspectRatio: 16 / 9,
     zoomOnWheel: false,
     crop: function(e) {
-      console.log(e)
+      console.log(e);
     }
-  })
+  });
 }
 
 function main() {
-  intro()
-  demoChart()
-  demoCropper()
-  Prism.highlightAll()
+  intro();
+  demoChart();
+  demoCropper();
+  Prism.highlightAll();
 
   // test deheredoc
   console.log(heredoc(function() {/*
     Hello world!
-  */}))
+  */}));
 }
 
-main()
+main();
 /* changed jr8pgydh */

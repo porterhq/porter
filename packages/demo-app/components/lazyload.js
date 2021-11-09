@@ -1,3 +1,3 @@
-'use strict'
+'use strict';
 
-console.log('lazyload')
+console.log('lazyload');

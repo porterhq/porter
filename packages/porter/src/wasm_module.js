@@ -1,7 +1,7 @@
 'use strict';
 
+const { promises: { readFile } } = require('fs');
 const Module = require('./module');
-const { readFile } = require('mz/fs');
 
 module.exports = class WasmModule extends Module {
   get isolated() {

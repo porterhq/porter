@@ -1,0 +1,11 @@
+{
+  "name": "@cara/demo-package-babel",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "author": "",
+  "license": "ISC",
+  "babel": {
+    "presets": ["@babel/preset-env"]
+  }
+}

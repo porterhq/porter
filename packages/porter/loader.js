@@ -128,7 +128,7 @@
             throw new Error('Top level reached.');
           }
         }
-        else if (part !== '.' && part !== '.') {
+        else if (part !== '' && part !== '.' && part !== '.') {
           levels.push(part);
         }
       }
@@ -381,10 +381,10 @@
     if (rUri.test(specifier)) return specifier;
 
     // if lock is not configured yet (which happens if the app is a work in progress)
-    if (!lock[pkg.name]) return suffix(resolve(pkg.name, pkg.version, specifier));
+    if (!lock[pkg.name]) return suffix(specifier);
 
     var parent = parseId(context);
-    var parentMap = lock[parent.name][parent.version];
+    var parentMap = parent.version ? lock[parent.name][parent.version] : pkg;
 
     if (parentMap.browser) {
       var mapped = parentMap.browser[specifier];
@@ -422,7 +422,8 @@
     }
     if (map.folder && map.folder[file]) file += '/index.js';
 
-    return resolve(name, version, suffix(file));
+    file = suffix(file);
+    return name === pkg.name ? file : resolve(name, version, file);
   };
 
 
@@ -468,7 +469,7 @@
     };
   }
 
-  var rootImport = importFactory(pkg.name + '/' + pkg.version);
+  var rootImport = importFactory('');
 
   Object.assign(system, {
     'import': function Porter_import(specifiers, fn) {

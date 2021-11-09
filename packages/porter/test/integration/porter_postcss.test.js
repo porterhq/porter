@@ -2,7 +2,7 @@
 
 const assert = require('assert').strict;
 const request = require('supertest');
-const app = require('../../demo-postcss/app');
+const app = require('../../../demo-postcss/app');
 
 describe('opts.postcssPlugins', () => {
   it('should recognize custom postcss plugins', async () => {

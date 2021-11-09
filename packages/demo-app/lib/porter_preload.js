@@ -1,7 +1,7 @@
-'use strict'
+'use strict';
 
-const path = require('path')
-const Porter = require('@cara/porter')
+const path = require('path');
+const Porter = require('@cara/porter');
 
 module.exports = new Porter({
   root: path.join(__dirname, '..'),
@@ -12,4 +12,4 @@ module.exports = new Porter({
     root: 'http://localhost:5000'
   },
   preload: 'preload'
-})
+});
