@@ -1,11 +1,11 @@
-'use strict'
+'use strict';
 
-const Koa = require('koa')
-const serve = require('koa-static')
-const Porter = require('@cara/porter')
-const postcssPresetEnv = require('postcss-preset-env')
+const Koa = require('koa');
+const serve = require('koa-static');
+const Porter = require('@cara/porter');
+const postcssPresetEnv = require('postcss-preset-env');
 
-const app = new Koa()
+const app = new Koa();
 const porter = new Porter({
   root: __dirname,
   source: {
@@ -24,17 +24,17 @@ const porter = new Porter({
       ],
     })
   ]
-})
+});
 
-app.use(serve('views'))
-app.use(serve('public'))
-app.use(porter.async())
+app.use(serve('views'));
+app.use(serve('public'));
+app.use(porter.async());
 
-module.exports = app
+module.exports = app;
 
 if (!module.parent) {
-  const PORT = process.env.PORT || 5000
+  const PORT = process.env.PORT || 5000;
   app.listen(PORT, function() {
-    console.log('Server started at %s', PORT)
-  })
+    console.log('Server started at %s', PORT);
+  });
 }

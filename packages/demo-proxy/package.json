@@ -11,12 +11,10 @@
   "license": "MIT",
   "devDependencies": {
     "expect.js": "^0.3.1",
-    "mocha": "^5.0.0",
-    "node-dev": "^3.1.3"
+    "mocha": "^9.1.1",
+    "node-dev": "^4.0.0"
   },
   "scripts": {
-    "coverage": "nyc --no-clean --cwd ../.. mocha --exit --timeout 10000",
-    "start": "DEBUG=porter,$DEBUG node-dev proxy-app.js",
-    "test": "DEBUG=porter,$DEBUG mocha --exit --timeout 10000"
+    "start": "DEBUG=porter,$DEBUG node-dev proxy-app.js"
   }
 }

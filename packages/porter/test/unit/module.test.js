@@ -2,19 +2,23 @@
 
 const expect = require('expect.js');
 const path = require('path');
-
-const Porter = require('..');
-
-const root = path.resolve(__dirname, '../../demo-app');
-const porter = new Porter({
-  root,
-  paths: ['components', 'browser_modules'],
-  entries: ['home.js', 'test/suite.js']
-});
+const Porter = require('../..');
 
 describe('Module', function() {
+  const root = path.resolve(__dirname, '../../../demo-app');
+  let porter;
+
   beforeEach(async function() {
+    porter = new Porter({
+      root,
+      paths: ['components', 'browser_modules'],
+      entries: ['home.js', 'test/suite.js']
+    });
     await porter.ready;
+  });
+
+  after(async function() {
+    await porter.destroy();
   });
 
   it('should be iteratable with module.family', async function() {

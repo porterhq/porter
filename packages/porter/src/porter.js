@@ -4,15 +4,13 @@ const atImport = require('postcss-import');
 const autoprefixer = require('autoprefixer');
 const crypto = require('crypto');
 const debug = require('debug')('porter');
-const fs = require('mz/fs');
+const { existsSync, promises: fs } = require('fs');
 const mime = require('mime');
 const path = require('path');
 const postcss = require('postcss');
-const rimraf = require('rimraf');
 const { SourceMapGenerator } = require('source-map');
 const util = require('util');
 
-const { existsSync } = fs;
 const { lstat, readFile, writeFile } = fs;
 
 const FakePackage = require('./fake_packet');
@@ -37,7 +35,6 @@ class Porter {
     Object.assign(this, { root, dest, cache, transpile, bundleExcept });
     const pkg = opts.package || require(path.join(root, 'package.json'));
 
-    transpile.only.push(pkg.name);
     cache.dest = path.resolve(root, cache.dest);
 
     this.moduleCache = {};
@@ -125,12 +122,7 @@ class Porter {
     }
 
     const { cache } = this;
-    await new Promise((resolve, reject) => {
-      rimraf(path.join(cache.dest, '**/*.{css,js,map}'), err => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
+    await fs.rm(path.join(cache.dest, '**/*.{css,js,map}'), { recursive: true, force: true });
   }
 
   async compilePackages(opts) {
@@ -174,14 +166,10 @@ class Porter {
     }
 
     debug('compile preload');
+    const manifest = {};
     for (const specifier of this.preload) {
       const entry = (await this.package.parseFile(specifier)).file;
-      await this.package.compile(entry, { all: this.preload.length > 0 });
-    }
-
-    debug('compile entries');
-    for (const entry of entries) {
-      await this.package.compile(entry, { all: this.preload.length > 0 });
+      await this.package.compile(entry, { all: this.preload.length > 0, manifest });
     }
 
     debug('compile lazyload');
@@ -190,6 +178,16 @@ class Porter {
         await mod.package.compile(mod.file, { loader: false, package: false });
       }
     }
+
+    debug('compile entries');
+    if (Object.keys(manifest).length > 0) this.map = { ...this.map, manifest };
+    for (const entry of entries) {
+      await this.package.compile(entry, { all: this.preload.length > 0, manifest });
+    }
+
+    debug('manifest.json');
+    await fs.writeFile(path.join(this.dest, 'manifest.json'), JSON.stringify(manifest, null, 2));
+
     debug('done');
   }
 
@@ -205,6 +203,9 @@ class Porter {
       // #1 cannot require('mocha') just yet
       return this.package.find({ name }) || name == 'mocha';
     }
+
+    // FIXME: packages/demo-component has package paths set to `.` which makes source serving error prone because the pathnames of source and the output are the same.
+    if (this.package.paths.includes(this.root)) return false;
 
     const fpath = path.join(this.root, file);
     for (const dir of this.package.paths) {
@@ -359,7 +360,7 @@ class Porter {
     else if (await this.isRawFile(file)) {
       result = await this.readRawFile(file);
     }
-    else if (/\/~bundle-[0-9a-f]{8}\.js$/.test(file)) {
+    else if (/\/~bundle[.-][0-9a-f]{8}\.js$/.test(file)) {
       result = await this.readBundleJs(file, query);
     }
     else if (ext === '.js') {
@@ -391,6 +392,10 @@ class Porter {
     }
 
     return result;
+  }
+
+  async destroy() {
+    await this.package.destroy();
   }
 
   func() {

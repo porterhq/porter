@@ -1,12 +1,12 @@
 'use strict';
 
-const Package = require('./packet');
+const Packet = require('./packet');
 
 /**
- * FakePackage is used to anticipate a Porter project. With FakePackage we can
+ * FakePacket is used to anticipate a Porter project. With FakePacket we can
  * create Porter instances that maps existing Porter setup.
  */
-module.exports = class FakePackage extends Package {
+module.exports = class FakePacket extends Packet {
   constructor(opts) {
     const { app, dir, paths, package: pkg, lock } = opts;
     super({ app, dir, paths, package: pkg });

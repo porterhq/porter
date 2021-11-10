@@ -12,7 +12,7 @@
   "devDependencies": {
     "@cara/porter-cli": "^3.3.0",
     "expect.js": "^0.3.1",
-    "mocha": "^3.5.3"
+    "mocha": "^9.1.1"
   },
   "scripts": {
     "start": "DEBUG=porter,$DEBUG porter serve",

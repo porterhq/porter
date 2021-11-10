@@ -1,6 +1,6 @@
 'use strict';
 
-const { readFile } = require('mz/fs');
+const { promises: { readFile } } = require('fs');
 
 const Module = require('./module');
 

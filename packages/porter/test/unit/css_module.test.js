@@ -6,22 +6,28 @@ const postcssPresetEnv = require('postcss-preset-env');
 // locked to v1.2.0
 // - https://github.com/leodido/postcss-clean/issues/63
 const clean = require('postcss-clean');
-const Porter = require('../src/porter');
+const Porter = require('../..');
 
-const root = path.resolve(__dirname, '../../demo-app');
-const porter = new Porter({
-  root,
-  paths: ['components', 'browser_modules'],
-  entries: ['home.js', 'stylesheets/app.css'],
-  postcssPlugins: [
-    postcssPresetEnv(),
-    clean()
-  ]
-});
 
 describe('CssModule', function() {
+  const root = path.resolve(__dirname, '../../../demo-app');
+  let porter;
+
   before(async function() {
+    porter = new Porter({
+      root,
+      paths: ['components', 'browser_modules'],
+      entries: ['home.js', 'stylesheets/app.css'],
+      postcssPlugins: [
+        postcssPresetEnv(),
+        clean()
+      ]
+    });
     await porter.ready;
+  });
+
+  after(async function() {
+    await porter.destroy();
   });
 
   it('should transpile css module', async function() {

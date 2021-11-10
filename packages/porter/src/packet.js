@@ -2,7 +2,7 @@
 
 const crypto = require('crypto');
 const debug = require('debug')('porter');
-const fs = require('mz/fs');
+const { existsSync, watch, promises: fs } = require('fs');
 const looseEnvify = require('loose-envify');
 const path = require('path');
 const { SourceMapConsumer, SourceMapGenerator, SourceNode } = require('source-map');
@@ -39,11 +39,9 @@ Module.create = function(opts) {
   }
 };
 
-const { existsSync } = fs;
 const { lstat, readFile, realpath, writeFile } = fs;
 
-
-module.exports = class Package {
+module.exports = class Packet {
   constructor({ app, dir, paths, parent, package: pkg }) {
     // packageCache is necessary because there might be multiple asynchronous parsing tasks on the same package, such as `a => b` and `a => c => b`, which might return multiple package instance of `b` since neither one can find the other during the `Package.create()` call.
     const { packageCache } = app;
@@ -66,7 +64,7 @@ module.exports = class Package {
     this.loaderCache = {};
     this.isolated = app.bundleExcept.includes(pkg.name);
 
-    if (app.transpile.only.includes(pkg.name) && pkg.babel) {
+    if (!parent && pkg.babel) {
       this.transpiler = 'babel';
       this.transpilerOpts = pkg.babel;
     }
@@ -96,7 +94,7 @@ module.exports = class Package {
       if (pkg) return pkg;
     }
 
-    const pkg = new Package({ dir, parent, app, package: data });
+    const pkg = new Packet({ dir, parent, app, package: data });
     await pkg.prepare();
     return pkg;
   }
@@ -172,9 +170,9 @@ module.exports = class Package {
 
   async prepare() {
     await this.parseDepPaths();
-
     const { name, transpiler, app } = this;
-    if (app.transpile.only.includes(name) && !transpiler) {
+
+    if (this === app.package && !transpiler) {
       const obj = { babel: '.babelrc', typescript: 'tsconfig.json' };
       for (const prop in obj) {
         const configPath = path.join(this.dir, obj[prop]);
@@ -189,11 +187,11 @@ module.exports = class Package {
           break;
         }
       }
-      // If enabled but not specified any transpiler, use the default one.
-      if (!this.transpiler) {
-        this.transpiler = app.package.transpiler;
-        this.transpilerOpts = app.package.transpilerOpts;
-      }
+    }
+
+    if (app.transpile.only.includes(name) && !transpiler) {
+      this.transpiler = app.package.transpiler;
+      this.transpilerOpts = app.package.transpilerOpts;
     }
 
     this.extensions = [
@@ -209,7 +207,7 @@ module.exports = class Package {
           // https://nodejs.org/api/fs.html#fs_fs_watch_filename_options_listener
           recursive: process.platform !== 'linux',
         };
-        return fs.watch(dir, watchOpts, this.watch.bind(this));
+        return watch(dir, watchOpts, this.watch.bind(this));
       });
     }
   }
@@ -227,7 +225,7 @@ module.exports = class Package {
     const { dest } = app.cache;
     const purge = id => {
       const fpath = path.join(dest, id);
-      debug('purge cache %s', fpath)
+      debug('purge cache %s', fpath);
       return fs.unlink(fpath).catch(() => {});
     };
 
@@ -339,10 +337,10 @@ module.exports = class Package {
           const dep = this.dependencies[depName];
           allEntries.push(...dep.bundleEntries.map(file => [depName, dep.version, file]));
         }
-        this.bundleEntry = `~bundle-${crypto.createHash('md5').update(allEntries.join(',')).digest('hex').slice(0, 8)}.js`;
+        this.bundleEntry = `~bundle.${crypto.createHash('md5').update(allEntries.join(',')).digest('hex').slice(0, 8)}.js`;
       }
       else if (app.preload.length == 0 && bundleEntries.length > 1) {
-        this.bundleEntry = `~bundle-${crypto.createHash('md5').update(bundleEntries.join(',')).digest('hex').slice(0, 8)}.js`;
+        this.bundleEntry = `~bundle.${crypto.createHash('md5').update(bundleEntries.join(',')).digest('hex').slice(0, 8)}.js`;
       }
     }
 
@@ -390,7 +388,7 @@ module.exports = class Package {
       const dir = path.join(depPath, name);
       if (existsSync(dir)) {
         const { app } = this;
-        const pkg = await Package.create({ dir, parent: this, app });
+        const pkg = await Packet.create({ dir, parent: this, app });
         this.dependencies[pkg.name] = pkg;
         return pkg.parseEntry(entry);
       }
@@ -454,10 +452,17 @@ module.exports = class Package {
     const { app, name, version, main } = this;
     const { baseUrl, map, timeout } = app;
     const preload = name == app.package.name ? app.preload : [];
+    const dependencies = Object.values(this.dependencies).reduce((result, dep) => {
+      result[dep.name] = dep.version;
+      return result;
+    }, {});
 
     return {
-      baseUrl, map, preload, timeout,
-      package: { name, version, main },
+      baseUrl,
+      map,
+      preload,
+      package: { name, version, main, dependencies },
+      timeout,
     };
   }
 
@@ -634,6 +639,7 @@ module.exports = class Package {
   async compile(entries, opts) {
     if (!Array.isArray(entries)) entries = [entries];
     opts = { package: true, writeFile: true, ...opts };
+    const { manifest = {} } = opts;
 
     // compile({ entry: 'fake/entry', deps, code }, opts)
     if (typeof entries[0] == 'object') {
@@ -647,7 +653,8 @@ module.exports = class Package {
 
     debug(`compile ${name}/${version}/${file} start`);
     const mod = this.files[entries[0]];
-    const result = file.endsWith('.js') && (opts.package || opts.all)
+    const enableBundle = opts.package || opts.all;
+    const result = file.endsWith('.js') && enableBundle
       ? await this.bundle(entries, opts)
       : await mod.minify();
 
@@ -660,10 +667,16 @@ module.exports = class Package {
 
     if (this.bundleEntry) {
       // md5 by content
-      this.bundleEntry = `~bundle-${crypto.createHash('md5').update(result.code).digest('hex').slice(0, 8)}.js`;
+      const contenthash = crypto.createHash('md5').update(result.code).digest('hex').slice(0, 8);
+      this.bundleEntry = `~bundle.${contenthash}.js`;
       file = this.bundleEntry;
+    } else if (!this.parent && enableBundle) {
+      const contenthash = crypto.createHash('md5').update(result.code).digest('hex').slice(0, 8);
+      const mapped = file.replace(/(\.\w+)$/, `.${contenthash}$1`);
+      manifest[file] = mapped;
+      file = mapped;
     }
-    const fpath = path.join(dest, name, version, file);
+    const fpath = this.parent ? path.join(dest, name, version, file) : path.join(dest, file);
 
     await mkdirp(path.dirname(fpath));
     await Promise.all([
@@ -673,5 +686,11 @@ module.exports = class Package {
       }))
     ]);
     debug(`compile ${name}/${version}/${file} end`);
+  }
+
+  async destroy() {
+    if (Array.isArray(this.watchers)) {
+      for (const watcher of this.watchers) watcher.close();
+    }
   }
 };

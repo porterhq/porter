@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const debug = require('debug')('porter');
 const path = require('path');
 const UglifyJS = require('uglify-js');
-const { readFile } = require('mz/fs');
+const { promises: { readFile } } = require('fs');
 
 const Module = require('./module');
 const deheredoc = require('../lib/deheredoc');
