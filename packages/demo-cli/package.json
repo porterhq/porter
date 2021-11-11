@@ -15,7 +15,7 @@
     "mocha": "^9.1.1"
   },
   "scripts": {
-    "start": "DEBUG=porter,$DEBUG porter serve",
-    "test": "DEBUG=porter,$DEBUG porter serve --headless"
+    "start": "rm -rf public && DEBUG=porter,$DEBUG porter serve",
+    "test": "rm -rf public && DEBUG=porter,$DEBUG porter serve --headless"
   }
 }

@@ -7,12 +7,15 @@ const UglifyJS = require('uglify-js');
 const { promises: { readFile } } = require('fs');
 
 const Module = require('./module');
-const deheredoc = require('../lib/deheredoc');
-const matchRequire = require('../lib/match_require');
+const matchRequire = require('./match_require');
 
 module.exports = class JsModule extends Module {
   matchImport(code) {
-    return matchRequire.findAll(code);
+    const { package: pkg } = this;
+
+    return matchRequire.findAll(code).filter(dep => {
+      return pkg.browser[dep] !== false && dep !== 'heredoc';
+    });
   }
 
   /**
@@ -57,7 +60,7 @@ module.exports = class JsModule extends Module {
 
     const { package: pkg } = this;
     const { code } = await this.load();
-    let deps = this.deps || this.matchImport(code).filter(dep => pkg.browser[dep] !== false);
+    const deps = this.deps || this.matchImport(code);
 
     const fpath = path.join(pkg.app.cache.dest, this.id);
     const cache = await readFile(`${fpath}.cache`, 'utf8').catch(() => {});
@@ -109,13 +112,9 @@ module.exports = class JsModule extends Module {
     if (this.cache && this.cache.minified) return this.cache;
 
     const { code, map } = await this.load();
-    const deps = this.deps || this.matchImport(code);
-    for (let i = deps.length - 1; i >= 0; i--) {
-      if (deps[i].endsWith('heredoc')) deps.splice(i, 1);
-    }
-    this.deps = deps;
+    this.deps = this.deps || this.matchImport(code);
     this.addCache(code, {
-      ...this.tryUglify(await this.transpile({ code, map })),
+      ...this.uglify(await this.transpile({ code, map })),
       minified: true
     });
 
@@ -132,9 +131,10 @@ module.exports = class JsModule extends Module {
      * doesn't start with pkg.dir, it's quite possible that the needed presets or
      * plugins might not be found.
      */
-     if (!fpath.startsWith(pkg.dir)) return;
+    if (!fpath.startsWith(pkg.dir)) return;
 
-    return await babel.transform(code, {
+    const transpileOptions = {
+      plugins: [],
       ...pkg.transpilerOpts,
       sourceMaps: true,
       sourceRoot: '/',
@@ -143,33 +143,23 @@ module.exports = class JsModule extends Module {
       filenameRelative: path.relative(pkg.dir, fpath),
       sourceFileName: path.relative(pkg.dir, fpath),
       // root: pkg.dir
-    });
-  }
+    };
+    const { plugins } = transpileOptions;
 
-  tryUglify({ code, map }) {
-    try {
-      return this.uglify({ code, map }, UglifyJS);
-    } catch (err) {
-      return this.uglify({ code, map }, require('uglify-es'));
+    for (const name of [ '@cara/babel-plugin-import-meta', '@cara/babel-plugin-deheredoc' ]) {
+      if (!plugins.some(plugin => plugin.includes(name))) {
+        plugins.push(require.resolve(name));
+      }
     }
+
+    return await babel.transform(code, transpileOptions);
   }
 
-  uglify({ code, map }, uglifyjs) {
+  uglify({ code, map }) {
     const { fpath } = this;
     const source = path.relative(this.package.app.root, fpath);
-    const parseResult = uglifyjs.minify({ [source]: code }, {
-      parse: {},
-      compress: false,
-      mangle: false,
-      output: { ast: true, code: false }
-    });
 
-    if (parseResult.error) {
-      const err = parseResult.error;
-      throw new Error(`${err.message} (${err.filename}:${err.line}:${err.col})`);
-    }
-
-    const result = uglifyjs.minify(deheredoc(parseResult.ast), {
+    const result = UglifyJS.minify({ [source]: code }, {
       compress: {
         dead_code: true,
         global_defs: {
@@ -188,10 +178,7 @@ module.exports = class JsModule extends Module {
       }
     });
 
-    if (result.error) {
-      const err = result.error;
-      throw new Error(`${err.message} (${err.filename}:${err.line}:${err.col})`);
-    }
+    if (result.error) throw result.error;
     return result;
   }
 };

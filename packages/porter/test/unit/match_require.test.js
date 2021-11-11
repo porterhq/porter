@@ -4,7 +4,7 @@ const expect = require('expect.js');
 const path = require('path');
 const { readFile } = require('fs/promises');
 
-const matchRequire = require('../../lib/match_require');
+const matchRequire = require('../../src/match_require');
 
 const root = path.join(__dirname, '../../../demo-app');
 

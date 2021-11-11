@@ -8,7 +8,7 @@ for (const opt of ['ui', 'reporter', 'timeout']) {
 }
 
 mocha.setup(opts);
-const suite=  params.get('suite') || 'test/suite';
+const suite = params.get('suite') || 'test/suite';
 require.async(suite, function() {
   mocha.run();
 });

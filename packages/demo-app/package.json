@@ -30,7 +30,9 @@
   },
   "scripts": {
     "build": "rm -rf public && node bin/build.js",
-    "start": "rm -rf public && DEBUG=porter,$DEBUG node-dev app.js"
+    "dev": "rm -rf public && DEBUG=porter,$DEBUG node-dev app.js",
+    "start": "rm -rf public && DEBUG=porter,$DEBUG porter serve --paths components --paths browser_modules --lazyload mad-import/foo.js",
+    "test": "rm -rf public && DEBUG=porter,$DEBUG porter serve --paths components --paths browser_modules --lazyload mad-import/foo.js --headless"
   },
   "license": "MIT",
   "devDependencies": {

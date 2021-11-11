@@ -49,27 +49,26 @@ describe('porter-serve component', function() {
   });
 
   it('should serve loader', async function() {
-    const res = await new Promise(resolve => http.get('http://localhost:5000/loader.js', resolve));
+    const res = await new Promise(resolve => http.get('http://localhost:3000/loader.js', resolve));
     expect(res.statusCode).to.eql(200);
     expect(res.headers['content-type']).to.contain('application/javascript');
   });
 
   it('should serve test runner', async function() {
-    const res = await new Promise(resolve => http.get('http://localhost:5000/runner.html', resolve));
+    const res = await new Promise(resolve => http.get('http://localhost:3000/runner.html', resolve));
     expect(res.statusCode).to.eql(200);
     expect(res.headers['content-type']).to.contain('text/html');
   });
 
   // require('mocha') does not work yet.
   it('should serve mocha', async function() {
-    const res = await new Promise(resolve => http.get('http://localhost:5000/node_modules/mocha/mocha.js', resolve));
+    const res = await new Promise(resolve => http.get('http://localhost:3000/node_modules/mocha/mocha.js', resolve));
     expect(res.statusCode).to.eql(200);
     expect(res.headers['content-type']).to.contain('application/javascript');
   });
 
   it('should be able to access component files', async function() {
-    const pkg = require(`${componentRoot}/package.json`);
-    const res = await new Promise(resolve => http.get(`http://localhost:5000/${pkg.name}/${pkg.version}/index.js`, resolve));
+    const res = await new Promise(resolve => http.get('http://localhost:3000/index.js?entry', resolve));
     expect(res.statusCode).to.eql(200);
     expect(res.headers['content-type']).to.contain('application/javascript');
   });
@@ -117,15 +116,13 @@ describe('porter-serve web application', function() {
   });
 
   it('should be able to serve as a full webapp development environment', async function() {
-    const pkg = require(`${appRoot}/package.json`);
-    const res = await new Promise(resolve => http.get(`http://localhost:5000/${pkg.name}/${pkg.version}/home.js`, resolve));
+    const res = await new Promise(resolve => http.get('http://localhost:3000/home.js?entry', resolve));
     expect(res.statusCode).to.eql(200);
     expect(res.headers['content-type']).to.contain('application/javascript');
   });
 
   it('should be able to serve components in another path', async function() {
-    const pkg = require(`${appRoot}/package.json`);
-    const res = await new Promise(resolve => http.get(`http://localhost:5000/${pkg.name}/${pkg.version}/test/suite.js`, resolve));
+    const res = await new Promise(resolve => http.get('http://localhost:3000/test/suite.js?entry', resolve));
     expect(res.statusCode).to.eql(200);
     expect(res.headers['content-type']).to.contain('application/javascript');
   });
@@ -136,6 +133,7 @@ describe('porter-serve web application --headless', function() {
     const proc = spawn(cmd, [
       '--paths', 'components',
       '--paths', 'browser_modules',
+      '--lazyload', 'mad-import/foo.js',
       '--headless'
     ], { stdio: 'inherit', cwd: appRoot });
     await new Promise((resolve, reject) => {
