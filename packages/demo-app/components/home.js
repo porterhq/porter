@@ -13,6 +13,8 @@ require('./home_dep');
 // #34
 require('react-datepicker');
 
+require('./cyclic-dep/foo');
+
 function htmlSafe(code) {
   return code
     .replace(/&/g, '&amp;')
