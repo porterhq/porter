@@ -242,20 +242,22 @@ module.exports = class Packet {
 
     // css bundling is handled by postcss-import, which won't use {@link Module@cache}.
     const ext = path.extname(filename);
-    outer: for (const entry of app.entries.filter(file => file.endsWith(ext))) {
+    for (const entry of app.entries.filter(file => file.endsWith(ext))) {
       const entryModule = app.package.entries[entry];
       for (const descendent of entryModule.family) {
         if (mod == descendent) {
           if (entry.endsWith('.css')) await entryModule.reload();
           await purge(entryModule.id);
-          continue outer;
+          break;
         }
       }
     }
 
     // if the root module is not treated as `entries`, try traversing up
     let ancestor = mod;
-    while (ancestor.parent) ancestor = ancestor.parent;
+    // the dependency graph might be cyclic
+    let retries = 20;
+    while (ancestor.parent && retries--) ancestor = ancestor.parent;
     await purge(ancestor.id);
 
     if (!mod.file.endsWith('.css')) {

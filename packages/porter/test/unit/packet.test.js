@@ -213,4 +213,10 @@ describe('Packet', function() {
       expect(require(`${dir}/package.json`).browser).to.eql(`${main}`);
     });
   });
+
+  describe('packet.reload()', function() {
+    it('should be able to handle cyclic dependencies', async function() {
+      await porter.package.reload('change', 'home.js');
+    });
+  });
 });

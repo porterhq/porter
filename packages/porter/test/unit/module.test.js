@@ -1,6 +1,6 @@
 'use strict';
 
-const expect = require('expect.js');
+const { strict: assert } = require('assert');
 const path = require('path');
 const Porter = require('../..');
 
@@ -8,7 +8,7 @@ describe('Module', function() {
   const root = path.resolve(__dirname, '../../../demo-app');
   let porter;
 
-  beforeEach(async function() {
+  before(async function() {
     porter = new Porter({
       root,
       paths: ['components', 'browser_modules'],
@@ -35,15 +35,15 @@ describe('Module', function() {
   });
 
   it('should generate compact lock', function() {
-    expect('react-color' in porter.package.lock).to.be.ok();
-    expect('react-color' in porter.package.entries['home.js'].lock).to.not.be.ok();
+    assert('react-color' in porter.package.lock);
+    assert(!('react-color' in porter.package.entries['home.js'].lock));
   });
 
   it('should eliminate heredoc when minify', async function() {
     const mod = porter.package.files['home.js'];
     await mod.minify();
     const { code } = mod.cache;
-    expect(code).to.not.contain('heredoc');
+    assert(!code.includes('heredoc'));
   });
 
   it('should invalidate dev cache when minify', async function() {
@@ -55,7 +55,7 @@ describe('Module', function() {
     const devCache = mod.cache;
 
     await mod.minify();
-    expect(mod.cache.minified).to.be.ok();
-    expect(devCache.code).to.not.eql(mod.cache.code);
+    assert.ok(mod.cache.minified);
+    assert.notEqual(devCache.code, mod.cache.code);
   });
 });
