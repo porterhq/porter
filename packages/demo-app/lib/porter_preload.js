@@ -9,7 +9,7 @@ module.exports = new Porter({
   dest: 'public',
   source: {
     serve: true,
-    root: 'http://localhost:5000'
+    root: 'http://localhost:3000'
   },
   preload: 'preload'
 });

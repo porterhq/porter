@@ -19,7 +19,7 @@ const mkdirp = util.promisify(require('mkdirp'));
 
 const rExt = /\.(?:css|gif|jpg|jpeg|js|png|svg|swf|ico)$/i;
 const { rModuleId } = require('./module');
-
+const Bundle = require('./bundle');
 
 class Porter {
   constructor(opts) {
@@ -61,9 +61,7 @@ class Porter {
       })
     ]);
 
-    this.cssTranspiler = postcss(
-      (opts.postcssPlugins || []).concat(autoprefixer(opts.autoprefixer))
-    );
+    this.cssTranspiler = postcss(opts.postcssPlugins || [autoprefixer(opts.autoprefixer)]);
     this.ready = this.prepare(opts);
   }
 
@@ -101,6 +99,27 @@ class Porter {
     return result;
   }
 
+  async pack() {
+    const { package: pkg, preload, entries } = this;
+
+    for (const dep of pkg.all) {
+      if (dep !== pkg && (dep.isolated || preload.length === 0)) {
+        let bundle = dep.bundles[dep.main];
+        if (!bundle) bundle = new Bundle({ packet: dep });
+        dep.bundles[dep.main] = bundle;
+        if (bundle.entries.length > 0) await bundle.obtain();
+      }
+    }
+
+    for (const file of entries) {
+      if (!pkg.bundles[file]) {
+        const bundle = new Bundle({ packet: pkg, entries: [ file ] });
+        pkg.bundles[file] = bundle;
+        await bundle.obtain();
+      }
+    }
+  }
+
   async prepare(opts = {}) {
     const { package: pkg } = this;
     const { entries, lazyload, preload } = this;
@@ -109,17 +128,30 @@ class Porter {
     if (!pkg.browserify) pkg.browserify = { transform: ['envify'] };
 
     await pkg.prepare();
+
     await Promise.all([
+      ...preload.map(file => pkg.parseFile(file)),
       ...entries.map(entry => pkg.parseEntry(entry)),
       ...lazyload.map(file => pkg.parseFile(file)),
-      ...preload.map(file => pkg.parseFile(file))
     ]);
 
-    if (preload.length > 0) {
-      const entry = await pkg.parseFile(preload[0]);
+    for (const file of preload) {
+      const entry = await pkg.parseFile(file);
       entry.isPreload = true;
       for (const mod of entry.family) mod.preloaded = !mod.package.isolated;
+      const bundle = new Bundle({ packet: pkg, entries: [ entry.file ] });
+      pkg.bundles[entry.file] = bundle;
+      await bundle.obtain();
     }
+
+    for (const file of lazyload) {
+      const entry = await pkg.parseFile(file);
+      const bundle = new Bundle({ packet: pkg, entries: [ entry.file ], package: false });
+      pkg.bundles[entry.file] = bundle;
+      await bundle.obtain();
+    }
+
+    await this.pack();
 
     const { cache } = this;
     await fs.rm(path.join(cache.dest, '**/*.{css,js,map}'), { recursive: true, force: true });
@@ -175,12 +207,11 @@ class Porter {
     debug('compile lazyload');
     for (const file of this.lazyload) {
       for (const mod of (await this.package.parseFile(file)).family) {
-        await mod.package.compile(mod.file, { loader: false, package: false });
+        await mod.package.compile(mod.file, { loader: false, package: false, manifest });
       }
     }
 
     debug('compile entries');
-    if (Object.keys(manifest).length > 0) this.map = { ...this.map, manifest };
     for (const entry of entries) {
       await this.package.compile(entry, { all: this.preload.length > 0, manifest });
     }
@@ -234,11 +265,12 @@ class Porter {
     }
 
     const pkg = this.package.find({ name, version });
+    if (!pkg) throw new Error(`unknown dependency ${id}`);
 
-    if (pkg) {
-      return await (isEntry ? pkg.parseEntry(file) : pkg.parseFile(file));
-    }
-    return await this.package.parsePackage({ name, entry: file });
+    const mod = isEntry ? await pkg.parseEntry(file) : await pkg.parseFile(file);
+    if (pkg === this.package) await this.pack();
+
+    return mod;
   }
 
   async writeSourceMap({ id, isMain, name, code, map }) {
@@ -278,35 +310,19 @@ class Porter {
     }];
   }
 
-  async readBundleJs(id, query) {
-    const [, name, version] = id.match(rModuleId);
-    const pkg = this.package.find({ name, version });
-
-    if (!pkg) throw new Error(`unready package ${name}/${version}`);
-
-    const entries = pkg.bundleEntries;
-    const result = await pkg.bundle(entries, { minify: false, all: this.preload.length > 0 });
-    const { code } = await this.writeSourceMap({ id, name, ...result });
-
-    return [code, { 'Last-Modified': (new Date()).toGMTString() }];
-  }
-
   async readJs(id, query) {
     const isMain = id.endsWith('.js') && 'main' in query;
     const isEntry = isMain || 'entry' in query;
+    id = id.replace(/\.[a-z0-9]{8}\.js$/, '.js');
     const mod = await this.parseId(id, { isEntry });
 
     if (!mod) return;
 
     const { fake, package: pkg } = mod;
-    const mtime = fake ? (new Date()).toGMTString() : (await lstat(mod.fpath)).mtime.toJSON();
-
-    const { preload } = pkg.app;
-    const result = await pkg.bundle([mod.file], {
-      minify: false,
-      all: preload.length > 0 || !pkg.transpiler,
-      loader: isMain
-    });
+    const mtime = fake ? new Date().toGMTString() : (await lstat(mod.fpath)).mtime.toJSON();
+    const bundle = pkg.bundles[mod.file];
+    if (!bundle) throw new Error(`unknown bundle ${mod.file} in ${pkg.name}`);
+    const result = await bundle.obtain({ loader: isMain  });
 
     const { code } = await this.writeSourceMap({
       id, isMain, name: pkg.name, ...result
@@ -359,9 +375,6 @@ class Porter {
     }
     else if (await this.isRawFile(file)) {
       result = await this.readRawFile(file);
-    }
-    else if (/\/~bundle[.-][0-9a-f]{8}\.js$/.test(file)) {
-      result = await this.readBundleJs(file, query);
     }
     else if (ext === '.js') {
       result = await this.readJs(file, query);

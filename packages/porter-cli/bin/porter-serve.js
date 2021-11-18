@@ -9,12 +9,24 @@ function collectPath(val, paths) {
   return paths;
 }
 
+function collectLazyload(val, lazyload) {
+  lazyload.push(val);
+  return lazyload;
+}
+
+function collectInclude(val, includes) {
+  includes.push(val);
+  return includes;
+}
+
 program
   .option('-D --dest [dest]', 'public folder', 'public')
   .option('-H --headless [headless]', 'run headless tests right after server is started', false)
   .option('-P --paths [paths]', 'components load path', collectPath, [])
-  .option('-p --port [port]', 'port to listen on', 5000)
+  .option('-p --port [port]', 'port to listen on', 3000)
   .option('-s --suite [suite]', 'run suites right after server is started', 'test/suite')
+  .option('-l --lazyload [lazyload]', 'lazy loaded modules', collectLazyload, [])
+  .option('-i --include [include]', 'transpile dependencies', collectInclude, [])
   .option('-t --timeout [timeout]', 'timeout on headless tests', 15000);
 
 program.on('--help', function() {
@@ -126,7 +138,10 @@ async function serve() {
   if (program.paths.length == 0) program.paths.push('components');
   const porter = new Porter({
     paths: [...program.paths, path.join(__dirname, '../components')],
-    source: { serve: true }
+    source: { serve: true },
+    entries: [ program.suite ],
+    lazyload: program.lazyload,
+    transpile: { only: program.include },
   });
   app.use(porter.async());
 
@@ -136,7 +151,7 @@ async function serve() {
     server.listen({ port }, resolve);
     server.on('error', reject);
   });
-  console.log('Server started at', server.address().port);
+  console.log('Server started at', `http://localhost:${server.address().port}`);
   if (program.headless) {
     server.unref();
     await test({ port: server.address().port });

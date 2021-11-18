@@ -32,7 +32,7 @@ describe('porter.compileEntry()', function() {
       expect(code).to.contain('fake/entry.js');
       expect(code).to.contain('yen/1.2.4/index.js');
       expect(code).to.contain('yen/1.2.4/events.js');
-      expect(code).to.not.contain('preload.js');
+      expect(code).to.not.contain('define("preload.js"');
     });
   });
 
@@ -86,7 +86,7 @@ describe('porter.compileEntry()', function() {
     });
 
     it('should omit the global preload settings', async function() {
-      expect(code).to.not.contain('preload.js');
+      expect(code).to.not.contain('define("preload.js"');
     });
   });
 });

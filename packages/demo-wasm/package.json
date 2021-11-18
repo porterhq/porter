@@ -5,23 +5,18 @@
   "private": true,
   "dependencies": {
     "@cara/hello-wasm": "file:../hello-wasm/pkg",
-    "@cara/porter": "^3.3.0",
-    "koa": "^2.4.1",
-    "koa-static": "^4.0.2",
     "regenerator-runtime": "^0.13.5"
   },
   "license": "MIT",
   "devDependencies": {
     "@babel/core": "^7.16.0",
     "@babel/preset-env": "^7.10.3",
-    "@cara/babel-plugin-import-meta": "^3.2.0",
     "@cara/porter-cli": "^3.3.0",
     "expect.js": "^0.3.1",
-    "mocha": "^9.1.1",
-    "node-dev": "^4.0.0"
+    "mocha": "^9.1.1"
   },
   "scripts": {
-    "start": "DEBUG=porter,$DEBUG node-dev app.js",
-    "test": "DEBUG=porter,$DEBUG porter serve --headless"
+    "start": "rm -rf public && DEBUG=porter,$DEBUG porter serve --include @cara/hello-wasm",
+    "test": "rm -rf public && DEBUG=porter,$DEBUG porter serve --include @cara/hello-wasm --headless"
   }
 }

@@ -1,12 +1,10 @@
 'use strict';
 
-const crypto = require('crypto');
 const debug = require('debug')('porter');
 const { existsSync, watch, promises: fs } = require('fs');
 const looseEnvify = require('loose-envify');
 const path = require('path');
-const { SourceMapConsumer, SourceMapGenerator, SourceNode } = require('source-map');
-const UglifyJS = require('uglify-js');
+const { SourceMapGenerator } = require('source-map');
 const util = require('util');
 
 const glob = util.promisify(require('glob'));
@@ -17,6 +15,7 @@ const JsModule = require('./js_module');
 const TsModule = require('./ts_module');
 const JsonModule = require('./json_module');
 const WasmModule = require('./wasm_module');
+const Bundle = require('./bundle');
 
 /**
  * Leave the factory method of Module here to keep from cyclic dependencies.
@@ -56,6 +55,7 @@ module.exports = class Packet {
     this.parent = parent;
     this.dependencies = {};
     this.entries = {};
+    this.bundles = {};
     this.files = {};
     this.folder = {};
     this.browser = {};
@@ -105,13 +105,9 @@ module.exports = class Packet {
     return pkg;
   }
 
-  get bundleEntries() {
-    return Object.keys(this.entries)
-      .filter(file => file.endsWith('.js'))
-      .filter(file => {
-        const { loaders } = this.entries[file];
-        return !(loaders && 'worker-loader' in loaders);
-      });
+  get bundle() {
+    const { bundles, main } = this;
+    return bundles[main] || null;
   }
 
   get all() {
@@ -170,7 +166,7 @@ module.exports = class Packet {
 
   async prepare() {
     await this.parseDepPaths();
-    const { name, transpiler, app } = this;
+    const { name, transpiler, app, main } = this;
 
     if (this === app.package && !transpiler) {
       const obj = { babel: '.babelrc', typescript: 'tsconfig.json' };
@@ -198,6 +194,9 @@ module.exports = class Packet {
       '.js', '.jsx', '/index.js', '/index.jsx',
       '.ts', '.tsx', '/index.ts', '/index.tsx',
     ];
+
+    const [ fpath ] = await this.resolve(this.normalizeFile(main));
+    if (fpath) this.main = path.relative(this.dir, fpath);
 
     if (process.env.NODE_ENV !== 'production' && (!this.parent || this.transpiler) && !this.watchers) {
       this.watchers = this.paths.map(dir => {
@@ -276,9 +275,8 @@ module.exports = class Packet {
     console.error(new Error(`Cannot find module ${name} (${this.dir})`));
   }
 
-  async parseModule(file) {
-    const { browser, files, folder } = this;
-    const originFile = file;
+  normalizeFile(file) {
+    const { browser } = this;
 
     // "browser" mapping in package.json
     file = (browser[`./${file}`] || browser[`./${file}.js`] || file).replace(/^[\.\/]+/, '');
@@ -294,6 +292,14 @@ module.exports = class Packet {
       file += '.js';
     }
 
+    return file;
+  }
+
+  async parseModule(file) {
+    const { files, folder, name } = this;
+    const originFile = file;
+    file = this.normalizeFile(file);
+
     // if parsed already
     if (file in files) return files[file];
 
@@ -301,7 +307,10 @@ module.exports = class Packet {
 
     if (fpath) {
       const fullPath = (await glob(fpath, { nocase: true, cwd: this.dir}))[0];
-      if (fpath !== fullPath) throw new Error(`case mismatch ${file} (${fullPath})`);
+      if (fpath !== fullPath) {
+        const err = new Error(`unable to fully resolve ${file} in ${name}, case mismatch (${fullPath})`);
+        console.warn(err.stack);
+      }
 
       if ([ '.ts', '.tsx' ].includes(suffix)) {
         file = file.replace(/\.\w+$/, suffix);
@@ -321,7 +330,7 @@ module.exports = class Packet {
   async parseEntry(entry) {
     // entry is '' when `require('foo/')`, should fallback to `this.main`
     if (!entry) entry = this.module || this.main;
-    const { app, dir, entries, name, version, files } = this;
+    const { app, dir, entries, files } = this;
     const mod = await this.parseModule(entry);
 
     if (!mod) throw new Error(`unknown entry ${entry} (${dir})`);
@@ -329,23 +338,6 @@ module.exports = class Packet {
     if (this === app.package) app.entries = Object.keys(entries);
 
     await mod.parse();
-
-    if (this.parent) {
-      const { bundleEntries } = this;
-
-      if (app.preload.length > 0 && app.bundleExcept.includes(name)) {
-        const allEntries = bundleEntries.map(file => [name, version, file].join('/'));
-        for (const depName in this.dependencies) {
-          const dep = this.dependencies[depName];
-          allEntries.push(...dep.bundleEntries.map(file => [depName, dep.version, file]));
-        }
-        this.bundleEntry = `~bundle.${crypto.createHash('md5').update(allEntries.join(',')).digest('hex').slice(0, 8)}.js`;
-      }
-      else if (app.preload.length == 0 && bundleEntries.length > 1) {
-        this.bundleEntry = `~bundle.${crypto.createHash('md5').update(bundleEntries.join(',')).digest('hex').slice(0, 8)}.js`;
-      }
-    }
-
     return mod;
   }
 
@@ -383,7 +375,7 @@ module.exports = class Packet {
   async parsePackage({ name, entry }) {
     if (this.dependencies[name]) {
       const pkg = this.dependencies[name];
-      return pkg.parseEntry(entry);
+      return await pkg.parseEntry(entry);
     }
 
     for (const depPath of this.depPaths) {
@@ -392,7 +384,7 @@ module.exports = class Packet {
         const { app } = this;
         const pkg = await Packet.create({ dir, parent: this, app });
         this.dependencies[pkg.name] = pkg;
-        return pkg.parseEntry(entry);
+        return await pkg.parseEntry(entry);
       }
     }
   }
@@ -428,8 +420,14 @@ module.exports = class Packet {
   }
 
   get copy() {
-    const copy = { bundle: this.bundleEntry };
-    const { dependencies, main } = this;
+    const copy = { manifest: {} };
+    const { dependencies, main, bundles, parent, entries } = this;
+
+    for (const file in bundles) {
+      if (file.endsWith('.css')) continue;
+      if (!parent && entries[file] && !entries[file].isPreload) continue;
+      copy.manifest[file] = bundles[file].output;
+    }
 
     if (!/^(?:\.\/)?index(?:.js)?$/.test(main)) copy.main = main;
 
@@ -454,16 +452,12 @@ module.exports = class Packet {
     const { app, name, version, main } = this;
     const { baseUrl, map, timeout } = app;
     const preload = name == app.package.name ? app.preload : [];
-    const dependencies = Object.values(this.dependencies).reduce((result, dep) => {
-      result[dep.name] = dep.version;
-      return result;
-    }, {});
 
     return {
       baseUrl,
       map,
       preload,
-      package: { name, version, main, dependencies },
+      package: { name, version, main },
       timeout,
     };
   }
@@ -485,123 +479,6 @@ module.exports = class Packet {
     });
   }
 
-  async obtainLoader(loaderConfig) {
-    return {
-      code: await this.parseLoader(loaderConfig)
-    };
-  }
-
-  async minifyLoader(loaderConfig = {}) {
-    const { loaderCache } = this;
-    const searchParams = new URLSearchParams();
-    for (const key in loaderConfig) searchParams.set(key, loaderConfig[key]);
-    const cacheKey = searchParams.toString();
-    if (loaderCache[cacheKey]) return loaderCache[cacheKey];
-    const code = await this.parseLoader(loaderConfig);
-
-    return loaderCache[cacheKey] = UglifyJS.minify({ 'loader.js': code }, {
-      compress: { dead_code: true },
-      output: { ascii_only: true },
-      sourceMap: { root: '/' },
-      ie8: true
-    });
-  }
-
-  async createSourceNode({ source, code, map }) {
-    if (map instanceof SourceMapGenerator) {
-      map = map.toJSON();
-    }
-
-    if (map) {
-      const consumer = await new SourceMapConsumer(map);
-      return SourceNode.fromStringWithSourceMap(code, consumer);
-    } else {
-      // Source code need to be mapped line by line for debugging in devtols to work.
-      const lines = code.split('\n');
-      const node = new SourceNode();
-      for (let i = 0; i < lines.length; i++) {
-        node.add(new SourceNode(i + 1, 0, source, lines[i]));
-      }
-      return node.join('\n');
-      // return new SourceNode(1, 0, source, code)
-    }
-  }
-
-  /**
-   * Create a bundle from specified entries
-   * @param {string[]} entries
-   * @param {Object} opts
-   * @param {boolean} opts.minify   whether to minify the bundle
-   * @param {boolean} opts.package  whether to include dependencies at package scope
-   * @param {boolean} opts.all      whether to include all dependencies
-   * @param {boolean} opts.loader   whether to include the loader when entry is root entry, set to false to explicitly exclude the loader
-   * @param {Object} opts.loaderConfig overrides {@link Package#loaderConfig}
-   */
-  async bundle(entries, opts) {
-    opts = { minify: true, package: true, ...opts };
-    const loaderConfig = Object.assign(this.loaderConfig, opts.loaderConfig);
-    const done = {};
-    const node = new SourceNode();
-    const { app } = this;
-
-    /**
-     * Traverse all the dependencies of ancestor module recursively to bundle them accordingly. Dependencies will be skipped if under such circumstances:
-     * - module is just a placeholder object generated by {@link FacePackage}
-     * - module is preloaded but the ancestor isn't one of the preload entry
-     * - module is one of the bundle exceptions
-     * @param {Module} mod
-     * @param {Module} ancestor
-     */
-    async function traverse(mod, ancestor = mod) {
-      const { package: pkg } = ancestor;
-
-      // might be a mocked module from FakePackage
-      if (!(mod instanceof Module)) return;
-      if (done[mod.id]) return;
-      if (mod.package !== pkg && !opts.all) return;
-      if (loaderConfig.preload && mod.preloaded && !ancestor.isPreload) return;
-      if (opts.minify && mod.name == 'heredoc') return;
-      if (mod.package !== pkg && mod.package.isolated && !ancestor.isPreload) return;
-      if (mod.isolated) return;
-
-      done[mod.id] = true;
-      for (const child of mod.children) await traverse(child, ancestor);
-
-      if (pkg.isolated || !mod.package.isolated) {
-        const { code, map } = await (opts.minify ? mod.minify() : mod.obtain());
-        const source = path.relative(app.root, mod.fpath);
-        node.add(await pkg.createSourceNode({ source, code, map }));
-      }
-    }
-
-    debug('bundle start %s/%s [%s]', this.name, this.version, entries);
-    for (const entry of entries) {
-      if (entry.endsWith('.css')) continue;
-      const ancestor = this.files[entry];
-      if (!ancestor) throw new Error(`unparsed entry ${entry} (${this.dir})`);
-      await traverse(ancestor);
-    }
-
-    const mod = this.files[entries[0]];
-
-    if (mod.isRootEntry && !mod.isPreload) {
-      const lock = opts.all && mod.fake ? mod.lock : this.lock;
-      node.prepend(`Object.assign(porter.lock, ${JSON.stringify(lock)})`);
-    }
-
-    if (mod.isRootEntry && opts.loader !== false) {
-      const { code, map } = opts.minify
-        ? await this.minifyLoader(loaderConfig)
-        : await this.obtainLoader(loaderConfig);
-      const source = 'loader.js';
-      node.prepend(await this.createSourceNode({ source, code, map }));
-      node.add(`porter["import"](${JSON.stringify(mod.id)})`);
-    }
-
-    debug('bundle end %s/%s [%s]', this.name, this.version, entries);
-    return node.join('\n').toStringWithSourceMap({ sourceRoot: '/' });
-  }
-
   /**
    * Fix source map related settings in both code and map.
    * @param {Object} opts
@@ -609,10 +486,10 @@ module.exports = class Packet {
    * @param {string} opts.code
    * @param {Object|SourceMapGenerator} opts.map
    */
-  setSourceMap({ file, code, map }) {
-    code = file.endsWith('.js')
-      ? `${code}\n//# sourceMappingURL=${path.basename(file)}.map`
-      : `${code}\n/*# sourceMappingURL=${path.basename(file)}.map */`;
+  setSourceMap({ output, code, map }) {
+    code = output.endsWith('.js')
+      ? `${code}\n//# sourceMappingURL=${path.basename(output)}.map`
+      : `${code}\n/*# sourceMappingURL=${path.basename(output)}.map */`;
 
     if (map instanceof SourceMapGenerator) map = map.toJSON();
     if (typeof map == 'string') map = JSON.parse(map);
@@ -624,18 +501,15 @@ module.exports = class Packet {
   }
 
   async compileAll(opts) {
-    const pkgEntries = [];
+    const { entries } = this;
 
-    for (const entry in this.entries) {
-      if (!entry.endsWith('.js')) continue;
-      if (this.entries[entry].isRootEntry) {
+    for (const entry in entries) {
+      if (entry.endsWith('.js') && entries[entry].isRootEntry) {
         await this.compile(entry, opts);
-      } else {
-        pkgEntries.push(entry);
       }
     }
 
-    await this.compile(pkgEntries, opts);
+    await this.compile([], opts);
   }
 
   async compile(entries, opts) {
@@ -651,34 +525,27 @@ module.exports = class Packet {
 
     const { name, version } = this;
     const { dest } = this.app;
-    let file = this.bundleEntry || entries[0];
-
-    debug(`compile ${name}/${version}/${file} start`);
     const mod = this.files[entries[0]];
-    const enableBundle = opts.package || opts.all;
-    const result = file.endsWith('.js') && enableBundle
-      ? await this.bundle(entries, opts)
-      : await mod.minify();
+    const bundle = new Bundle({ ...opts, packet: this, entries });
+    const { entry } = bundle;
 
-    const { code, map } = this.setSourceMap({ file, ...result });
-    if (mod.fake) {
+    debug(`compile ${name}/${version}/${entry} start`);
+
+    const result = await bundle.minify();
+    const { code, map } = this.setSourceMap({ output: bundle.output, ...result });
+
+    if (!this.parent) manifest[entry] = bundle.output;
+
+    if (mod && mod.fake) {
       delete this.files[mod.file];
       delete this.entries[mod.file];
     }
+
     if (!opts.writeFile) return { code, map };
 
-    if (this.bundleEntry) {
-      // md5 by content
-      const contenthash = crypto.createHash('md5').update(result.code).digest('hex').slice(0, 8);
-      this.bundleEntry = `~bundle.${contenthash}.js`;
-      file = this.bundleEntry;
-    } else if (!this.parent && enableBundle) {
-      const contenthash = crypto.createHash('md5').update(result.code).digest('hex').slice(0, 8);
-      const mapped = file.replace(/(\.\w+)$/, `.${contenthash}$1`);
-      manifest[file] = mapped;
-      file = mapped;
-    }
-    const fpath = this.parent ? path.join(dest, name, version, file) : path.join(dest, file);
+    const fpath = this.parent
+      ? path.join(dest, name, version, bundle.output)
+      : path.join(dest, bundle.output);
 
     await mkdirp(path.dirname(fpath));
     await Promise.all([
@@ -687,7 +554,7 @@ module.exports = class Packet {
         if (k !== 'sourcesContent') return v;
       }))
     ]);
-    debug(`compile ${name}/${version}/${file} end`);
+    debug(`compile ${name}/${version}/${entry} end`);
   }
 
   async destroy() {

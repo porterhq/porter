@@ -14,7 +14,7 @@
     "commander": "^2.8.1",
     "koa": "^2.4.0",
     "koa-static": "^4.0.2",
-    "puppeteer": "^1.0.0"
+    "puppeteer": "^11.0.0"
   },
   "bin": {
     "porter": "./bin/porter.js",

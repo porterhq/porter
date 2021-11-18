@@ -41,6 +41,7 @@ describe('Module', function() {
 
   it('should eliminate heredoc when minify', async function() {
     const mod = porter.package.files['home.js'];
+    mod.cache = null;
     await mod.minify();
     const { code } = mod.cache;
     assert(!code.includes('heredoc'));

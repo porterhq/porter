@@ -9,16 +9,10 @@ const { existsSync, promises: fs } = require('fs');
 const { readFile, writeFile } = fs;
 
 const Porter = require('../..');
-const porter = require('../../../demo-app/lib/porter');
 const root = path.resolve(__dirname, '../../../demo-app');
 
-const app = new Koa();
-app.use(porter.async());
-app.use(async function(ctx, next) {
-  if (ctx.path == '/arbitrary-path') {
-    ctx.body = 'It works!';
-  }
-});
+let app;
+let porter;
 
 function requestPath(urlPath, status = 200, listener = app.callback()) {
   return new Promise(function(resolve, reject) {
@@ -66,7 +60,23 @@ async function checkReload({ sourceFile, targetFile, pathname }) {
 
 describe('Porter', function() {
   before(async function() {
+    porter = new Porter({
+      root,
+      paths: ['components', 'browser_modules'],
+      source: {
+        serve: true,
+        root: 'http://localhost:5000'
+      }
+    });
     await porter.ready;
+
+    app = new Koa();
+    app.use(porter.async());
+    app.use(async function(ctx, next) {
+      if (ctx.path == '/arbitrary-path') {
+        ctx.body = 'It works!';
+      }
+    });
   });
 
   after(async function() {
@@ -93,19 +103,19 @@ describe('Porter', function() {
     });
 
     it('should bundle json components', async function() {
-      const res = await requestPath('/require-json/suite.js');
+      const res = await requestPath('/test/suite.js?main');
       assert(res.text.includes('define("require-json/foo.json"'));
     });
 
     it('should handle dependencies', async function () {
-      const { name, version, main } = porter.package.find({ name: 'yen' });
-      await requestPath(`/${name}/${version}/${main}`);
+      const { name, version, bundle } = porter.package.find({ name: 'yen' });
+      await requestPath(`/${name}/${version}/${bundle.entry}`);
     });
 
     it('should handle recursive dependencies', async function () {
       // object-assign isn't in system's dependencies
-      const { name, version, main } = porter.package.find({ name: 'object-assign' });
-      await requestPath(`/${name}/${version}/${main}`);
+      const { name, version, bundle } = porter.package.find({ name: 'object-assign' });
+      await requestPath(`/${name}/${version}/${bundle.entry}`);
     });
 
     it('should handle stylesheets', async function () {
@@ -118,17 +128,11 @@ describe('Porter', function() {
       await requestPath('/raw/logo.jpg');
     });
 
-    it('should handle fake entries', async function() {
-      await porter.package.parseFakeEntry({ entry: 'baz.js', deps: [], code: "'use strict'" });
-      await requestPath('/baz.js');
-    });
-
-    it('should handle package bundles', async function() {
+    it('should handle package manifest', async function() {
       const yen = porter.package.find({ name: 'yen' });
-      const { name, version } = yen;
-      const { bundle } = porter.package.lock[name][version];
-      assert(bundle.includes('~bundle'));
-      await requestPath(`/${name}/${version}/${bundle}`);
+      const { name, version, main } = yen;
+      const { manifest } = porter.package.lock[name][version];
+      await requestPath(`/${name}/${version}/${manifest[main]}`);
     });
 
     it('should hand request over to next middleware', async function() {
@@ -239,9 +243,9 @@ describe('Porter', function() {
     });
 
     it('should generate source map when accessing dependencies', async function() {
-      const { name, version, main } = porter.package.find({ name: 'react' });
-      await requestPath(`/${name}/${version}/${main}`, 200);
-      const fpath = path.join(root, `public/${name}/${version}/${main}.map`);
+      const { name, version, bundle } = porter.package.find({ name: 'react' });;
+      await requestPath(`/${name}/${version}/${bundle.entry}`, 200);
+      const fpath = path.join(root, `public/${name}/${version}/${bundle.entry}.map`);
       assert(existsSync(fpath));
 
       const map = JSON.parse(await readFile(fpath, 'utf8'));

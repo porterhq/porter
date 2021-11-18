@@ -3,7 +3,7 @@
 const assert = require('assert').strict;
 const path = require('path');
 const expect = require('expect.js');
-const { readFile } = require('fs').promises;
+const { access, readFile } = require('fs').promises;
 const semver = require('semver');
 const exec = require('child_process').execSync;
 const util = require('util');
@@ -21,7 +21,7 @@ describe('Packet', function() {
     porter = new Porter({
       root,
       paths: ['components', 'browser_modules'],
-      entries: ['home.js', 'test/suite.js', 'stylesheets/app.css']
+      entries: ['home.js', 'test/suite.js', 'stylesheets/app.css'],
     });
     await porter.ready;
   });
@@ -44,7 +44,6 @@ describe('Packet', function() {
 
     it('parse require directory in node_modules', function() {
       expect(porter.package.dependencies.inferno.folder).to.eql({ 'dist': true });
-      expect(porter.package.dependencies['react-datepicker'].folder).to.eql({ 'lib': true });
     });
 
     it('parse require dir/ in node_modules', function() {
@@ -54,10 +53,10 @@ describe('Packet', function() {
     });
 
     if (process.platform == 'darwin' || process.platform == 'win32') {
-      it('throw error if specifier is resolved only because fs is case insensitive', async function() {
-        await assert.rejects(async function() {
-          await porter.package.parseFile('Home.js');
-        }, /case mismatch/);
+      it('should warn if specifier is not fully resolved', async function() {
+        this.sinon.spy(console, 'warn');
+        await porter.package.parseFile('Home.js');
+        assert(console.warn.calledWithMatch('case mismatch'));
       });
     }
 
@@ -170,47 +169,62 @@ describe('Packet', function() {
       const pkg = porter.package.find({ name: 'react' });
       const { name, version, main } = pkg;
       await pkg.compile(main);
+      const bundle = pkg.bundles[main];
       const entries = await glob(`public/${name}/**/*.{css,js,map}`, { cwd: root });
-      expect(entries).to.contain(`public/${name}/${version}/${main}`);
-      expect(entries).to.contain(`public/${name}/${version}/${main}.map`);
+      expect(entries).to.contain(`public/${name}/${version}/${bundle.output}`);
+      expect(entries).to.contain(`public/${name}/${version}/${bundle.output}.map`);
     });
 
     it('should generate source map of modules as well', async function() {
       const pkg = porter.package.find({ name: 'react' });
-      const { name, version, main } = pkg;
+      const { name, version, main, } = pkg;
       await pkg.compile(main);
-      const fpath = path.join(root, 'public', `${name}/${version}/${main}.map`);
+      const bundle = pkg.bundles[main];
+      const fpath = path.join(root, 'public', `${name}/${version}/${bundle.output}.map`);
       const map = JSON.parse(await readFile(fpath, 'utf8'));
       expect(map.sources).to.contain('node_modules/react/index.js');
     });
 
     it('should compile package with different main entry', async function () {
       const pkg = porter.package.find({ name: 'chart.js' });
-      const { name, version, main } = pkg;
+      const { name, version, main,  } = pkg;
       await pkg.compile(main);
+      const bundle = pkg.bundles[main];
       const entries = await glob(`public/${name}/**/*.{css,js,map}`, { cwd: root });
-      expect(entries).to.contain(`public/${name}/${version}/${main}`);
-      expect(entries).to.contain(`public/${name}/${version}/${main}.map`);
+      expect(entries).to.contain(`public/${name}/${version}/${bundle.output}`);
+      expect(entries).to.contain(`public/${name}/${version}/${bundle.output}.map`);
     });
 
     it('should compile entry with folder module', async function() {
       const pkg = porter.package.find({ name: 'react-datepicker' });
-      const { name, version, main, folder } = pkg;
-      expect(folder[main]).to.be.ok();
+      const { name, version, main } = pkg;
       await pkg.compileAll();
+      const bundle = pkg.bundles[main];
       const entries = await glob(`public/${name}/**/*.{css,js,map}`, { cwd: root });
-      expect(entries).to.contain(`public/${name}/${version}/${main}/index.js`);
-      expect(entries).to.contain(`public/${name}/${version}/${main}/index.js.map`);
+      expect(entries).to.contain(`public/${name}/${version}/${bundle.output}`);
+      expect(entries).to.contain(`public/${name}/${version}/${bundle.output}.map`);
     });
 
     it('should compile entry with browser field', async function() {
       const pkg = porter.package.find({ name: 'cropper' });
       const { name, version, main, dir } = pkg;
       await pkg.compile(main);
+      const bundle = pkg.bundles[main];
       const entries = await glob(`public/${name}/**/*.{css,js,map}`, { cwd: root });
-      expect(entries).to.contain(`public/${name}/${version}/${main}`);
-      expect(entries).to.contain(`public/${name}/${version}/${main}.map`);
-      expect(require(`${dir}/package.json`).browser).to.eql(`${main}`);
+      expect(entries).to.contain(`public/${name}/${version}/${bundle.output}`);
+      expect(entries).to.contain(`public/${name}/${version}/${bundle.output}.map`);
+      expect(require(`${dir}/package.json`).browser).to.eql(main);
+    });
+
+    it('should compile lazyload modules without bundling', async function() {
+      const { package: pkg } = porter;
+      const manifest = {};
+      await pkg.parseFile('lazyload.js');
+      await pkg.compile('lazyload.js', { manifest, loader: false, package: false });
+      assert.ok(manifest['lazyload.js']);
+      await assert.doesNotReject(async function() {
+        await access(path.join(root, `public/${manifest['lazyload.js']}`));
+      });
     });
   });
 

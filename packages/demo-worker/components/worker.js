@@ -1,3 +1,3 @@
 onmessage = function() {
   postMessage('pong');
-}
+};

@@ -116,6 +116,9 @@
     var levels = [];
     var i = 0;
 
+    // trimStart
+    while (args[i] === '') i++;
+
     while (i < args.length) {
       var parts = args[i++].split('/');
       var j = 0;
@@ -128,7 +131,7 @@
             throw new Error('Top level reached.');
           }
         }
-        else if (part !== '' && part !== '.' && part !== '.') {
+        else if (part !== '.' && part !== '.') {
           levels.push(part);
         }
       }
@@ -188,21 +191,28 @@
 
     if (rUri.test(id)) return id;
 
+    var isRootEntry = registry[id].parent.id in system.entries;
     var obj = parseId(id);
     var name = obj.name;
     var version = obj.version;
+
+    if (!version && pkg.name in lock) {
+      var meta = lock[pkg.name][pkg.version];
+      return basePath + (meta.manifest && meta.manifest[id] || id);
+    }
 
     // lock is empty if loader.js is loaded separately, e.g.
     // `<script src="/loader.js" data-main="app.js"></script>`
     if (name in lock) {
       var meta = lock[name][version];
-      if (meta.bundle) {
-        return basePath + resolve(name, version, meta.bundle);
+      var file = isRootEntry ? obj.file : meta.main || 'index.js';
+      if (meta.manifest && meta.manifest[file]) {
+        return basePath + resolve(name, version, meta.manifest[file]);
       }
     }
 
     var url = basePath + id;
-    if (registry[id].parent.id in system.entries) url += '?entry';
+    if (isRootEntry) url += '?entry';
     return url;
   }
 
@@ -384,7 +394,8 @@
     if (!lock[pkg.name]) return suffix(specifier);
 
     var parent = parseId(context);
-    var parentMap = parent.version ? lock[parent.name][parent.version] : pkg;
+    if (!parent.version) Object.assign(parent, pkg, { file: context });
+    var parentMap = lock[parent.name][parent.version];
 
     if (parentMap.browser) {
       var mapped = parentMap.browser[specifier];
@@ -393,7 +404,7 @@
     }
 
     var mod = specifier.charAt(0) == '.'
-      ? parseId(resolve(dirname(context), specifier))
+      ? parseId(resolve(parent.name, parent.version, dirname(parent.file), specifier))
       : parseId(specifier);
 
     if (!(mod.name in lock)) {

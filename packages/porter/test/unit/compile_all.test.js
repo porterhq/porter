@@ -43,6 +43,7 @@ describe('porter.compileAll()', function() {
     assert(manifest['home.js']);
     assert(manifest['test/suite.js']);
     assert(manifest['stylesheets/app.css']);
+    assert(manifest['lazyload.js']);
   });
 
   it('should compile entries with same-package dependencies bundled', async function () {
@@ -58,7 +59,7 @@ describe('porter.compileAll()', function() {
   });
 
   it('should compile lazyload files', async function () {
-    assert(entries.includes('public/lazyload.js'));
+    assert(entries.includes(`public/${manifest['lazyload.js']}`));
   });
 
   it('should generate source map of entries', async function() {

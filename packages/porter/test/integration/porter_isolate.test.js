@@ -45,7 +45,7 @@ describe('Porter_readFile()', function() {
     const { text: mainText } = await requestPath('/home.js?main');
     const { text: preloadText } = await requestPath('/preload.js');
     const reactDom = porter.package.find({ name: 'react-dom' });
-    const { text: reactText } = await requestPath(`/react-dom/${reactDom.version}/${reactDom.bundleEntry}`);
+    const { text: reactText } = await requestPath(`/react-dom/${reactDom.version}/${reactDom.bundle.entry}`);
 
     const rdefine = /define\("[^"]+"/g;
     const mainIds = mainText.match(rdefine);

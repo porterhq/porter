@@ -1,4 +1,3 @@
 {
-  "presets": ["@babel/preset-env"],
-  "plugins": ["@cara/babel-plugin-import-meta"]
+  "presets": ["@babel/preset-env"]
 }
