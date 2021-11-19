@@ -83,7 +83,6 @@ module.exports = class JsModule extends Module {
   }
 
   async transpile({ code, map }) {
-    const { id, deps } = this;
     let result;
 
     try {
@@ -95,10 +94,17 @@ module.exports = class JsModule extends Module {
 
     // if fpath is ignored, @babel/core returns nothing
     if (result) {
+      const { deps } = this;
+      // @babel/runtime
+      this.deps = this.matchImport(result.code);
+      for (const dep of this.deps) {
+        if (!deps.includes(dep)) await this.parseDep(dep);
+      }
       code = result.code;
       map = result.map;
     }
 
+    const { id, deps } = this;
     return {
       code: [
         `define(${JSON.stringify(id)}, ${JSON.stringify(deps)}, function(require, exports, module, __module) {${code}`,

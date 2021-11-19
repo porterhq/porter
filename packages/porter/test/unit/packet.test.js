@@ -157,6 +157,14 @@ describe('Packet', function() {
         expect(semver.satisfies(deps[name], pkg[name]));
       }
     });
+
+    it('should contain @babel/runtime manifest', async function() {
+      const { lock } = porter.package;
+      assert.ok(lock['@babel/runtime']);
+      // { manifest: { 'index.js': 'index.fc8964e4.js' } }
+      const meta = Object.values(lock['@babel/runtime']).shift();
+      assert.equal(Object.keys(meta.manifest).length, 1);
+    });
   });
 
   describe('package.compile()', function () {

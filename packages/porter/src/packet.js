@@ -202,7 +202,6 @@ module.exports = class Packet {
       this.watchers = this.paths.map(dir => {
         debug('watching %s', dir);
         const watchOpts = {
-          persistent: false,
           // https://nodejs.org/api/fs.html#fs_fs_watch_filename_options_listener
           recursive: process.platform !== 'linux',
         };
@@ -213,8 +212,7 @@ module.exports = class Packet {
 
   watch(eventType, filename) {
     if (filename && filename in this.files) {
-      this.reload(eventType, filename)
-        .catch(err => console.error(err.stack));
+      this.reload(eventType, filename).catch(err => console.error(err.stack));
     }
   }
 
@@ -228,15 +226,14 @@ module.exports = class Packet {
       return fs.unlink(fpath).catch(() => {});
     };
 
+    await mod.reload();
+
     // the module might be `opts.lazyload`ed
     await purge(mod.id);
 
     if (this.parent) {
       // packages isolated with `opts.bundleExcept` or by other means
       await Promise.all(Object.values(this.entries).map(m => purge(m.id)));
-    } else {
-      // components (which has no parent) might be accessed without `${name}/${version}`
-      await purge(mod.file);
     }
 
     // css bundling is handled by postcss-import, which won't use {@link Module@cache}.
@@ -247,6 +244,8 @@ module.exports = class Packet {
         if (mod == descendent) {
           if (entry.endsWith('.css')) await entryModule.reload();
           await purge(entryModule.id);
+          const bundle = app.package.bundles[entry];
+          if (bundle) await bundle.reload();
           break;
         }
       }
@@ -258,10 +257,6 @@ module.exports = class Packet {
     let retries = 20;
     while (ancestor.parent && retries--) ancestor = ancestor.parent;
     await purge(ancestor.id);
-
-    if (!mod.file.endsWith('.css')) {
-      await mod.reload();
-    }
   }
 
   tryRequire(name) {
@@ -477,6 +472,28 @@ module.exports = class Packet {
       stream.on('end', () => resolve(buf));
       stream.end(code);
     });
+  }
+
+  async pack() {
+    const entries = [];
+    const { app, isolated, main, bundles } = this;
+
+    for (const mod of Object.values(this.entries)) {
+      if (mod.isRootEntry) entries.push(mod.file);
+    }
+
+    if (app.preload.length === 0 || isolated) entries.push(main);
+    for (const entry of entries) {
+      let bundle = bundles[entry];
+      if (!bundle) {
+        bundle = new Bundle({
+          packet: this,
+          entries: entry === main ? null : [ entry ],
+        });
+      }
+      bundles[entry] = bundle;
+      if (bundle.entries.length > 0) await bundle.obtain();
+    }
   }
 
   /**

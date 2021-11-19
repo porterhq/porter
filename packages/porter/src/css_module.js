@@ -39,7 +39,7 @@ module.exports = class CssModule extends Module {
     const code = this.code || await readFile(fpath, 'utf8');
 
     const { id } = this;
-    const { cssLoader, root } = this.package.app;
+    const { cssLoader } = this.package.app;
 
     /**
      * `from` must be absolute path to make sure the `baseDir` in
@@ -53,7 +53,6 @@ module.exports = class CssModule extends Module {
       to: id,
       map: {
         inline: false,
-        from: path.relative(root, fpath),
         sourcesContent: false
       }
     });

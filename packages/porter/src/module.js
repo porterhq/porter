@@ -3,7 +3,7 @@
 const crypto = require('crypto');
 const debug = require('debug')('porter');
 const path = require('path');
-const { promises: { access, writeFile } } = require('fs');
+const { promises: { writeFile } } = require('fs');
 const util = require('util');
 
 const mkdirp = util.promisify(require('mkdirp'));
@@ -35,9 +35,13 @@ module.exports = class Module {
   }
 
   get isRootEntry() {
-    const { file, loaders, package: pkg } = this;
-    return file in pkg.entries &&
-      (!pkg.parent || (loaders && loaders['worker-loader']));
+    const { file, isWorker, package: pkg } = this;
+    return file in pkg.entries && (!pkg.parent || isWorker);
+  }
+
+  get isWorker() {
+    const { loaders } = this;
+    return loaders && loaders['worker-loader'];
   }
 
   get family() {
@@ -85,12 +89,7 @@ module.exports = class Module {
     const fpath = path.join(this.package.app.cache.dest, this.id);
     const dir = path.dirname(fpath);
 
-    try {
-      await access(dir);
-    } catch (err) {
-      await mkdirp(dir);
-    }
-
+    await mkdirp(dir);
     await writeFile(`${fpath}.cache`, JSON.stringify(this.cache));
   }
 

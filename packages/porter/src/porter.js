@@ -100,24 +100,28 @@ class Porter {
   }
 
   async pack() {
-    const { package: pkg, preload, entries } = this;
+    const { package: pkg, entries, preload } = this;
 
     for (const dep of pkg.all) {
-      if (dep !== pkg && (dep.isolated || preload.length === 0)) {
-        let bundle = dep.bundles[dep.main];
-        if (!bundle) bundle = new Bundle({ packet: dep });
-        dep.bundles[dep.main] = bundle;
-        if (bundle.entries.length > 0) await bundle.obtain();
-      }
+      if (dep !== pkg) await dep.pack();
     }
 
-    for (const file of entries) {
+    for (const file of preload.concat(entries)) {
       if (!pkg.bundles[file]) {
         const bundle = new Bundle({ packet: pkg, entries: [ file ] });
         pkg.bundles[file] = bundle;
         await bundle.obtain();
       }
     }
+  }
+
+  prepareFiles(files, isEntry = false) {
+    const { package: pkg } = this;
+    return files.map(async function prepareFile(file, i) {
+      const mod = isEntry ? await pkg.parseEntry(file) : await pkg.parseFile(file);
+      // normalize file name
+      if (mod) files[i] = mod.file;
+    });
   }
 
   async prepare(opts = {}) {
@@ -130,24 +134,20 @@ class Porter {
     await pkg.prepare();
 
     await Promise.all([
-      ...preload.map(file => pkg.parseFile(file)),
-      ...entries.map(entry => pkg.parseEntry(entry)),
-      ...lazyload.map(file => pkg.parseFile(file)),
+      ...this.prepareFiles(preload),
+      ...this.prepareFiles(entries, true),
+      ...this.prepareFiles(lazyload),
     ]);
 
     for (const file of preload) {
-      const entry = await pkg.parseFile(file);
+      const entry = await pkg.files[file];
       entry.isPreload = true;
       for (const mod of entry.family) mod.preloaded = !mod.package.isolated;
-      const bundle = new Bundle({ packet: pkg, entries: [ entry.file ] });
-      pkg.bundles[entry.file] = bundle;
-      await bundle.obtain();
     }
 
     for (const file of lazyload) {
-      const entry = await pkg.parseFile(file);
-      const bundle = new Bundle({ packet: pkg, entries: [ entry.file ], package: false });
-      pkg.bundles[entry.file] = bundle;
+      const bundle = new Bundle({ packet: pkg, entries: [ file ], package: false });
+      pkg.bundles[file] = bundle;
       await bundle.obtain();
     }
 
@@ -268,9 +268,11 @@ class Porter {
     if (!pkg) throw new Error(`unknown dependency ${id}`);
 
     const mod = isEntry ? await pkg.parseEntry(file) : await pkg.parseFile(file);
-    if (pkg === this.package) await this.pack();
+    if (mod) return mod;
 
-    return mod;
+    const bundle = pkg.bundles[file];
+    // @babel/runtime has no main
+    if (bundle) return { file, fake: true, package: pkg };
   }
 
   async writeSourceMap({ id, isMain, name, code, map }) {
@@ -313,10 +315,11 @@ class Porter {
   async readJs(id, query) {
     const isMain = id.endsWith('.js') && 'main' in query;
     const isEntry = isMain || 'entry' in query;
-    id = id.replace(/\.[a-z0-9]{8}\.js$/, '.js');
+    id = id.replace(/\.[a-f0-9]{8}\.js$/, '.js');
     const mod = await this.parseId(id, { isEntry });
 
     if (!mod) return;
+    if (isEntry) await this.pack();
 
     const { fake, package: pkg } = mod;
     const mtime = fake ? new Date().toGMTString() : (await lstat(mod.fpath)).mtime.toJSON();
