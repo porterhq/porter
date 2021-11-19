@@ -434,7 +434,8 @@
     if (map.folder && map.folder[file]) file += '/index.js';
 
     file = suffix(file);
-    return name === pkg.name ? file : resolve(name, version, file);
+    var id = resolve(name, version, file);
+    return name === pkg.name && !registry[id] ? file : id;
   };
 
 
@@ -486,7 +487,7 @@
     'import': function Porter_import(specifiers, fn) {
       specifiers = preload.concat(specifiers).map(function(specifier) {
         var mod = parseId(specifier);
-        return suffix(mod.version ? mod.file : specifier);
+        return suffix(mod.version && !registry[specifier] ? mod.file : specifier);
       });
       rootImport(specifiers, function() {
         if (fn) fn.apply(null, arrayFn.slice.call(arguments, preload.length));

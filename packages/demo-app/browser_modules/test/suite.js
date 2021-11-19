@@ -70,7 +70,7 @@ describe('browser field', function() {
   it('should recognize relative requires without extension', function() {
     // can't reuqire('brotli') directly yet
     // - https://github.com/foliojs/brotli.js/issues/20
-    expect(require('brotli/decompress')).to.a(Function);
+    expect(require('brotli/decompress')).to.be.a(Function);
   });
 
   it('shim stream with readable-stream', function() {
@@ -81,5 +81,14 @@ describe('browser field', function() {
 describe('missing dep', function() {
   it('should still be accessible if requires missing dependency', function() {
     expect(require('./missing.js')).to.eql({});
+  });
+});
+
+describe('worker from dependency', function() {
+  it('should be able to load dependencies that have web workers', async function() {
+    const greeting = require('@cara/demo-worker/');
+    expect(greeting).to.be.a(Function);
+    const result = await greeting();
+    expect(result).to.equal('pong');
   });
 });

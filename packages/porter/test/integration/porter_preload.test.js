@@ -1,14 +1,14 @@
 'use strict';
 
 const assert = require('assert').strict;
-const expect = require('expect.js');
 const Koa = require('koa');
 const path = require('path');
 const request = require('supertest');
 
 const porter = require('../../../demo-app/lib/porter_preload');
-const { existsSync, promises: { readFile, writeFile } } = require('fs');
+const { existsSync, promises: fs } = require('fs');
 
+const { readFile, writeFile } = fs;
 const app = new Koa();
 app.use(porter.async());
 
@@ -27,12 +27,12 @@ function requestPath(urlPath, status = 200, listener = app.callback()) {
 async function checkReload({ sourceFile, targetFile, pathname }) {
   sourceFile = sourceFile || targetFile;
   const sourceModule = await porter.package.parseFile(sourceFile);
-  const targetModule = await porter.package.parseFile(targetFile);
+  const targetModule = await porter.package.parseEntry(targetFile);
   pathname = pathname || `/${targetModule.id}`;
   const { fpath: sourcePath } = sourceModule;
   const cachePath = path.join(porter.cache.dest, pathname.slice(1));
   await requestPath(pathname);
-  expect(existsSync(cachePath)).to.be.ok();
+  assert(existsSync(cachePath));
 
   const source = await readFile(sourcePath, 'utf8');
   const mark = `/* changed ${Date.now().toString(36)} */`;
@@ -47,17 +47,21 @@ async function checkReload({ sourceFile, targetFile, pathname }) {
       await new Promise(resolve => setTimeout(resolve, 200));
     }
 
-    expect(existsSync(cachePath)).to.not.be.ok();
+    assert(!existsSync(cachePath));
     await requestPath(pathname);
-    expect(existsSync(cachePath)).to.be.ok();
-    expect(await readFile(cachePath, 'utf8')).to.contain(mark);
+    assert(existsSync(cachePath));
+    assert((await readFile(cachePath, 'utf8')).includes(mark));
   } finally {
     await writeFile(sourcePath, source);
-    await new Promise(resolve => setTimeout(resolve, 200));
   }
 }
 
 describe('Porter_readFile()', function() {
+  before(async function() {
+    await fs.rm(porter.cache.dest, { recursive: true, force: true });
+    await porter.ready;
+  });
+
   after(async function() {
     await porter.destroy();
   });
@@ -102,6 +106,6 @@ describe('Porter_readFile()', function() {
 
   it('should not override lock in preload', async function() {
     const res = await requestPath('/preload.js?entry');
-    expect(res.text.includes('Object.assign(porter.lock')).to.not.be.ok();
+    assert(!res.text.includes('Object.assign(porter.lock'));
   });
 });

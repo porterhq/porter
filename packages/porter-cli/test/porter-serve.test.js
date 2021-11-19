@@ -5,6 +5,7 @@ const expect = require('expect.js');
 const http = require('http');
 const path = require('path');
 const { spawn } = require('child_process');
+const fs = require('fs/promises');
 
 const cmd = path.join(__dirname, '../bin/porter-serve.js');
 const componentRoot = path.join(__dirname, '../../demo-component');
@@ -129,6 +130,10 @@ describe('porter-serve web application', function() {
 });
 
 describe('porter-serve web application --headless', function() {
+  before(async function() {
+    await fs.rm(path.join(appRoot, 'public'), { recursive: true, force: true });
+  });
+
   it('should be able to run web application tests headlessly', async function() {
     const proc = spawn(cmd, [
       '--paths', 'components',

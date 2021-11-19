@@ -29,7 +29,8 @@ function requestPath(urlPath, status = 200, listener = app.callback()) {
 async function checkReload({ sourceFile, targetFile, pathname }) {
   sourceFile = sourceFile || targetFile;
   const sourceModule = await porter.package.parseFile(sourceFile);
-  const targetModule = await porter.package.parseFile(targetFile);
+  const targetModule = await porter.package.parseEntry(targetFile);
+  await porter.pack();
   pathname = pathname || `/${targetModule.id}`;
 
   const { fpath: sourcePath } = sourceModule;
@@ -54,7 +55,6 @@ async function checkReload({ sourceFile, targetFile, pathname }) {
     assert((await readFile(cachePath, 'utf8')).includes(mark));
   } finally {
     await writeFile(sourcePath, source);
-    await new Promise(resolve => setTimeout(resolve, 200));
   }
 }
 
@@ -68,6 +68,7 @@ describe('Porter', function() {
         root: 'http://localhost:5000'
       }
     });
+    await fs.rm(porter.cache.dest, { recursive: true, force: true });
     await porter.ready;
 
     app = new Koa();

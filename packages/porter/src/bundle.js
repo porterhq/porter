@@ -39,19 +39,25 @@ module.exports = class Bundle {
     const { entries, packet, scope } = this;
     const done = {};
 
-    function* iterate(entry, preload = false) {
-      done[entry.id] = true;
-      for (const mod of Object.values(entry.children)) {
+    function* iterate(entry, preload) {
+      for (const mod of entry.children) {
         if (done[mod.id]) continue;
         // exclude external modules if module packet is isolated
         if (mod.package !== packet && scope !== 'all') continue;
         if (mod.preloaded && !preload) continue;
         // might be WasmModule
         if (mod.isolated) continue;
-        yield* iterate(mod, preload);
+        yield* iterateEntry(mod, preload);
       }
+    }
+
+    function* iterateEntry(entry, preload = false) {
+      done[entry.id] = true;
+      yield* iterate(entry, preload);
       if (entry.package !== packet && entry.package.isolated) return;
       yield entry;
+      // iterate again in case new dependencies such as @babel/runtime were found
+      yield* iterate(entry, preload);
     }
 
     for (const name of entries) {
@@ -61,7 +67,14 @@ module.exports = class Bundle {
       // might be a mocked module from FakePacket
       if (!(entry instanceof Module)) continue;
 
-      yield* iterate(entry, entry.isPreload || entry.fake);
+      /**
+       * preloaded modules should be included in following scenarios:
+       * - bundling preload.js itself.
+       * - bundling a program generated entry that needs to be self contained.
+       * - bundling a web worker
+       */
+      const preload = entry.isPreload || entry.fake || (entry.isWorker);
+      yield* iterateEntry(entry, preload);
     }
   }
 
@@ -70,9 +83,7 @@ module.exports = class Bundle {
 
     const { entries } = this.packet;
     return Object.keys(entries).filter(file => {
-      if (!file.endsWith('.js')) return false;
-      const { loaders } = entries[file];
-      return !(loaders && 'worker-loader' in loaders);
+      return file.endsWith('.js') && !entries[file].isRootEntry;
     });
   }
 
@@ -83,7 +94,7 @@ module.exports = class Bundle {
 
   get output() {
     const { code, entries, entry } = this;
-    if (entries.length === 0 && !code) return '';
+    if (entries.length === 0 || !code) return '';
     const contenthash = crypto.createHash('md5').update(code).digest('hex').slice(0, 8);
     return entry.replace(/(\.\w+)?$/, (m, ext = '.js') => {
       return `.${contenthash}${ext}`;
@@ -132,6 +143,14 @@ module.exports = class Bundle {
     });
   }
 
+  async reload() {
+    debug(`reloading ${this.entry} (${this.packet.dir})`);
+    this.code = null;
+    this.map = null;
+    this.cacheTag = null;
+    await this.obtain();
+  }
+
   /**
    * Create a bundle from specified entries
    * @param {string[]} entries
@@ -140,12 +159,18 @@ module.exports = class Bundle {
    * @param {Object} opts.loaderConfig overrides {@link Packet#loaderConfig}
    */
   async obtain({ loader = false } = {}) {
+    const { app, entries, packet, cacheTag } = this;
+
+    if (cacheTag === JSON.stringify({ entries, loader })) {
+      const { code, map } = this;
+      return { code, map };
+    }
+
     const node = new SourceNode();
-    const { app, entries, packet } = this;
     const loaderConfig = Object.assign(packet.loaderConfig, this.loaderConfig);
     const preloaded = app.preload.length > 0;
 
-    debug('bundle start %s/%s %s', packet.name, packet.version, entries);
+    debug('bundle start %s v%s %s', packet.name, packet.version, entries);
     for (const mod of this) {
       const { code, map } = await mod.obtain();
       const source = path.relative(app.root, mod.fpath);
@@ -156,6 +181,11 @@ module.exports = class Bundle {
     if (!mod) {
       const { name, version } = packet;
       throw new Error(`unable to find ${entries[0]} in packet ${name} v${version}`);
+    }
+
+    if (mod.isRootEntry) {
+      const runtime = packet.find({ name: '@babel/runtime' });
+      if (runtime) await runtime.pack();
     }
 
     if (mod.isRootEntry && !mod.isPreload) {
@@ -172,7 +202,8 @@ module.exports = class Bundle {
 
     const result = node.join('\n').toStringWithSourceMap({ sourceRoot: '/' });
     Object.assign(this, result);
-    debug('bundle end %s/%s %s', packet.name, packet.version, entries);
+    this.cacheTag = JSON.stringify({ entries, loader });
+    debug('bundle end %s v%s %s', packet.name, packet.version, entries);
     return result;
   }
 

@@ -42,6 +42,13 @@ describe('Bundle without preload', function() {
         if (dep !== porter.package) assert.ok(dep.bundle);
       }
     });
+
+    it('should append @babel/runtime', async function() {
+      // injected by @babel/plugin-transform-runtime
+      const runtime = porter.package.find({ name: '@babel/runtime' });
+      assert.ok(runtime.bundle);
+      assert.ok(runtime.bundle.output);
+    });
   });
 });
 
@@ -93,7 +100,7 @@ describe('Bundle with preload', function() {
       assert.ok(reactModules.every(mod => !modules.includes(mod)));
       assert.ok(reactModules.every(mod => !preloadModules.includes(mod)));
       assert.equal(react.bundle.entry, react.main);
-      assert.equal(react.bundle.output.replace(/.[a-z0-9]{8}/, ''), react.main);
+      assert.equal(react.bundle.output.replace(/.[a-f0-9]{8}/, ''), react.main);
     });
 
     it('should still preload dependencies of isolated dependencies', async function() {
@@ -107,7 +114,7 @@ describe('Bundle with preload', function() {
     it('should work', async function() {
       const bundle = porter.package.bundles['home.js'];
       const { entry, output } = bundle;
-      assert.ok(new RegExp(`^${entry.replace('.js', '.[a-z0-9]{8}.js')}$`).test(output));
+      assert.ok(new RegExp(`^${entry.replace('.js', '.[a-f0-9]{8}.js')}$`).test(output));
     });
   });
 });

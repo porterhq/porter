@@ -2,14 +2,16 @@
 
 const path = require('path');
 const { strict: assert } = require('assert');
-const exec = require('child_process').execSync;
 const util = require('util');
-const { existsSync, promises: { readFile } } = require('fs');
+const { existsSync, promises: fs } = require('fs');
 const glob = util.promisify(require('glob'));
 
 const Porter = require('../..');
+const { readFile } = fs;
 
 describe('porter.compileAll()', function() {
+  // compiling without cache could be time consuming
+  this.timeout(600000);
   const root = path.resolve(__dirname, '../../../demo-app');
   const dest = path.join(root, 'public');
   let porter;
@@ -24,8 +26,9 @@ describe('porter.compileAll()', function() {
       lazyload: ['lazyload.js'],
       source: { root: 'http://localhost:3000/' }
     });
+    await fs.rm(porter.cache.dest, { recursive: true, force: true });
     await porter.ready;
-    exec(`rm -rf ${dest}`);
+
     await porter.compileAll({
       entries: ['home.js', 'test/suite.js', 'stylesheets/app.css']
     });
