@@ -54,14 +54,13 @@ class Porter {
     this.lazyload = [].concat(opts.lazyload || []);
 
     this.source = { serve: false, root: '/', ...opts.source };
-    this.cssLoader = postcss([
+    this.cssTranspiler = postcss([
       atImport({
         path: paths,
         resolve: this.atImportResolve.bind(this)
-      })
+      }),
+      ...(opts.postcssPlugins || [ autoprefixer(opts.autoprefixer) ]),
     ]);
-
-    this.cssTranspiler = postcss(opts.postcssPlugins || [autoprefixer(opts.autoprefixer)]);
     this.ready = this.prepare(opts);
   }
 

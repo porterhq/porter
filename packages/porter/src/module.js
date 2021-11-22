@@ -3,10 +3,7 @@
 const crypto = require('crypto');
 const debug = require('debug')('porter');
 const path = require('path');
-const { promises: { writeFile } } = require('fs');
-const util = require('util');
-
-const mkdirp = util.promisify(require('mkdirp'));
+const fs = require('fs/promises');
 
 const rModuleId = /^((?:@[^\/]+\/)?[^\/]+)(?:\/(\d+\.\d+\.\d+[^\/]*))?(?:\/(.*))?$/;
 
@@ -18,6 +15,7 @@ module.exports = class Module {
     if (moduleCache[fpath]) return moduleCache[fpath];
     moduleCache[fpath] = this;
 
+    this.app = pkg.app;
     this.package = pkg;
     this.name = pkg.name;
     this.version = pkg.version;
@@ -89,8 +87,8 @@ module.exports = class Module {
     const fpath = path.join(this.package.app.cache.dest, this.id);
     const dir = path.dirname(fpath);
 
-    await mkdirp(dir);
-    await writeFile(`${fpath}.cache`, JSON.stringify(this.cache));
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(`${fpath}.cache`, JSON.stringify(this.cache));
   }
 
   addCache(source, opts) {

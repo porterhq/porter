@@ -164,11 +164,8 @@ module.exports = class Packet {
     }
   }
 
-  async prepare() {
-    await this.parseDepPaths();
-    const { name, transpiler, app, main } = this;
-
-    if (this === app.package && !transpiler) {
+  async prepareTranspiler() {
+    if (!this.transpiler) {
       const obj = { babel: '.babelrc', typescript: 'tsconfig.json' };
       for (const prop in obj) {
         const configPath = path.join(this.dir, obj[prop]);
@@ -184,6 +181,21 @@ module.exports = class Packet {
         }
       }
     }
+
+    if (this.transpiler === 'babel') {
+      const { plugins = [] } = this.transpilerOpts;
+      for (const plugin of [ '@cara/babel-plugin-import-meta', '@cara/babel-plugin-deheredoc' ]) {
+        plugins.push(require.resolve(plugin));
+      }
+      this.transpilerOpts.plugins = plugins;
+    }
+  }
+
+  async prepare() {
+    await this.parseDepPaths();
+    const { name, transpiler, app, main } = this;
+
+    if (this === app.package) await this.prepareTranspiler();
 
     if (app.transpile.only.includes(name) && !transpiler) {
       this.transpiler = app.package.transpiler;

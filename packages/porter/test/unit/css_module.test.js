@@ -3,9 +3,9 @@
 const path = require('path');
 const assert = require('assert').strict;
 const postcssPresetEnv = require('postcss-preset-env');
-// locked to v1.2.0
-// - https://github.com/leodido/postcss-clean/issues/63
-const clean = require('postcss-clean');
+const cssnano = require('cssnano');
+const fs = require('fs/promises');
+
 const Porter = require('../..');
 
 
@@ -20,9 +20,10 @@ describe('CssModule', function() {
       entries: ['home.js', 'stylesheets/app.css'],
       postcssPlugins: [
         postcssPresetEnv(),
-        clean()
-      ]
+        cssnano(),
+      ],
     });
+    await fs.rm(porter.cache.dest, { recursive: true, force: true });
     await porter.ready;
   });
 
@@ -36,5 +37,17 @@ describe('CssModule', function() {
     await assert.doesNotReject(async function() {
       await mod.transpile(result);
     });
+  });
+
+  it('should transpile with correct source map', async function() {
+    const mod = porter.package.files['stylesheets/app.css'];
+    const { map } = await mod.obtain();
+    assert.deepEqual(map.sources, [
+      'components/stylesheets/common/reset.css',
+      'components/stylesheets/common/base.css',
+      'node_modules/cropper/dist/cropper.css',
+      'node_modules/prismjs/themes/prism.css',
+      'components/stylesheets/app.css',
+    ]);
   });
 });
