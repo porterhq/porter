@@ -128,7 +128,7 @@ module.exports = class JsModule extends Module {
   }
 
   async _transpile({ code, }) {
-    const { fpath, package: pkg } = this;
+    const { fpath, package: pkg, app } = this;
     const babel = pkg.transpiler === 'babel' && pkg.tryRequire('@babel/core');
     if (!babel) return;
 
@@ -139,26 +139,16 @@ module.exports = class JsModule extends Module {
      */
     if (!fpath.startsWith(pkg.dir)) return;
 
-    const transpileOptions = {
-      plugins: [],
+    const transpilerOptions = {
       ...pkg.transpilerOpts,
       sourceMaps: true,
       sourceRoot: '/',
       ast: false,
       filename: fpath,
-      filenameRelative: path.relative(pkg.dir, fpath),
-      sourceFileName: path.relative(pkg.dir, fpath),
-      // root: pkg.dir
+      filenameRelative: path.relative(app.root, fpath),
+      sourceFileName: path.relative(app.root, fpath),
     };
-    const { plugins } = transpileOptions;
-
-    for (const name of [ '@cara/babel-plugin-import-meta', '@cara/babel-plugin-deheredoc' ]) {
-      if (!plugins.some(plugin => plugin.includes(name))) {
-        plugins.push(require.resolve(name));
-      }
-    }
-
-    return await babel.transform(code, transpileOptions);
+    return await babel.transform(code, transpilerOptions);
   }
 
   uglify({ code, map }) {

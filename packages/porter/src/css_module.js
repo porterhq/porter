@@ -1,7 +1,6 @@
 'use strict';
 
-const path = require('path');
-const { promises: { readFile } } = require('fs');
+const fs = require('fs/promises');
 
 const Module = require('./module');
 
@@ -28,7 +27,7 @@ module.exports = class CssModule extends Module {
     this.loaded = true;
 
     const { fpath } = this;
-    const code = this.code || (await readFile(fpath, 'utf8'));
+    const code = this.code || (await fs.readFile(fpath, 'utf8'));
     const deps = this.deps || this.matchImport(code);
 
     await Promise.all(deps.map(this.parseDep, this));
@@ -36,33 +35,13 @@ module.exports = class CssModule extends Module {
 
   async load() {
     const { fpath } = this;
-    const code = this.code || await readFile(fpath, 'utf8');
-
-    const { id } = this;
-    const { cssLoader } = this.package.app;
-
-    /**
-     * `from` must be absolute path to make sure the `baseDir` in
-     * `atImportResolve()` function is correct. Otherwise it will be set to
-     * process.cwd() which might not be `root` in some circumstances. Luckily
-     * we've got `map.from` to specify the file path in source map.
-     * - http://api.postcss.org/global.html#processOptions
-     */
-    const { css, map } = await cssLoader.process(code, {
-      from: fpath,
-      to: id,
-      map: {
-        inline: false,
-        sourcesContent: false
-      }
-    });
-
-    return { code: css, map: map.toJSON() };
+    const code = await fs.readFile(fpath, 'utf8');
+    return { code };
   }
 
   async transpile({ code, map }) {
-    const { fpath, id } = this;
-    const { cssTranspiler, root } = this.package.app;
+    const { fpath, app } = this;
+    const { cssTranspiler } = this.package.app;
 
     /**
      * PostCSS doesn't support sourceRoot yet
@@ -70,17 +49,15 @@ module.exports = class CssModule extends Module {
      */
     const result = await cssTranspiler.process(code, {
       from: fpath,
-      to: id,
+      path: this.app.paths,
       map: {
         inline: false,
-        prev: map,
-        from: path.relative(root, fpath),
         sourcesContent: false
       }
     });
 
     map = JSON.parse(result.map);
-    map.sourceRoot = '/';
+    map.sourceRoot = app.source.root;
 
     return { code: result.css, map };
   }

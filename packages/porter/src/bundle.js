@@ -9,6 +9,9 @@ const Module = require('./module');
 
 module.exports = class Bundle {
   #entries = null;
+  #code = null;
+  #map = null;
+  #etag = null;
 
   constructor(options = {}) {
     const { packet, entries, loaderConfig } = options;
@@ -93,7 +96,8 @@ module.exports = class Bundle {
   }
 
   get output() {
-    const { code, entries, entry } = this;
+    const { entries, entry } = this;
+    const code = this.#code;
     if (entries.length === 0 || !code) return '';
     const contenthash = crypto.createHash('md5').update(code).digest('hex').slice(0, 8);
     return entry.replace(/(\.\w+)?$/, (m, ext = '.js') => {
@@ -145,9 +149,9 @@ module.exports = class Bundle {
 
   async reload() {
     debug(`reloading ${this.entry} (${this.packet.dir})`);
-    this.code = null;
-    this.map = null;
-    this.cacheTag = null;
+    this.#code = null;
+    this.#map = null;
+    this.#etag = null;
     await this.obtain();
   }
 
@@ -159,11 +163,10 @@ module.exports = class Bundle {
    * @param {Object} opts.loaderConfig overrides {@link Packet#loaderConfig}
    */
   async obtain({ loader = false } = {}) {
-    const { app, entries, packet, cacheTag } = this;
+    const { app, entries, packet } = this;
 
-    if (cacheTag === JSON.stringify({ entries, loader })) {
-      const { code, map } = this;
-      return { code, map };
+    if (this.#etag === JSON.stringify({ entries, loader })) {
+      return { code: this.#code, map: this.#map };
     }
 
     const node = new SourceNode();
@@ -201,8 +204,9 @@ module.exports = class Bundle {
     }
 
     const result = node.join('\n').toStringWithSourceMap({ sourceRoot: '/' });
-    Object.assign(this, result);
-    this.cacheTag = JSON.stringify({ entries, loader });
+    this.#code = result.code;
+    this.#map = result.map;
+    this.#etag = JSON.stringify({ entries, loader });
     debug('bundle end %s v%s %s', packet.name, packet.version, entries);
     return result;
   }
