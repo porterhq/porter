@@ -227,7 +227,7 @@ module.exports = class Package {
     const { dest } = app.cache;
     const purge = id => {
       const fpath = path.join(dest, id);
-      debug('purge cache %s', fpath)
+      debug('purge cache %s', fpath);
       return fs.unlink(fpath).catch(() => {});
     };
 
@@ -663,7 +663,7 @@ module.exports = class Package {
       this.bundleEntry = `~bundle-${crypto.createHash('md5').update(result.code).digest('hex').slice(0, 8)}.js`;
       file = this.bundleEntry;
     }
-    const fpath = path.join(dest, name, version, file);
+    const fpath = path.join(dest, name, version, file.replace(/\.(?:jsx?|tsx?)$/, '.js'));
 
     await mkdirp(path.dirname(fpath));
     await Promise.all([

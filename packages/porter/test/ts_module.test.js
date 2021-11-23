@@ -2,7 +2,8 @@
 
 const path = require('path');
 const { strict: assert } = require('assert');
-const Porter = require("../src/porter");
+const fs = require('fs/promises');
+const Porter = require('../src/porter');
 
 const root = path.resolve(__dirname, '../../demo-typescript');
 const porter = new Porter({
@@ -12,6 +13,7 @@ const porter = new Porter({
 
 describe('TsModule', function() {
   before(async function() {
+    await fs.rm(porter.cache.dest, { recursive: true, force: true });
     await porter.ready;
   });
 
