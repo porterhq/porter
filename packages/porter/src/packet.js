@@ -641,13 +641,14 @@ module.exports = class Package {
       entries[0] = entries[0].entry;
     }
 
+    const rScript = /\.(?:jsx?|tsx?)$/;
     const { name, version } = this;
     const { dest } = this.app;
     let file = this.bundleEntry || entries[0];
 
     debug(`compile ${name}/${version}/${file} start`);
     const mod = this.files[entries[0]];
-    const result = file.endsWith('.js') && (opts.package || opts.all)
+    const result = rScript.test(file) && (opts.package || opts.all)
       ? await this.bundle(entries, opts)
       : await mod.minify();
 
@@ -663,7 +664,7 @@ module.exports = class Package {
       this.bundleEntry = `~bundle-${crypto.createHash('md5').update(result.code).digest('hex').slice(0, 8)}.js`;
       file = this.bundleEntry;
     }
-    const fpath = path.join(dest, name, version, file.replace(/\.(?:jsx?|tsx?)$/, '.js'));
+    const fpath = path.join(dest, name, version, file.replace(rScript, '.js'));
 
     await mkdirp(path.dirname(fpath));
     await Promise.all([
