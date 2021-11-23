@@ -1,7 +1,12 @@
+3.3.2 / 2021-11-24
+==================
+
+  * fix: entry check should allow extensions like `.jsx` or `.tsx` too (#75)
+
 3.3.1 / 2021-11-23
 ==================
 
-  * fix: compilation output of ts entries should be .js (#74)
+  * fix: compilation output of ts entries should be `.js` (#74)
 
 3.3.0 / 2021-09-23
 ==================
