@@ -1,6 +1,12 @@
+3.3.1 / 2021-11-23
+==================
+
+  * fix: compilation output of ts entries should be .js (#74)
+
 3.3.0 / 2021-09-23
 ==================
 
+  * feat: TypeScript support (#67)
   * fix: support package folder names like `_@babel_runtime@7.15.4@@babel/runtime` (#59)
   * upgrade: postcss >= 8.2.10 (#58)
 
