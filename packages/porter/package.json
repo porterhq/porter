@@ -1,7 +1,7 @@
 {
   "name": "@cara/porter",
   "description": "A middleware for web modules",
-  "version": "3.3.0",
+  "version": "3.3.3",
   "main": "src/porter.js",
   "repository": {
     "type": "git",
@@ -13,7 +13,6 @@
   "dependencies": {
     "@cara/babel-plugin-deheredoc": "^3.2.0",
     "@cara/babel-plugin-import-meta": "^3.2.0",
-    "autoprefixer": "^10.3.5",
     "debug": "^3.1.0",
     "glob": "^7.0.5",
     "js-tokens": "^4.0.0",
