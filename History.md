@@ -1,3 +1,8 @@
+3.3.3 / 2021-11-25
+==================
+
+  * fix: drop the default autoprefixer & unused dependency (#76)
+
 3.3.2 / 2021-11-24
 ==================
 
