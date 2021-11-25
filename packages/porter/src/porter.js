@@ -1,7 +1,6 @@
 'use strict';
 
 const atImport = require('postcss-import');
-const autoprefixer = require('autoprefixer');
 const crypto = require('crypto');
 const debug = require('debug')('porter');
 const fs = require('mz/fs');
@@ -64,9 +63,7 @@ class Porter {
       })
     ]);
 
-    this.cssTranspiler = postcss(
-      (opts.postcssPlugins || []).concat(autoprefixer(opts.autoprefixer))
-    );
+    this.cssTranspiler = postcss(opts.postcssPlugins || []);
     this.ready = this.prepare(opts);
   }
 
