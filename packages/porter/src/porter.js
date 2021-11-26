@@ -1,7 +1,6 @@
 'use strict';
 
 const atImport = require('postcss-import');
-const autoprefixer = require('autoprefixer');
 const crypto = require('crypto');
 const debug = require('debug')('porter');
 const { existsSync, promises: fs } = require('fs');
@@ -59,7 +58,7 @@ class Porter {
         path: paths,
         resolve: this.atImportResolve.bind(this)
       }),
-      ...(opts.postcssPlugins || [ autoprefixer(opts.autoprefixer) ]),
+      ...(opts.postcssPlugins || []),
     ]);
     this.ready = this.prepare(opts);
   }
@@ -167,7 +166,6 @@ class Porter {
   async compileExclusivePackages(opts) {
     for (const name of this.bundleExcept) {
       const packages = this.package.findAll({ name });
-      if (packages.length == 0) throw new Error(`unable to find package ${name}`);
       for (const pkg of packages) await pkg.compileAll(opts);
     }
   }

@@ -187,8 +187,10 @@ module.exports = class Bundle {
     }
 
     if (mod.isRootEntry) {
-      const runtime = packet.find({ name: '@babel/runtime' });
-      if (runtime) await runtime.pack();
+      // make sure packet dependencies are all packed
+      for (const dep of packet.all) {
+        if (dep !== packet) await dep.pack();
+      }
     }
 
     if (mod.isRootEntry && !mod.isPreload) {

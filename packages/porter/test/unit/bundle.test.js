@@ -1,6 +1,7 @@
 'use strict';
 
 const { strict: assert } = require('assert');
+const fs = require('fs/promises');
 const path = require('path');
 const Porter = require('../..');
 
@@ -14,6 +15,7 @@ describe('Bundle without preload', function() {
       paths: ['components', 'browser_modules'],
       entries: ['home.js', 'test/suite.js', 'stylesheets/app.css'],
     });
+    await fs.rm(porter.cache.dest, { recursive: true, force: true });
     await porter.ready;
   });
 
