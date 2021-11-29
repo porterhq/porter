@@ -184,9 +184,7 @@ module.exports = class Packet {
 
     if (this.transpiler === 'babel') {
       const { plugins = [] } = this.transpilerOpts;
-      for (const plugin of [ '@cara/babel-plugin-import-meta', '@cara/babel-plugin-deheredoc' ]) {
-        plugins.push(require.resolve(plugin));
-      }
+      plugins.push(path.join(__dirname, 'babel_plugin.js'));
       this.transpilerOpts.plugins = plugins;
     }
   }
@@ -530,15 +528,15 @@ module.exports = class Packet {
   }
 
   async compileAll(opts) {
-    const { entries } = this;
+    const { entries, bundles, main } = this;
 
     for (const entry in entries) {
       if (entry.endsWith('.js') && entries[entry].isRootEntry) {
-        await this.compile(entry, opts);
+        bundles[entry] = await this.compile(entry, opts);
       }
     }
 
-    await this.compile([], opts);
+    bundles[main] = await this.compile([], opts);
   }
 
   async compile(entries, opts) {
@@ -584,6 +582,7 @@ module.exports = class Packet {
       }))
     ]);
     debug(`compile ${name}/${version}/${entry} end`);
+    return bundle;
   }
 
   async destroy() {

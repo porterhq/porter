@@ -11,9 +11,12 @@ const Porter = require('../..');
 
 describe('CssModule', function() {
   const root = path.resolve(__dirname, '../../../demo-app');
+  const cwd = process.cwd();
   let porter;
 
   before(async function() {
+    // change directory into packages/demo-app to have postcss resolve paths correctly
+    process.chdir(root);
     porter = new Porter({
       root,
       paths: ['components', 'browser_modules'],
@@ -28,6 +31,7 @@ describe('CssModule', function() {
   });
 
   after(async function() {
+    process.chdir(cwd);
     await porter.destroy();
   });
 

@@ -12,3 +12,4 @@ packages/*/public
 .DS_Store
 *~
 *.log
+manifest.json

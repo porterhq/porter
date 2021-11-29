@@ -3,11 +3,11 @@
 const assert = require('assert').strict;
 const path = require('path');
 const expect = require('expect.js');
-const { access, readFile } = require('fs').promises;
+const fs = require('fs/promises');
 const semver = require('semver');
-const exec = require('child_process').execSync;
 const util = require('util');
 
+const { access, readFile } = fs;
 const glob = util.promisify(require('glob'));
 
 const Porter = require('../..');
@@ -23,6 +23,7 @@ describe('Packet', function() {
       paths: ['components', 'browser_modules'],
       entries: ['home.js', 'test/suite.js', 'stylesheets/app.css'],
     });
+    await fs.rm(porter.cache.dest, { recursive: true, force: true });
     await porter.ready;
   });
 
@@ -168,16 +169,10 @@ describe('Packet', function() {
   });
 
   describe('package.compile()', function () {
-    before(async function() {
-      exec('rm -rf ' + path.join(root, 'public'));
-      await porter.ready;
-    });
-
     it('should compile with package.compile(...entries)', async function () {
       const pkg = porter.package.find({ name: 'react' });
       const { name, version, main } = pkg;
-      await pkg.compile(main);
-      const bundle = pkg.bundles[main];
+      const bundle = await pkg.compile(main);
       const entries = await glob(`public/${name}/**/*.{css,js,map}`, { cwd: root });
       expect(entries).to.contain(`public/${name}/${version}/${bundle.output}`);
       expect(entries).to.contain(`public/${name}/${version}/${bundle.output}.map`);
@@ -186,8 +181,7 @@ describe('Packet', function() {
     it('should generate source map of modules as well', async function() {
       const pkg = porter.package.find({ name: 'react' });
       const { name, version, main, } = pkg;
-      await pkg.compile(main);
-      const bundle = pkg.bundles[main];
+      const bundle = await pkg.compile(main);
       const fpath = path.join(root, 'public', `${name}/${version}/${bundle.output}.map`);
       const map = JSON.parse(await readFile(fpath, 'utf8'));
       expect(map.sources).to.contain('node_modules/react/index.js');
@@ -196,8 +190,7 @@ describe('Packet', function() {
     it('should compile package with different main entry', async function () {
       const pkg = porter.package.find({ name: 'chart.js' });
       const { name, version, main,  } = pkg;
-      await pkg.compile(main);
-      const bundle = pkg.bundles[main];
+      const bundle = await pkg.compile(main);
       const entries = await glob(`public/${name}/**/*.{css,js,map}`, { cwd: root });
       expect(entries).to.contain(`public/${name}/${version}/${bundle.output}`);
       expect(entries).to.contain(`public/${name}/${version}/${bundle.output}.map`);
@@ -216,8 +209,7 @@ describe('Packet', function() {
     it('should compile entry with browser field', async function() {
       const pkg = porter.package.find({ name: 'cropper' });
       const { name, version, main, dir } = pkg;
-      await pkg.compile(main);
-      const bundle = pkg.bundles[main];
+      const bundle = await pkg.compile(main);
       const entries = await glob(`public/${name}/**/*.{css,js,map}`, { cwd: root });
       expect(entries).to.contain(`public/${name}/${version}/${bundle.output}`);
       expect(entries).to.contain(`public/${name}/${version}/${bundle.output}.map`);

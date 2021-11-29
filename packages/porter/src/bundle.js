@@ -101,7 +101,7 @@ module.exports = class Bundle {
     if (entries.length === 0 || !code) return '';
     const contenthash = crypto.createHash('md5').update(code).digest('hex').slice(0, 8);
     return entry.replace(/(\.\w+)?$/, (m, ext = '.js') => {
-      return `.${contenthash}${ext}`;
+      return `.${contenthash}${ext === '.css' ? ext : '.js'}`;
     });
   }
 
@@ -162,11 +162,20 @@ module.exports = class Bundle {
    * @param {boolean} opts.loader   include the loader when entry is root entry, set to false to explicitly exclude the loader
    * @param {Object} opts.loaderConfig overrides {@link Packet#loaderConfig}
    */
-  async obtain({ loader = false } = {}) {
-    const { app, entries, packet } = this;
+  async obtain({ loader, minify = false } = {}) {
+    const { app, entries, packet, entry } = this;
 
     if (this.#etag === JSON.stringify({ entries, loader })) {
       return { code: this.#code, map: this.#map };
+    }
+
+    if (path.extname(entry) === '.css') {
+      const mod = packet.files[entry];
+      const result = minify ? await mod.minify() : await mod.obtain();
+      this.#code = result.code;
+      this.#map = result.map;
+      this.#etag = JSON.stringify({ entries });
+      return result;
     }
 
     const node = new SourceNode();
@@ -175,7 +184,7 @@ module.exports = class Bundle {
 
     debug('bundle start %s v%s %s', packet.name, packet.version, entries);
     for (const mod of this) {
-      const { code, map } = await mod.obtain();
+      const { code, map } = minify ? await mod.minify() : await mod.obtain();
       const source = path.relative(app.root, mod.fpath);
       node.add(await this.createSourceNode({ source, code, map }));
     }
@@ -198,8 +207,11 @@ module.exports = class Bundle {
       node.prepend(`Object.assign(porter.lock, ${JSON.stringify(lock)})`);
     }
 
-    if (mod.isRootEntry && loader) {
-      const { code, map } = await this.obtainLoader(loaderConfig);
+    if (mod.isRootEntry && loader !== false) {
+      // bundle with loader unless turned off specifically
+      const { code, map } = minify
+        ? await this.minifyLoader(loaderConfig)
+        : await this.obtainLoader(loaderConfig);
       const source = 'loader.js';
       node.prepend(await this.createSourceNode({ source, code, map }));
       node.add(`porter["import"](${JSON.stringify(mod.id)})`);
@@ -214,27 +226,33 @@ module.exports = class Bundle {
   }
 
   async minify(opts) {
-    const { code, map } = await this.obtain(opts);
-    const result = UglifyJS.minify(code, {
-      compress: {
-        dead_code: true,
-        global_defs: {
-          process: {
-            env: {
-              BROWSER: true,
-              NODE_ENV: process.env.NODE_ENV
-            }
-          }
-        }
-      },
-      output: { ascii_only: true },
-      sourceMap: {
-        content: map.toString(),
-        root: '/'
-      }
-    });
-
-    if (result.error) throw result.error;
-    return result;
+    return await this.obtain({ ...opts, minify: true });
   }
+
+  // async minify(opts) {
+  //   const { code, map } = await this.obtain(opts);
+  //   if (path.extname(this.entry) === '.css') return { code, map };
+
+  //   const result = UglifyJS.minify(code, {
+  //     compress: {
+  //       dead_code: true,
+  //       global_defs: {
+  //         process: {
+  //           env: {
+  //             BROWSER: true,
+  //             NODE_ENV: process.env.NODE_ENV
+  //           }
+  //         }
+  //       }
+  //     },
+  //     output: { ascii_only: true },
+  //     sourceMap: {
+  //       content: map.toString(),
+  //       root: '/'
+  //     },
+  //   });
+
+  //   if (result.error) throw result.error;
+  //   return result;
+  // }
 };
