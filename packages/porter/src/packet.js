@@ -550,18 +550,21 @@ module.exports = class Packet {
       entries[0] = entries[0].entry;
     }
 
-    const { name, version } = this;
+    const { name, version, bundles } = this;
     const { dest } = this.app;
     const mod = this.files[entries[0]];
     const bundle = new Bundle({ ...opts, packet: this, entries });
     const { entry } = bundle;
+    bundles[entry] = bundle;
 
     debug(`compile ${name}/${version}/${entry} start`);
 
     const result = await bundle.minify();
     const { code, map } = this.setSourceMap({ output: bundle.output, ...result });
 
-    if (!this.parent) manifest[entry] = bundle.output;
+    if (!this.parent) {
+      manifest[entry.replace(/\.(?:jsx?|tsx?)$/, '.js')] = bundle.output;
+    }
 
     if (mod && mod.fake) {
       delete this.files[mod.file];
