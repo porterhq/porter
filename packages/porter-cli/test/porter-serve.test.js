@@ -76,6 +76,10 @@ describe('porter-serve component', function() {
 });
 
 describe('porter-serve component --headless', function() {
+  before(async function() {
+    fs.rm(path.join(componentRoot, 'public'), { recursive: true, force: true });
+  });
+
   it('should be able to run component tests headlessly', async function() {
     const proc = spawn(cmd, ['--paths', '.', '--headless'], { stdio: 'inherit', cwd: componentRoot });
     await new Promise((resolve, reject) => {

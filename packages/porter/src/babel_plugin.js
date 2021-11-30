@@ -14,8 +14,16 @@ function strip(text = '') {
     : text;
 }
 
+/**
+ * @typedef { import("@babel/core").NodePath } NodePath
+ */
+
 module.exports = function({ types: t }) {
   const visitor = {
+    /**
+     * Remove `require('heredoc')`
+     * @param {NodePath} path
+     */
     VariableDeclaration(path) {
       const { node } = path;
       const { init } = node.declarations[0];
@@ -23,6 +31,11 @@ module.exports = function({ types: t }) {
         path.remove();
       }
     },
+
+    /**
+     * Transform `heredoc(function() {/* text ...})` to text.
+     * @param {NodePath} path
+     */
     CallExpression(path) {
       const { node } = path;
       if (node.callee.name === 'heredoc' && node.arguments.length === 1) {
@@ -31,7 +44,19 @@ module.exports = function({ types: t }) {
           path.replaceWithSourceString(JSON.stringify(strip(body.innerComments[0].value)));
         }
       }
-    }
+    },
+
+    /**
+     * Transform `import.meta` to `__module.meta`
+     * @param {NodePath} path
+     */
+    MetaProperty(path) {
+      const { node } = path;
+      if (node.meta && node.meta.name === 'import' &&
+          node.property.name === 'meta') {
+        path.replaceWithSourceString('__module.meta');
+      }
+    },
   };
 
   return { visitor };

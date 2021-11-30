@@ -120,3 +120,29 @@ describe('Bundle with preload', function() {
     });
   });
 });
+
+describe('Bundle with TypeScript', function() {
+  const root = path.resolve(__dirname, '../../../demo-typescript');
+  let porter;
+
+  before(async function() {
+    porter = new Porter({
+      root,
+      entries: ['app.tsx', 'app.css'],
+    });
+    await fs.rm(porter.cache.dest, { recursive: true, force: true });
+    await porter.ready;
+  });
+
+  after(async function() {
+    await porter.destroy();
+  });
+
+  describe('bundle.output', function() {
+    it('should convert extension of languages targeting js to .js', async function() {
+      const bundle = porter.package.bundles['app.tsx'];
+      assert.equal(bundle.entry, 'app.tsx');
+      assert.equal(path.extname(bundle.output), '.js');
+    });
+  });
+});

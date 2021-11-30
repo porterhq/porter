@@ -7,11 +7,9 @@ const Porter = require('../..');
 
 describe('TsModule', function() {
   const root = path.resolve(__dirname, '../../../demo-typescript');
-  const cwd = process.cwd();
   let porter;
 
   before(async function() {
-    process.chdir(root);
     await fs.rm(path.join(root, 'public'), { recursive: true, force: true });
     porter = new Porter({
       root,
@@ -22,7 +20,6 @@ describe('TsModule', function() {
 
   after(async function() {
     await porter.destroy();
-    process.chdir(cwd);
   });
 
   it('should resolve ts module', async function() {

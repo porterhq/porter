@@ -3,7 +3,7 @@
 const path = require('path');
 const { strict: assert } = require('assert');
 const util = require('util');
-const { existsSync, promises: fs } = require('fs');
+const fs = require('fs/promises');
 const glob = util.promisify(require('glob'));
 
 const Porter = require('../..');
@@ -33,8 +33,10 @@ describe('porter.compileAll()', function() {
       entries: ['home.js', 'test/suite.js', 'stylesheets/app.css']
     });
     entries = await glob('public/**/*.{css,js,map}', { cwd: root });
-    const fpath = path.join(dest, 'manifest.json');
-    assert(existsSync(fpath));
+    const fpath = path.join(root, 'manifest.json');
+    await assert.doesNotReject(async function() {
+      await fs.access(fpath);
+    });
     manifest = require(fpath);
   });
 
@@ -93,5 +95,9 @@ describe('porter.compileAll()', function() {
 
   it('should compile stylesheets', async function() {
     assert(entries.includes(`public/${manifest['stylesheets/app.css']}`));
+    const fpath = path.join(dest, `${manifest['stylesheets/app.css']}`);
+    const content = await readFile(fpath, 'utf-8');
+    assert.ok(content.includes('font-family:'));
+    assert.ok(content.includes(`/*# sourceMappingURL=${path.basename(fpath)}.map */`));
   });
 });

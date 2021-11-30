@@ -147,6 +147,7 @@ module.exports = class JsModule extends Module {
       filename: fpath,
       filenameRelative: path.relative(app.root, fpath),
       sourceFileName: path.relative(app.root, fpath),
+      cwd: app.root,
     };
     return await babel.transform(code, transpilerOptions);
   }

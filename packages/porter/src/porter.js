@@ -196,15 +196,14 @@ class Porter {
 
     debug('compile preload');
     const manifest = {};
-    for (const specifier of this.preload) {
-      const entry = (await this.package.parseFile(specifier)).file;
-      await this.package.compile(entry, { all: this.preload.length > 0, manifest });
+    for (const file of this.preload) {
+      await this.package.compile(file, { all: this.preload.length > 0, manifest });
     }
 
     debug('compile lazyload');
     for (const file of this.lazyload) {
-      for (const mod of (await this.package.parseFile(file)).family) {
-        await mod.package.compile(mod.file, { loader: false, package: false, manifest });
+      for (const mod of this.package.files[file].family) {
+        if (!mod.parent) await mod.package.compile(mod.file, { package: false, manifest });
       }
     }
 
@@ -214,7 +213,7 @@ class Porter {
     }
 
     debug('manifest.json');
-    await fs.writeFile(path.join(this.dest, 'manifest.json'), JSON.stringify(manifest, null, 2));
+    await fs.writeFile(path.join(this.root, 'manifest.json'), JSON.stringify(manifest, null, 2));
 
     debug('done');
   }
@@ -297,9 +296,16 @@ class Porter {
   }
 
   async readCss(id, query) {
-    const mod = await this.parseId(id, { isEntry: true });
+    id = id.replace(/\.[a-f0-9]{8}\.css$/, '.css');
+    const isEntry = true;
+    const mod = await this.parseId(id, { isEntry });
+    if (isEntry) await this.pack();
+
     const { mtime } = await lstat(mod.fpath);
-    const result = await mod.obtain();
+    const { package: pkg } = mod;
+    const bundle = pkg.bundles[mod.file];
+    if (!bundle) throw new Error(`unknown bundle ${mod.file} in ${pkg.name}`);
+    const result = await bundle.obtain();
     const { name } = mod.package;
     const { code } = await this.writeSourceMap({ id, name, ...result });
 

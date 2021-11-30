@@ -51,8 +51,10 @@ module.exports = class CssModule extends Module {
       from: fpath,
       path: this.app.paths,
       map: {
+        // https://postcss.org/api/#sourcemapoptions
         inline: false,
-        sourcesContent: false
+        sourcesContent: false,
+        annotation: false,
       }
     });
 
