@@ -30,7 +30,8 @@ async function checkReload({ sourceFile, targetFile, pathname }) {
   const targetModule = await porter.package.parseEntry(targetFile);
   pathname = pathname || `/${targetModule.id}`;
   const { fpath: sourcePath } = sourceModule;
-  const cachePath = path.join(porter.cache.dest, pathname.slice(1));
+  const bundle = porter.package.bundles[pathname.slice(1)];
+  let cachePath = path.join(porter.cache.dest, bundle.outputPath);
   await requestPath(pathname);
   assert(existsSync(cachePath));
 
@@ -49,6 +50,7 @@ async function checkReload({ sourceFile, targetFile, pathname }) {
 
     assert(!existsSync(cachePath));
     await requestPath(pathname);
+    cachePath = path.join(porter.cache.dest, bundle.outputPath);
     assert(existsSync(cachePath));
     assert((await readFile(cachePath, 'utf8')).includes(mark));
   } finally {

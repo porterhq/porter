@@ -169,6 +169,14 @@ describe('Packet', function() {
   });
 
   describe('package.compile()', function () {
+    it('should reuse existing bundle', async function() {
+      const packet = porter.package.find({ name: 'react' });
+      const { bundle, main } = packet;
+      assert.ok(bundle);
+      const compiledBundle = await packet.compile(main);
+      assert.equal(bundle, compiledBundle);
+    });
+
     it('should compile with package.compile(...entries)', async function () {
       const pkg = porter.package.find({ name: 'react' });
       const { name, version, main } = pkg;

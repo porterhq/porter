@@ -58,17 +58,24 @@ module.exports = class JsModule extends Module {
     if (this.loaded) return;
     this.loaded = true;
 
-    const { package: pkg } = this;
+    const { package: pkg, app } = this;
     const { code } = await this.load();
     const deps = this.deps || this.matchImport(code);
 
-    const fpath = path.join(pkg.app.cache.dest, this.id);
-    const cache = await readFile(`${fpath}.cache`, 'utf8').catch(() => {});
+    const cachePath = path.join(pkg.app.cache.dest, `${this.id}.cache`);
+    const cache = await readFile(cachePath, 'utf8').catch(() => {});
 
     if (cache) {
-      const data = JSON.parse(cache);
+      let data = {};
+      try {
+        data = JSON.parse(cache);
+      } catch (err) {
+        console.warn(new Error(`cache broken ${path.relative(app.root, cachePath)}`));
+      }
       if (data.digest === crypto.createHash('md5').update(code).digest('hex')) {
         this.cache = data;
+      } else {
+        debug(`cache invalidated ${path.relative(app.root, cachePath)}`);
       }
     }
 
@@ -77,6 +84,7 @@ module.exports = class JsModule extends Module {
 
   async load() {
     const { fpath } = this;
+    // fake entries will provide code directly
     const source = this.code || await readFile(fpath, 'utf8');
     const code = await this.browserify(fpath, source);
     return { code };

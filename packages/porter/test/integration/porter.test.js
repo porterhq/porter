@@ -34,7 +34,8 @@ async function checkReload({ sourceFile, targetFile, pathname }) {
   pathname = pathname || `/${targetModule.id}`;
 
   const { fpath: sourcePath } = sourceModule;
-  const cachePath = path.join(porter.cache.dest, pathname.slice(1));
+  const bundle = porter.package.bundles[pathname.slice(1)];
+  let cachePath = path.join(porter.cache.dest, bundle.outputPath);
 
   const source = await readFile(sourcePath, 'utf8');
   const mark = `/* changed ${Date.now().toString(36)} */`;
@@ -51,6 +52,7 @@ async function checkReload({ sourceFile, targetFile, pathname }) {
 
     assert(!existsSync(cachePath));
     await requestPath(pathname);
+    cachePath = path.join(porter.cache.dest, bundle.outputPath);
     assert(existsSync(cachePath));
     assert((await readFile(cachePath, 'utf8')).includes(mark));
   } finally {
@@ -211,12 +213,21 @@ describe('Porter', function() {
   describe('Source Map in Porter_readFile()', function() {
     beforeEach(async function() {
       await fs.rm(path.join(root, 'public'), { recursive: true, force: true });
+      await porter.package.parseEntry('home.js');
+      await porter.package.pack();
     });
 
-    it('should generate source map when accessing /${name}/${version}/${file}', async function() {
-      const { name, version } = porter.package;
-      await requestPath(`/${name}/${version}/home.js`, 200);
-      const fpath = path.join(root, `public/${name}/${version}/home.js.map`);
+    it('should set sourceMappingURL accordingly', async function() {
+      const res = await requestPath('/home.js', 200);
+      const bundle = porter.package.bundles['home.js'];
+      const fname = path.basename(bundle.output);
+      assert.equal(res.text.split('\n').pop(), `//# sourceMappingURL=${fname}.map`);
+    });
+
+    it('should generate source map when accessing bundle', async function() {
+      await requestPath('/home.js', 200);
+      const bundle = porter.package.bundles['home.js'];
+      const fpath = path.join(root, `public/${bundle.output}.map`);
       assert(existsSync(fpath));
 
       const map = JSON.parse(await readFile(fpath, 'utf8'));
@@ -225,17 +236,18 @@ describe('Porter', function() {
 
     it('should generate source map when accessing /${file}', async function() {
       await requestPath('/home.js', 200);
-      const fpath = path.join(root, 'public/home.js.map');
+      const bundle = porter.package.bundles['home.js'];
+      const fpath = path.join(root, `public/${bundle.output}.map`);
       assert(existsSync(fpath));
 
       const map = JSON.parse(await readFile(fpath, 'utf8'));
       assert(map.sources.includes('components/home.js'));
     });
 
-    it('should generate source map when accessing /${name}/${version}/${file}?main', async function() {
-      const { name, version } = porter.package;
-      await requestPath(`/${name}/${version}/home.js?main`, 200);
-      const fpath = path.join(root, `public/${name}/${version}/home.js-main.map`);
+    it('should generate source map when accessing ${file}?main', async function() {
+      await requestPath('/home.js?main', 200);
+      const bundle = porter.package.bundles['home.js'];
+      const fpath = path.join(root, `public/${bundle.output}.map`);
       assert(existsSync(fpath));
 
       const map = JSON.parse(await readFile(fpath, 'utf8'));
@@ -246,7 +258,7 @@ describe('Porter', function() {
     it('should generate source map when accessing dependencies', async function() {
       const { name, version, bundle } = porter.package.find({ name: 'react' });;
       await requestPath(`/${name}/${version}/${bundle.entry}`, 200);
-      const fpath = path.join(root, `public/${name}/${version}/${bundle.entry}.map`);
+      const fpath = path.join(root, `public/${name}/${version}/${bundle.output}.map`);
       assert(existsSync(fpath));
 
       const map = JSON.parse(await readFile(fpath, 'utf8'));
