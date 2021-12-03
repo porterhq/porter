@@ -30,4 +30,14 @@ describe('JsModule', function() {
     const { map } = await mod.obtain();
     assert.deepEqual(map.sources, [ 'node_modules/yen/events.js' ]);
   });
+
+  it('should not stop at broken cache', async function() {
+    const mod = porter.package.files['home.js'];
+    mod.loaded = false;
+    const cachePath = path.join(porter.cache.dest, `${mod.id}.cache`);
+    await fs.writeFile(cachePath, 'gibberish');
+    await assert.doesNotReject(async function() {
+      await mod.parse();
+    });
+  });
 });

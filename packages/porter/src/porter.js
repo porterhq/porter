@@ -106,8 +106,7 @@ class Porter {
 
     for (const file of preload.concat(entries)) {
       if (!pkg.bundles[file]) {
-        const bundle = new Bundle({ packet: pkg, entries: [ file ] });
-        pkg.bundles[file] = bundle;
+        const bundle = Bundle.create({ packet: pkg, entries: [ file ] });
         await bundle.obtain();
       }
     }
@@ -144,7 +143,7 @@ class Porter {
     }
 
     for (const file of lazyload) {
-      const bundle = new Bundle({ packet: pkg, entries: [ file ], package: false });
+      const bundle = Bundle.create({ packet: pkg, entries: [ file ], package: false });
       pkg.bundles[file] = bundle;
       await bundle.obtain();
     }
@@ -271,23 +270,22 @@ class Porter {
     if (bundle) return { file, fake: true, package: pkg };
   }
 
-  async writeSourceMap({ id, isMain, name, code, map }) {
-    const fpath = path.join(this.cache.dest, id);
-
+  async writeSourceMap({ bundle, code, map }) {
     if (map instanceof SourceMapGenerator) {
       map = map.toJSON();
     }
 
     map.sources = map.sources.map(source => source.replace(/^\//, ''));
-    const mapPath = isMain ? `${fpath}-main.map` : `${fpath}.map`;
-    if (id.endsWith('.js')) {
-      code += `\n//# sourceMappingURL=${path.basename(mapPath)}`;
-    }
+    const { output } = bundle;
+    code += output.endsWith('.js')
+      ? `\n//# sourceMappingURL=${path.basename(output)}.map`
+      : `\n/*# sourceMappingURL=${path.basename(output)}.map */`;
 
+    const fpath = path.join(this.cache.dest, bundle.outputPath);
     await mkdirp(path.dirname(fpath));
     await Promise.all([
       writeFile(fpath, code),
-      writeFile(mapPath, JSON.stringify(map, (k, v) => {
+      writeFile(`${fpath}.map`, JSON.stringify(map, (k, v) => {
         if (k !== 'sourcesContent') return v;
       }))
     ]);
@@ -306,8 +304,7 @@ class Porter {
     const bundle = pkg.bundles[mod.file];
     if (!bundle) throw new Error(`unknown bundle ${mod.file} in ${pkg.name}`);
     const result = await bundle.obtain();
-    const { name } = mod.package;
-    const { code } = await this.writeSourceMap({ id, name, ...result });
+    const { code } = await this.writeSourceMap({ bundle, ...result });
 
     return [
       code,
@@ -330,10 +327,7 @@ class Porter {
     if (!bundle) throw new Error(`unknown bundle ${mod.file} in ${pkg.name}`);
     const result = await bundle.obtain({ loader: isMain  });
 
-    const { code } = await this.writeSourceMap({
-      id, isMain, name: pkg.name, ...result
-    });
-
+    const { code } = await this.writeSourceMap({ bundle, ...result });
     return [code, { 'Last-Modified': mtime }];
   }
 

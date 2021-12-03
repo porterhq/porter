@@ -31,7 +31,7 @@
     "nyc": "^15.1.0"
   },
   "scripts": {
-    "coverage": "nyc --no-clean --cwd ../.. mocha --exit --timeout 15000",
-    "test": "DEBUG=porter,$DEBUG mocha --exit --timeout 15000"
+    "coverage": "nyc --no-clean --cwd ../.. mocha --exit --timeout 30000",
+    "test": "DEBUG=porter,$DEBUG mocha --exit --timeout 30000"
   }
 }

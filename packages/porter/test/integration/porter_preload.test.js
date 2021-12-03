@@ -30,7 +30,8 @@ async function checkReload({ sourceFile, targetFile, pathname }) {
   const targetModule = await porter.package.parseEntry(targetFile);
   pathname = pathname || `/${targetModule.id}`;
   const { fpath: sourcePath } = sourceModule;
-  const cachePath = path.join(porter.cache.dest, pathname.slice(1));
+  const bundle = porter.package.bundles[pathname.slice(1)];
+  let cachePath = path.join(porter.cache.dest, bundle.outputPath);
   await requestPath(pathname);
   assert(existsSync(cachePath));
 
@@ -39,16 +40,16 @@ async function checkReload({ sourceFile, targetFile, pathname }) {
   await writeFile(sourcePath, `${source}${mark}`);
 
   try {
+    // {@link Package#watch} takes time to reload
+    await new Promise(resolve => setTimeout(resolve, 200));
     // https://stackoverflow.com/questions/10468504/why-fs-watchfile-called-twice-in-node
     if (process.platform !== 'darwin' && process.platform !== 'win32') {
       await porter.package.reload('change', sourceFile);
-    } else {
-      // {@link Package#watch} takes time to reload
-      await new Promise(resolve => setTimeout(resolve, 200));
     }
 
     assert(!existsSync(cachePath));
     await requestPath(pathname);
+    cachePath = path.join(porter.cache.dest, bundle.outputPath);
     assert(existsSync(cachePath));
     assert((await readFile(cachePath, 'utf8')).includes(mark));
   } finally {

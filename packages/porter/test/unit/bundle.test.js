@@ -52,6 +52,23 @@ describe('Bundle without preload', function() {
       assert.ok(runtime.bundle.output);
     });
   });
+
+  describe('bundle.contenthash', function() {
+    it('should refresh if bundle entries change', async function() {
+      const packet = porter.package.find({ name: '@babel/runtime' });
+      const bundle = packet.bundle;
+      const { contenthash } = bundle;
+      assert.ok(bundle);
+      assert.ok(/[a-f0-9]{8}/.test(contenthash));
+      await packet.parseEntry('helpers/maybeArrayLike.js');
+      // bundle code not repacked yet
+      assert.equal(bundle.contenthash, contenthash);
+      await packet.pack();
+      // should refresh contenthash
+      assert.ok(/[a-f0-9]{8}/.test(bundle.contenthash));
+      assert.notEqual(bundle.contenthash, contenthash);
+    });
+  });
 });
 
 describe('Bundle with preload', function() {
@@ -117,6 +134,14 @@ describe('Bundle with preload', function() {
       const bundle = porter.package.bundles['home.js'];
       const { entry, output } = bundle;
       assert.ok(new RegExp(`^${entry.replace('.js', '.[a-f0-9]{8}.js')}$`).test(output));
+    });
+  });
+
+  describe('bundle.contenthash', function() {
+    it('should work', async function() {
+      const bundle = porter.package.bundles['home.js'];
+      const { contenthash } = bundle;
+      assert.ok(/[a-f0-9]{8}/.test(contenthash));
     });
   });
 });

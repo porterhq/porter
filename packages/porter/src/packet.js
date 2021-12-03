@@ -227,46 +227,31 @@ module.exports = class Packet {
   }
 
   async reload(eventType, filename) {
-    const mod = this.files[filename];
-    const { app } = this;
-    const { dest } = app.cache;
-    const purge = id => {
-      const fpath = path.join(dest, id);
-      debug('purge cache %s', fpath);
-      return fs.unlink(fpath).catch(() => {});
-    };
+    const { files, bundles } = this;
+    const mod = files[filename];
+    const stats = await fs.stat(mod.fpath);
+    // windows and linux platform triggers multiple change events
+    if (mod.reloadedAt >= stats.mtime) return;
+    mod.reloadedAt = stats.mtime;
+    const ext = path.extname(filename);
 
     await mod.reload();
 
-    // the module might be `opts.lazyload`ed
-    await purge(mod.id);
-
-    if (this.parent) {
-      // packages isolated with `opts.bundleExcept` or by other means
-      await Promise.all(Object.values(this.entries).map(m => purge(m.id)));
-    }
-
-    // css bundling is handled by postcss-import, which won't use {@link Module@cache}.
-    const ext = path.extname(filename);
-    for (const entry of app.entries.filter(file => file.endsWith(ext))) {
-      const entryModule = app.package.entries[entry];
-      for (const descendent of entryModule.family) {
-        if (mod == descendent) {
-          if (entry.endsWith('.css')) await entryModule.reload();
-          await purge(entryModule.id);
-          const bundle = app.package.bundles[entry];
-          if (bundle) await bundle.reload();
-          break;
-        }
+    for (const bundle of Object.values(bundles)) {
+      for (const m of bundle) {
+        if (m === mod) await bundle.reload();
       }
     }
 
-    // if the root module is not treated as `entries`, try traversing up
-    let ancestor = mod;
-    // the dependency graph might be cyclic
-    let retries = 20;
-    while (ancestor.parent && retries--) ancestor = ancestor.parent;
-    await purge(ancestor.id);
+    if (ext === '.css') {
+      for (const file in bundles) {
+        if (!file.endsWith('.css')) continue;
+        const bundle = bundles[file];
+        const entry = files[bundle.entry];
+        await entry.reload();
+        await bundle.reload();
+      }
+    }
   }
 
   tryRequire(name) {
@@ -492,16 +477,17 @@ module.exports = class Packet {
       if (mod.isRootEntry) entries.push(mod.file);
     }
 
+    // if packet won't be bundled with root entries, compile as main bundle.
     if (app.preload.length === 0 || isolated) entries.push(main);
+
     for (const entry of entries) {
       let bundle = bundles[entry];
       if (!bundle) {
-        bundle = new Bundle({
+        bundle = Bundle.create({
           packet: this,
           entries: entry === main ? null : [ entry ],
         });
       }
-      bundles[entry] = bundle;
       if (bundle.entries.length > 0) await bundle.obtain();
     }
   }
@@ -548,17 +534,18 @@ module.exports = class Packet {
     if (typeof entries[0] == 'object') {
       await this.parseFakeEntry(entries[0]);
       entries[0] = entries[0].entry;
+      // clear bundle cache, fake entries should always start from stratch
+      this.bundles[entries[0]] = null;
     }
 
-    const { name, version, bundles } = this;
+    const { app, dir } = this;
     const { dest } = this.app;
     const mod = this.files[entries[0]];
-    const bundle = new Bundle({ ...opts, packet: this, entries });
+    const bundle = Bundle.create({ ...opts, packet: this, entries });
     const { entry } = bundle;
-    bundles[entry] = bundle;
+    const specifier = path.relative(app.root, this.parent ? dir : mod.fpath);
 
-    debug(`compile ${name}/${version}/${entry} start`);
-
+    debug(`compile ${specifier} start %s`, entries);
     const result = await bundle.minify();
     const { code, map } = this.setSourceMap({ output: bundle.output, ...result });
 
@@ -573,10 +560,7 @@ module.exports = class Packet {
 
     if (!opts.writeFile) return { code, map };
 
-    const fpath = this.parent
-      ? path.join(dest, name, version, bundle.output)
-      : path.join(dest, bundle.output);
-
+    const fpath = path.join(app.dest, bundle.outputPath);
     await mkdirp(path.dirname(fpath));
     await Promise.all([
       writeFile(fpath, code),
@@ -584,7 +568,7 @@ module.exports = class Packet {
         if (k !== 'sourcesContent') return v;
       }))
     ]);
-    debug(`compile ${name}/${version}/${entry} end`);
+    debug(`compile ${specifier} -> ${path.relative(dest, fpath)} end`);
     return bundle;
   }
 
