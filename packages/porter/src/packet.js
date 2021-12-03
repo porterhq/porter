@@ -227,36 +227,29 @@ module.exports = class Packet {
   }
 
   async reload(eventType, filename) {
-    const mod = this.files[filename];
-    const { app } = this;
-    const { dest } = app.cache;
-    const purge = id => {
-      const fpath = path.join(dest, id);
-      debug('purge cache %s', fpath);
-      return fs.unlink(fpath).catch(() => {});
-    };
+    const { files, bundles } = this;
+    const mod = files[filename];
+    const stats = await fs.stat(mod.fpath);
+    // windows and linux platform triggers multiple change events
+    if (mod.reloadedAt >= stats.mtime) return;
+    mod.reloadedAt = stats.mtime;
+    const ext = path.extname(filename);
 
     await mod.reload();
 
-    // the module might be `opts.lazyload`ed
-    await purge(mod.id);
-
-    if (this.parent) {
-      // packages isolated with `opts.bundleExcept` or by other means
-      await Promise.all(Object.values(this.entries).map(m => purge(m.id)));
+    for (const bundle of Object.values(bundles)) {
+      for (const m of bundle) {
+        if (m === mod) await bundle.reload();
+      }
     }
 
-    // css bundling is handled by postcss-import, which won't use {@link Module@cache}.
-    const ext = path.extname(filename);
-    for (const entry of app.entries.filter(file => file.endsWith(ext))) {
-      const entryModule = app.package.entries[entry];
-      for (const descendent of entryModule.family) {
-        if (mod == descendent) {
-          if (entry.endsWith('.css')) await entryModule.reload();
-          const bundle = app.package.bundles[entry];
-          if (bundle) await bundle.reload();
-          break;
-        }
+    if (ext === '.css') {
+      for (const file in bundles) {
+        if (!file.endsWith('.css')) continue;
+        const bundle = bundles[file];
+        const entry = files[bundle.entry];
+        await entry.reload();
+        await bundle.reload();
       }
     }
   }

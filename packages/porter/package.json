@@ -35,7 +35,7 @@
     "supertest": "^6.1.6"
   },
   "scripts": {
-    "coverage": "nyc --no-clean --cwd ../.. mocha -- --recursive --require test/hooks.mjs --exit --timeout 60000",
+    "coverage": "DEBUG=porter nyc --no-clean --cwd ../.. mocha -- --recursive --require test/hooks.mjs --exit --timeout 60000",
     "test": "DEBUG=porter mocha --recursive --require test/hooks.mjs --exit --timeout 60000"
   },
   "engines": {

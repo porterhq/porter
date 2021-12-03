@@ -125,6 +125,7 @@ module.exports = class Bundle {
 
   get contenthash() {
     const code = this.#code;
+    if (!code) return '';
     if (!this.#contenthash) {
       this.#contenthash = crypto.createHash('md5').update(code).digest('hex').slice(0, 8);
     }
@@ -135,7 +136,7 @@ module.exports = class Bundle {
     const { output, packet } = this;
     const { name, version } = packet;
 
-    return packet.parent ? path.join(name, version, output) : path.join(output);
+    return packet.parent ? path.join(name, version, output) : output;
   }
 
   async createSourceNode({ source, code, map }) {
@@ -183,7 +184,7 @@ module.exports = class Bundle {
   async reload() {
     const { app, entry, packet, outputPath } = this;
 
-    debug(`reloading ${entry} (${packet.dir})`);
+    debug(`reloading ${entry} -> ${outputPath} (${packet.dir})`);
     await fs.unlink(path.join(app.cache.dest, outputPath)).catch(() => {});
     this.#code = null;
     this.#map = null;

@@ -40,12 +40,11 @@ async function checkReload({ sourceFile, targetFile, pathname }) {
   await writeFile(sourcePath, `${source}${mark}`);
 
   try {
+    // {@link Package#watch} takes time to reload
+    await new Promise(resolve => setTimeout(resolve, 200));
     // https://stackoverflow.com/questions/10468504/why-fs-watchfile-called-twice-in-node
     if (process.platform !== 'darwin' && process.platform !== 'win32') {
       await porter.package.reload('change', sourceFile);
-    } else {
-      // {@link Package#watch} takes time to reload
-      await new Promise(resolve => setTimeout(resolve, 200));
     }
 
     assert(!existsSync(cachePath));
