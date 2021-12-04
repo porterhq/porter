@@ -183,7 +183,7 @@ module.exports = class Bundle {
 
   async reload() {
     const { app, entry, packet, outputPath } = this;
-
+    if (!outputPath) return;
     debug(`reloading ${entry} -> ${outputPath} (${packet.dir})`);
     await fs.unlink(path.join(app.cache.dest, outputPath)).catch(() => {});
     this.#code = null;

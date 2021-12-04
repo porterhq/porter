@@ -42,13 +42,13 @@ async function checkReload({ sourceFile, targetFile, pathname }) {
   await writeFile(sourcePath, `${source}${mark}`);
 
   try {
-    // {@link Package#watch} takes time to reload
-    await new Promise(resolve => setTimeout(resolve, 1000));
     if (process.platform !== 'darwin' && process.platform !== 'win32') {
       // https://stackoverflow.com/questions/10468504/why-fs-watchfile-called-twice-in-node
       // recursive option not supported on linux platform, reload again to make sure test passes.
       await porter.package.reload('change', sourceFile);
     }
+    // {@link Package#watch} takes time to reload
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
     assert(!existsSync(cachePath));
     await requestPath(pathname);

@@ -105,10 +105,8 @@ class Porter {
     }
 
     for (const file of preload.concat(entries)) {
-      if (!pkg.bundles[file]) {
-        const bundle = Bundle.create({ packet: pkg, entries: [ file ] });
-        await bundle.obtain();
-      }
+      const bundle = pkg.bundles[file] || Bundle.create({ packet: pkg, entries: [ file ] });
+      await bundle.obtain();
     }
   }
 
@@ -202,7 +200,7 @@ class Porter {
     debug('compile lazyload');
     for (const file of this.lazyload) {
       for (const mod of this.package.files[file].family) {
-        if (!mod.parent) await mod.package.compile(mod.file, { package: false, manifest });
+        await mod.package.compile(mod.file, { package: false, manifest });
       }
     }
 

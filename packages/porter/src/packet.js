@@ -208,33 +208,40 @@ module.exports = class Packet {
     const [ fpath ] = await this.resolve(this.normalizeFile(main));
     if (fpath) this.main = path.relative(this.dir, fpath);
 
-    if (process.env.NODE_ENV !== 'production' && (!this.parent || this.transpiler) && !this.watchers) {
-      this.watchers = this.paths.map(dir => {
-        debug('watching %s', dir);
-        const watchOpts = {
-          // https://nodejs.org/api/fs.html#fs_fs_watch_filename_options_listener
-          recursive: process.platform !== 'linux',
-        };
-        return watch(dir, watchOpts, this.watch.bind(this));
-      });
+    if (process.env.NODE_ENV !== 'production' && (!this.parent || this.transpiler)) {
+      this.watch();
     }
   }
 
-  watch(eventType, filename) {
-    if (filename && filename in this.files) {
-      this.reload(eventType, filename).catch(err => console.error(err.stack));
-    }
+  watch() {
+    if (this.watchers) return;
+    this.watchers = this.paths.map(dir => {
+      debug('watching %s', dir);
+      const watchOpts = {
+        // https://nodejs.org/api/fs.html#fs_fs_watch_filename_options_listener
+        recursive: process.platform !== 'linux',
+      };
+
+      let queue = Promise.resolve();
+      return watch(dir, watchOpts, (eventType, filename) => {
+        queue = queue
+          .then(() => this.onChange(eventType, filename))
+          .catch(err => console.error(err));
+      });
+    });
+  }
+
+  async onChange(eventType, filename) {
+    if (filename && filename in this.files) await this.reload(eventType, filename);
   }
 
   async reload(eventType, filename) {
     const { files, bundles } = this;
     const mod = files[filename];
-    const stats = await fs.stat(mod.fpath);
-    // windows and linux platform triggers multiple change events
-    if (mod.reloadedAt >= stats.mtime) return;
-    mod.reloadedAt = stats.mtime;
     const ext = path.extname(filename);
-
+    const { mtime } = await fs.stat(mod.fpath);
+    if (mod.reloaded >= mtime) return;
+    mod.reloaded = mtime;
     await mod.reload();
 
     for (const bundle of Object.values(bundles)) {
