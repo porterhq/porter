@@ -8,7 +8,6 @@ const { SourceMapGenerator } = require('source-map');
 const util = require('util');
 
 const glob = util.promisify(require('glob'));
-const mkdirp = util.promisify(require('mkdirp'));
 const Module = require('./module');
 const CssModule = require('./css_module');
 const JsModule = require('./js_module');
@@ -568,7 +567,7 @@ module.exports = class Packet {
     if (!opts.writeFile) return { code, map };
 
     const fpath = path.join(app.dest, bundle.outputPath);
-    await mkdirp(path.dirname(fpath));
+    await fs.mkdir(path.dirname(fpath), { recursive: true });
     await Promise.all([
       writeFile(fpath, code),
       writeFile(`${fpath}.map`, JSON.stringify(map, (k, v) => {

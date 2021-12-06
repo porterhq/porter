@@ -65,6 +65,14 @@ describe('porter.compileAll()', function() {
 
   it('should compile lazyload files', async function () {
     assert(entries.includes(`public/${manifest['lazyload.js']}`));
+    assert(entries.includes(`public/${manifest['lazyload_dep.js']}`));
+  });
+
+  it('should compile lazyload dependencies as isolated packets', async function() {
+    // path is lazyloaded but not preloaded
+    const packet = porter.package.find({ name: 'path' });
+    const bundle = packet.bundle;
+    assert(entries.includes(`public/${bundle.outputPath}`));
   });
 
   it('should generate source map of entries', async function() {
