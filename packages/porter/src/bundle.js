@@ -66,6 +66,7 @@ module.exports = class Bundle {
         // exclude external modules if module packet is isolated
         if (mod.package !== packet && scope !== 'all') continue;
         if (mod.preloaded && !preload) continue;
+        if (mod.package !== packet && mod.package.isolated) continue;
         // might be WasmModule
         if (mod.isolated) continue;
         yield* iterateEntry(mod, preload);
@@ -75,7 +76,6 @@ module.exports = class Bundle {
     function* iterateEntry(entry, preload = false) {
       done[entry.id] = true;
       yield* iterate(entry, preload);
-      if (entry.package !== packet && entry.package.isolated) return;
       yield entry;
       // iterate again in case new dependencies such as @babel/runtime were found
       yield* iterate(entry, preload);

@@ -82,7 +82,7 @@ describe('Bundle with preload', function() {
       entries: ['home.js', 'test/suite.js', 'stylesheets/app.css'],
       preload: 'preload',
       bundle: {
-        except: ['react', 'react-dom'],
+        except: ['react', 'react-dom', 'chart.js'],
       },
     });
     await porter.ready;
@@ -116,10 +116,17 @@ describe('Bundle with preload', function() {
       // react is isolated from preload bundle
       const react = porter.package.find({ name: 'react' });
       const reactModules = Array.from(react.bundle);
+
       assert.ok(reactModules.every(mod => !modules.includes(mod)));
       assert.ok(reactModules.every(mod => !preloadModules.includes(mod)));
       assert.equal(react.bundle.entry, react.main);
       assert.equal(react.bundle.output.replace(/.[a-f0-9]{8}/, ''), react.main);
+    });
+
+    it('should have dependencies of isolated packets bundled together', async function() {
+      const chart = porter.package.find({ name: 'chart.js' });
+      const chartModules = Array.from(chart.bundle);
+      assert.ok(chartModules.some(mod => mod.package.name === 'moment'));
     });
 
     it('should still preload dependencies of isolated dependencies', async function() {

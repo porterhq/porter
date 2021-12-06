@@ -8,13 +8,11 @@ const mime = require('mime');
 const path = require('path');
 const postcss = require('postcss');
 const { SourceMapGenerator } = require('source-map');
-const util = require('util');
 
 const { lstat, readFile, writeFile } = fs;
 
 const FakePackage = require('./fake_packet');
 const Package = require('./packet');
-const mkdirp = util.promisify(require('mkdirp'));
 
 const rExt = /\.(?:css|gif|jpg|jpeg|js|png|svg|swf|ico)$/i;
 const { rModuleId } = require('./module');
@@ -161,9 +159,23 @@ class Porter {
   }
 
   async compileExclusivePackages(opts) {
-    for (const name of this.bundleExcept) {
-      const packages = this.package.findAll({ name });
-      for (const pkg of packages) await pkg.compileAll(opts);
+    const { bundleExcept, lazyload, package: packet } = this;
+    const exclusives = new Set(bundleExcept);
+
+    if (lazyload.length > 0) {
+      for (const file of lazyload) {
+        const mod = packet.files[file];
+        for (const child of mod.children) {
+          if (child.package !== packet && !child.preloaded) {
+            exclusives.add(child.package.name);
+          }
+        }
+      }
+    }
+
+    for (const name of exclusives) {
+      const packets = packet.findAll({ name });
+      for (const pkg of packets) await pkg.compileAll(opts);
     }
   }
 
@@ -200,6 +212,7 @@ class Porter {
     debug('compile lazyload');
     for (const file of this.lazyload) {
       for (const mod of this.package.files[file].family) {
+        if (mod.package.parent) continue;
         await mod.package.compile(mod.file, { package: false, manifest });
       }
     }
@@ -280,7 +293,7 @@ class Porter {
       : `\n/*# sourceMappingURL=${path.basename(output)}.map */`;
 
     const fpath = path.join(this.cache.dest, bundle.outputPath);
-    await mkdirp(path.dirname(fpath));
+    await fs.mkdir(path.dirname(fpath), { recursive: true });
     await Promise.all([
       writeFile(fpath, code),
       writeFile(`${fpath}.map`, JSON.stringify(map, (k, v) => {
