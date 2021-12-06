@@ -119,6 +119,7 @@ describe('Bundle with preload', function() {
 
       assert.ok(reactModules.every(mod => !modules.includes(mod)));
       assert.ok(reactModules.every(mod => !preloadModules.includes(mod)));
+      assert.ok(reactModules.some(mod => mod.package.name === 'object-assign'));
       assert.equal(react.bundle.entry, react.main);
       assert.equal(react.bundle.output.replace(/.[a-f0-9]{8}/, ''), react.main);
     });
