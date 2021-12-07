@@ -4,6 +4,7 @@ const { strict: assert } = require('assert');
 const path = require('path');
 const fs = require('fs/promises');
 const Porter = require('../..');
+const { MODULE_LOADED } = require('../../src/constants');
 
 describe('JsModule', function() {
   const root = path.resolve(__dirname, '../../../demo-app');
@@ -39,5 +40,10 @@ describe('JsModule', function() {
     await assert.doesNotReject(async function() {
       await mod.parse();
     });
+  });
+
+  it('should set status to MODULE_LOADED after parse', async function() {
+    const mod = porter.package.files['home.js'];
+    assert.equal(mod.status, MODULE_LOADED);
   });
 });

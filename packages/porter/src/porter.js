@@ -17,6 +17,7 @@ const Package = require('./packet');
 const rExt = /\.(?:css|gif|jpg|jpeg|js|png|svg|swf|ico)$/i;
 const { rModuleId } = require('./module');
 const Bundle = require('./bundle');
+const { MODULE_LOADED } = require('./constants');
 
 class Porter {
   constructor(opts) {
@@ -103,6 +104,9 @@ class Porter {
     }
 
     for (const file of preload.concat(entries)) {
+      const mod = pkg.files[file];
+      // module might not ready yet
+      if (mod.status < MODULE_LOADED) continue;
       const bundle = pkg.bundles[file] || Bundle.create({ packet: pkg, entries: [ file ] });
       await bundle.obtain();
     }

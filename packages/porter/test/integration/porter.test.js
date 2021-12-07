@@ -87,6 +87,16 @@ describe('Porter', function() {
   });
 
   describe('Porter_readFile()', function() {
+    it('should give correct result when packing concurrently', async function() {
+      // when requesting css and js entries simutaneously, `porter.pack()` will be executed twice. If home.js takes time to parse its dependencies, it could be not ready when packing the first time.
+      const results = await Promise.all([
+        requestPath('/stylesheets/app.css'),
+        requestPath('/home.js?main'),
+      ]);
+      assert(results[1].text.includes('define("home.js"'));
+      assert(results[1].text.includes('define("home_dep.js'));
+    });
+
     it('should start from main', async function () {
       const res = await requestPath('/home.js?main');
       assert(res.text.includes('define("home.js"'));
@@ -224,16 +234,6 @@ describe('Porter', function() {
       assert.equal(res.text.split('\n').pop(), `//# sourceMappingURL=${fname}.map`);
     });
 
-    it('should generate source map when accessing bundle', async function() {
-      await requestPath('/home.js', 200);
-      const bundle = porter.package.bundles['home.js'];
-      const fpath = path.join(root, `public/${bundle.output}.map`);
-      assert(existsSync(fpath));
-
-      const map = JSON.parse(await readFile(fpath, 'utf8'));
-      assert(map.sources.includes('components/home.js'));
-    });
-
     it('should generate source map when accessing /${file}', async function() {
       await requestPath('/home.js', 200);
       const bundle = porter.package.bundles['home.js'];
@@ -241,6 +241,7 @@ describe('Porter', function() {
       assert(existsSync(fpath));
 
       const map = JSON.parse(await readFile(fpath, 'utf8'));
+      assert(map.sources.includes('components/home_dep.js'));
       assert(map.sources.includes('components/home.js'));
     });
 
@@ -251,19 +252,20 @@ describe('Porter', function() {
       assert(existsSync(fpath));
 
       const map = JSON.parse(await readFile(fpath, 'utf8'));
+      assert(map.sources.includes('components/home_dep.js'));
       assert(map.sources.includes('components/home.js'));
       assert(map.sources.includes('loader.js'));
     });
 
     it('should generate source map when accessing dependencies', async function() {
-      const { name, version, bundle } = porter.package.find({ name: 'react' });;
+      const { name, version, bundle } = porter.package.find({ name: 'react' });
       await requestPath(`/${name}/${version}/${bundle.entry}`, 200);
       const fpath = path.join(root, `public/${name}/${version}/${bundle.output}.map`);
       assert(existsSync(fpath));
 
       const map = JSON.parse(await readFile(fpath, 'utf8'));
-      assert(map.sources.includes('node_modules/react/index.js'));
       assert(map.sources.includes('node_modules/react/cjs/react.development.js'));
+      assert(map.sources.includes('node_modules/react/index.js'));
     });
   });
 });
