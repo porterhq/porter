@@ -7,7 +7,7 @@ const cssnano = require('cssnano');
 const fs = require('fs/promises');
 
 const Porter = require('../..');
-
+const { MODULE_LOADED } = require('../../src/constants');
 
 describe('CssModule', function() {
   const root = path.resolve(__dirname, '../../../demo-app');
@@ -53,5 +53,10 @@ describe('CssModule', function() {
       'node_modules/prismjs/themes/prism.css',
       'components/stylesheets/app.css',
     ]);
+  });
+
+  it('should set status to MODULE_LOADED after parse', async function() {
+    const mod = porter.package.files['stylesheets/app.css'];
+    assert.equal(mod.status, MODULE_LOADED);
   });
 });

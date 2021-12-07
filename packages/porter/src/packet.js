@@ -15,6 +15,7 @@ const TsModule = require('./ts_module');
 const JsonModule = require('./json_module');
 const WasmModule = require('./wasm_module');
 const Bundle = require('./bundle');
+const { MODULE_LOADED } = require('./constants');
 
 /**
  * Leave the factory method of Module here to keep from cyclic dependencies.
@@ -477,7 +478,7 @@ module.exports = class Packet {
 
   async pack() {
     const entries = [];
-    const { app, isolated, main, bundles } = this;
+    const { app, isolated, main, bundles, files } = this;
 
     for (const mod of Object.values(this.entries)) {
       if (mod.isRootEntry) entries.push(mod.file);
@@ -487,13 +488,12 @@ module.exports = class Packet {
     if (app.preload.length === 0 || isolated) entries.push(main);
 
     for (const entry of entries) {
-      let bundle = bundles[entry];
-      if (!bundle) {
-        bundle = Bundle.create({
-          packet: this,
-          entries: entry === main ? null : [ entry ],
-        });
-      }
+      const bundle = bundles[entry] || Bundle.create({
+        packet: this,
+        entries: entry === main ? null : [ entry ],
+      });
+      // skip obtaining if packet modules aren't fully parsed
+      if (Object.values(files).some(mod => mod.status < MODULE_LOADED)) continue;
       if (bundle.entries.length > 0) await bundle.obtain();
     }
   }

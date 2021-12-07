@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const debug = require('debug')('porter');
 const path = require('path');
 const fs = require('fs/promises');
+const { MODULE_INIT } = require('./constants');
 
 const rModuleId = /^((?:@[^\/]+\/)?[^\/]+)(?:\/(\d+\.\d+\.\d+[^\/]*))?(?:\/(.*))?$/;
 
@@ -24,6 +25,7 @@ module.exports = class Module {
     this.fpath = fpath;
     this.children = [];
     this.entries = [];
+    this.status = MODULE_INIT;
   }
 
   get id() {
@@ -103,7 +105,7 @@ module.exports = class Module {
     const { package: pkg } = this;
     const file = path.join(path.dirname(this.file), dep);
 
-    return pkg.parseFile(file);
+    return await pkg.parseFile(file);
   }
 
   async parseNonRelative(dep) {
@@ -187,8 +189,6 @@ module.exports = class Module {
    * @returns {Array}
    */
   async checkDeps({ code }) {
-    if (this.file.endsWith('.css')) return [null, false];
-
     const deps = this.matchImport(code);
 
     if (!this.package.parent && this.deps) {

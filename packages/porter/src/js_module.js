@@ -9,6 +9,8 @@ const { promises: { readFile } } = require('fs');
 const Module = require('./module');
 const matchRequire = require('./match_require');
 
+const { MODULE_LOADING, MODULE_LOADED } = require('./constants');
+
 module.exports = class JsModule extends Module {
   matchImport(code) {
     const { package: pkg } = this;
@@ -55,8 +57,8 @@ module.exports = class JsModule extends Module {
    * parse the module code and contruct dependencies.
    */
   async parse() {
-    if (this.loaded) return;
-    this.loaded = true;
+    if (this.status >= MODULE_LOADING) return;
+    this.status = MODULE_LOADING;
 
     const { package: pkg, app } = this;
     const { code } = await this.load();
@@ -80,6 +82,7 @@ module.exports = class JsModule extends Module {
     }
 
     await Promise.all(deps.map(this.parseDep, this));
+    this.status = MODULE_LOADED;
   }
 
   async load() {

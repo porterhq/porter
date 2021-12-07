@@ -3,6 +3,7 @@
 const fs = require('fs/promises');
 
 const Module = require('./module');
+const { MODULE_LOADING, MODULE_LOADED } = require('./constants');
 
 const rAtImport = /(?:^|\n)\s*@import\s+(['"])([^'"]+)\1;/g;
 
@@ -23,14 +24,15 @@ module.exports = class CssModule extends Module {
    * Parse the module code and contruct dependencies. Unlike {@link JsModule}, CssModule uses the original code to parse dependencies instead because the code returned by {@link CssModule#load} would have `@import`s expanded and replaced.
    */
   async parse() {
-    if (this.loaded) return;
-    this.loaded = true;
+    if (this.status === MODULE_LOADING) return;
+    this.status = MODULE_LOADING;
 
     const { fpath } = this;
     const code = this.code || (await fs.readFile(fpath, 'utf8'));
     const deps = this.deps || this.matchImport(code);
 
     await Promise.all(deps.map(this.parseDep, this));
+    this.status = MODULE_LOADED;
   }
 
   async load() {
