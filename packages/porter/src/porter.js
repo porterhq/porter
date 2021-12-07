@@ -11,8 +11,8 @@ const { SourceMapGenerator } = require('source-map');
 
 const { lstat, readFile, writeFile } = fs;
 
-const FakePackage = require('./fake_packet');
-const Package = require('./packet');
+const FakePacket = require('./fake_packet');
+const Packet = require('./packet');
 
 const rExt = /\.(?:css|gif|jpg|jpeg|js|png|svg|swf|ico)$/i;
 const { rModuleId } = require('./module');
@@ -31,16 +31,16 @@ class Porter {
     const bundleExcept = opts.bundle && opts.bundle.except || [];
 
     Object.assign(this, { root, dest, cache, transpile, bundleExcept });
-    const pkg = opts.package || require(path.join(root, 'package.json'));
+    const packet = opts.package || require(path.join(root, 'package.json'));
 
     cache.dest = path.resolve(root, cache.dest);
 
     this.moduleCache = {};
-    this.packageCache = {};
+    this.packetCache = {};
 
-    this.package = opts.package
-      ? new FakePackage({ dir: root, paths, app: this, package: opts.package, lock: opts.lock })
-      : new Package({ dir: root, paths, app: this, package: pkg });
+    this.packet = opts.package
+      ? new FakePacket({ dir: root, paths, app: this, packet: opts.package, lock: opts.lock })
+      : new Packet({ dir: root, paths, app: this, packet });
 
     this.baseUrl = opts.baseUrl || '/';
     this.map = opts.map;
@@ -65,13 +65,13 @@ class Porter {
   async atImportResolve(id, baseDir, importOptions) {
     if (id.startsWith('.')) return path.join(baseDir, id);
 
-    const [fpath] = await this.package.resolve(id);
+    const [fpath] = await this.packet.resolve(id);
     if (fpath) return fpath;
 
     const [, name, , file] = id.match(rModuleId);
-    if (name in this.package.dependencies) {
-      const pkg = this.package.dependencies[name];
-      const result = await pkg.resolve(file);
+    if (name in this.packet.dependencies) {
+      const packet = this.packet.dependencies[name];
+      const result = await packet.resolve(file);
       return result[0];
     } else {
       return id;
@@ -90,45 +90,45 @@ class Porter {
     const result = await this.readFilePath(fpath);
 
     if (name == 'loader.js') {
-      result[0] = await this.package.parseLoader(this.package.loaderConfig);
+      result[0] = await this.packet.parseLoader(this.packet.loaderConfig);
     }
 
     return result;
   }
 
   async pack() {
-    const { package: pkg, entries, preload } = this;
+    const { packet, entries, preload } = this;
 
-    for (const dep of pkg.all) {
-      if (dep !== pkg) await dep.pack();
+    for (const dep of packet.all) {
+      if (dep !== packet) await dep.pack();
     }
 
     for (const file of preload.concat(entries)) {
-      const mod = pkg.files[file];
+      const mod = packet.files[file];
       // module might not ready yet
       if (mod.status < MODULE_LOADED) continue;
-      const bundle = pkg.bundles[file] || Bundle.create({ packet: pkg, entries: [ file ] });
+      const bundle = packet.bundles[file] || Bundle.create({ packet, entries: [ file ] });
       await bundle.obtain();
     }
   }
 
   prepareFiles(files, isEntry = false) {
-    const { package: pkg } = this;
+    const { packet } = this;
     return files.map(async function prepareFile(file, i) {
-      const mod = isEntry ? await pkg.parseEntry(file) : await pkg.parseFile(file);
+      const mod = isEntry ? await packet.parseEntry(file) : await packet.parseFile(file);
       // normalize file name
       if (mod) files[i] = mod.file;
     });
   }
 
   async prepare(opts = {}) {
-    const { package: pkg } = this;
+    const { packet } = this;
     const { entries, lazyload, preload } = this;
 
-    // enable envify for root package by default
-    if (!pkg.browserify) pkg.browserify = { transform: ['envify'] };
+    // enable envify for root packet by default
+    if (!packet.browserify) packet.browserify = { transform: ['envify'] };
 
-    await pkg.prepare();
+    await packet.prepare();
 
     await Promise.all([
       ...this.prepareFiles(preload),
@@ -137,14 +137,14 @@ class Porter {
     ]);
 
     for (const file of preload) {
-      const entry = await pkg.files[file];
+      const entry = await packet.files[file];
       entry.isPreload = true;
-      for (const mod of entry.family) mod.preloaded = !mod.package.isolated;
+      for (const mod of entry.family) mod.preloaded = !mod.packet.isolated;
     }
 
     for (const file of lazyload) {
-      const bundle = Bundle.create({ packet: pkg, entries: [ file ], package: false });
-      pkg.bundles[file] = bundle;
+      const bundle = Bundle.create({ packet, entries: [ file ], package: false });
+      packet.bundles[file] = bundle;
       await bundle.obtain();
     }
 
@@ -154,24 +154,24 @@ class Porter {
     await fs.rm(path.join(cache.dest, '**/*.{css,js,map}'), { recursive: true, force: true });
   }
 
-  async compilePackages(opts) {
-    for (const pkg of this.package.all) {
-      if (pkg.parent) {
-        await pkg.compileAll(opts);
+  async compilePackets(opts) {
+    for (const packet of this.packet.all) {
+      if (packet.parent) {
+        await packet.compileAll(opts);
       }
     }
   }
 
-  async compileExclusivePackages(opts) {
-    const { bundleExcept, lazyload, package: packet } = this;
+  async compileExclusivePackets(opts) {
+    const { bundleExcept, lazyload, packet } = this;
     const exclusives = new Set(bundleExcept);
 
     if (lazyload.length > 0) {
       for (const file of lazyload) {
         const mod = packet.files[file];
         for (const child of mod.children) {
-          if (child.package !== packet && !child.preloaded) {
-            exclusives.add(child.package.name);
+          if (child.packet !== packet && !child.preloaded) {
+            exclusives.add(child.packet.name);
           }
         }
       }
@@ -179,7 +179,7 @@ class Porter {
 
     for (const name of exclusives) {
       const packets = packet.findAll({ name });
-      for (const pkg of packets) await pkg.compileAll(opts);
+      for (const dep of packets) await dep.compileAll(opts);
     }
   }
 
@@ -189,41 +189,41 @@ class Porter {
 
     debug('parse');
     if (entries) {
-      await Promise.all(entries.map(entry => this.package.parseEntry(entry)));
+      await Promise.all(entries.map(entry => this.packet.parseEntry(entry)));
     } else {
-      entries = Object.keys(this.package.entries);
+      entries = Object.keys(this.packet.entries);
     }
 
     debug('minify');
-    await Promise.all(Array.from(this.package.all).reduce((tasks, pkg) => {
-      tasks.push(...Object.values(pkg.files).map(mod => mod.minify()));
+    await Promise.all(Array.from(this.packet.all).reduce((tasks, packet) => {
+      tasks.push(...Object.values(packet.files).map(mod => mod.minify()));
       return tasks;
     }, []));
 
-    debug('compile packages');
+    debug('compile packets');
     if (this.preload.length > 0) {
-      await this.compileExclusivePackages({ all: true });
+      await this.compileExclusivePackets({ all: true });
     } else {
-      await this.compilePackages();
+      await this.compilePackets();
     }
 
     debug('compile preload');
     const manifest = {};
     for (const file of this.preload) {
-      await this.package.compile(file, { all: this.preload.length > 0, manifest });
+      await this.packet.compile(file, { all: this.preload.length > 0, manifest });
     }
 
     debug('compile lazyload');
     for (const file of this.lazyload) {
-      for (const mod of this.package.files[file].family) {
-        if (mod.package.parent) continue;
-        await mod.package.compile(mod.file, { package: false, manifest });
+      for (const mod of this.packet.files[file].family) {
+        if (mod.packet.parent) continue;
+        await mod.packet.compile(mod.file, { package: false, manifest });
       }
     }
 
     debug('compile entries');
     for (const entry of entries) {
-      await this.package.compile(entry, { all: this.preload.length > 0, manifest });
+      await this.packet.compile(entry, { all: this.preload.length > 0, manifest });
     }
 
     debug('manifest.json');
@@ -233,7 +233,7 @@ class Porter {
   }
 
   async compileEntry(entry, opts) {
-    return this.package.compile(entry, opts);
+    return this.packet.compile(entry, opts);
   }
 
   async isRawFile(file) {
@@ -242,14 +242,14 @@ class Porter {
     if (file.startsWith('node_modules')) {
       const [, name] = file.replace(/^node_modules\//, '').replace(/^_@?[^@]+@[^@]+@/, '').match(rModuleId);
       // #1 cannot require('mocha') just yet
-      return this.package.find({ name }) || name == 'mocha';
+      return this.packet.find({ name }) || name == 'mocha';
     }
 
     // FIXME: packages/demo-component has package paths set to `.` which makes source serving error prone because the pathnames of source and the output are the same.
-    if (this.package.paths.includes(this.root)) return false;
+    if (this.packet.paths.includes(this.root)) return false;
 
     const fpath = path.join(this.root, file);
-    for (const dir of this.package.paths) {
+    for (const dir of this.packet.paths) {
       if (fpath.startsWith(dir) && existsSync(fpath)) return true;
     }
 
@@ -268,21 +268,21 @@ class Porter {
     let [, name, version, file] = id.match(rModuleId);
 
     if (!version) {
-      const { package: pkg } = this;
-      name = pkg.name;
-      version = pkg.version;
+      const { packet } = this;
+      name = packet.name;
+      version = packet.version;
       file = id;
     }
 
-    const pkg = this.package.find({ name, version });
-    if (!pkg) throw new Error(`unknown dependency ${id}`);
+    const packet = this.packet.find({ name, version });
+    if (!packet) throw new Error(`unknown dependency ${id}`);
 
-    const mod = isEntry ? await pkg.parseEntry(file) : await pkg.parseFile(file);
+    const mod = isEntry ? await packet.parseEntry(file) : await packet.parseFile(file);
     if (mod) return mod;
 
-    const bundle = pkg.bundles[file];
+    const bundle = packet.bundles[file];
     // @babel/runtime has no main
-    if (bundle) return { file, fake: true, package: pkg };
+    if (bundle) return { file, fake: true, packet };
   }
 
   async writeSourceMap({ bundle, code, map }) {
@@ -315,9 +315,9 @@ class Porter {
     if (isEntry) await this.pack();
 
     const { mtime } = await lstat(mod.fpath);
-    const { package: pkg } = mod;
-    const bundle = pkg.bundles[mod.file];
-    if (!bundle) throw new Error(`unknown bundle ${mod.file} in ${pkg.name}`);
+    const { packet } = mod;
+    const bundle = packet.bundles[mod.file];
+    if (!bundle) throw new Error(`unknown bundle ${mod.file} in ${packet.name}`);
     const result = await bundle.obtain();
     const { code } = await this.writeSourceMap({ bundle, ...result });
 
@@ -336,10 +336,10 @@ class Porter {
     if (!mod) return;
     if (isEntry) await this.pack();
 
-    const { fake, package: pkg } = mod;
+    const { fake, packet } = mod;
     const mtime = fake ? new Date().toGMTString() : (await lstat(mod.fpath)).mtime.toJSON();
-    const bundle = pkg.bundles[mod.file];
-    if (!bundle) throw new Error(`unknown bundle ${mod.file} in ${pkg.name}`);
+    const bundle = packet.bundles[mod.file];
+    if (!bundle) throw new Error(`unknown bundle ${mod.file} in ${packet.name}`);
     const result = await bundle.obtain({ loader: isMain  });
 
     const { code } = await this.writeSourceMap({ bundle, ...result });
@@ -355,18 +355,18 @@ class Porter {
 
   async readWasm(id) {
     let [, name, version, file] = id.match(rModuleId);
-    let pkg;
+    let packet;
 
     if (!version) {
-      pkg = this.package;
-      name = pkg.name;
-      version = pkg.version;
+      packet = this.packet;
+      name = packet.name;
+      version = packet.version;
       file = id;
     } else {
-      pkg = this.package.find({ name, version });
+      packet = this.packet.find({ name, version });
     }
 
-    const mod = await pkg.parseFile(file);
+    const mod = await packet.parseFile(file);
     const { code } = await mod.obtain();
     const mtime = (await lstat(mod.fpath)).mtime.toJSON();
     return [code, { 'Last-Modified': mtime }];
@@ -375,7 +375,7 @@ class Porter {
   async readFile(file, query) {
     await this.ready;
 
-    const { package: pkg } = this;
+    const { packet } = this;
     const ext = path.extname(file);
     let result = null;
 
@@ -384,7 +384,7 @@ class Porter {
     }
     else if (file === 'loaderConfig.json') {
       result = [
-        JSON.stringify(Object.assign(pkg.loaderConfig, { lock: pkg.lock })),
+        JSON.stringify(Object.assign(packet.loaderConfig, { lock: packet.lock })),
         { 'Last-Modified': (new Date()).toGMTString() }
       ];
     }
@@ -404,7 +404,7 @@ class Porter {
       result = await this.readWasm(file);
     }
     else if (rExt.test(ext)) {
-      const [fpath] = await pkg.resolve(file);
+      const [fpath] = await packet.resolve(file);
       if (fpath) {
         result = await this.readFilePath(fpath);
       }
@@ -423,7 +423,7 @@ class Porter {
   }
 
   async destroy() {
-    await this.package.destroy();
+    await this.packet.destroy();
   }
 
   func() {

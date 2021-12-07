@@ -26,11 +26,11 @@ function requestPath(urlPath, status = 200, listener = app.callback()) {
 
 async function checkReload({ sourceFile, targetFile, pathname }) {
   sourceFile = sourceFile || targetFile;
-  const sourceModule = await porter.package.parseFile(sourceFile);
-  const targetModule = await porter.package.parseEntry(targetFile);
+  const sourceModule = await porter.packet.parseFile(sourceFile);
+  const targetModule = await porter.packet.parseEntry(targetFile);
   pathname = pathname || `/${targetModule.id}`;
   const { fpath: sourcePath } = sourceModule;
-  const bundle = porter.package.bundles[pathname.slice(1)];
+  const bundle = porter.packet.bundles[pathname.slice(1)];
   let cachePath = path.join(porter.cache.dest, bundle.outputPath);
   await requestPath(pathname);
   assert(existsSync(cachePath));
@@ -44,7 +44,7 @@ async function checkReload({ sourceFile, targetFile, pathname }) {
     await new Promise(resolve => setTimeout(resolve, 200));
     // https://stackoverflow.com/questions/10468504/why-fs-watchfile-called-twice-in-node
     if (process.platform !== 'darwin' && process.platform !== 'win32') {
-      await porter.package.reload('change', sourceFile);
+      await porter.packet.reload('change', sourceFile);
     }
 
     assert(!existsSync(cachePath));
@@ -72,11 +72,11 @@ describe('Porter_readFile()', function() {
     assert.ok(res.text.includes('define("home.js"'));
 
     // jquery is bundled
-    const jquery = porter.package.find({ name: 'jquery' });
+    const jquery = porter.packet.find({ name: 'jquery' });
     assert.ok(res.text.includes(`define("jquery/${jquery.version}/${jquery.main}`));
 
     // react is required by `preload.js` already, hence it should not be bundled here.
-    const react = porter.package.find({ name: 'react' });
+    const react = porter.packet.find({ name: 'react' });
     assert.ok(!res.text.includes(`define("react/${react.version}/${react.main}`));
   });
 
@@ -85,7 +85,7 @@ describe('Porter_readFile()', function() {
     assert.ok(res.text.includes('define("preload.js'));
 
     // yen is bundled
-    const yen = porter.package.find({ name: 'yen' });
+    const yen = porter.packet.find({ name: 'yen' });
     assert.ok(res.text.includes(`define("yen/${yen.version}/${yen.main}`));
   });
 

@@ -11,15 +11,15 @@ const rModuleId = /^((?:@[^\/]+\/)?[^\/]+)(?:\/(\d+\.\d+\.\d+[^\/]*))?(?:\/(.*))
 module.exports = class Module {
   static rModuleId = rModuleId;
 
-  constructor({ file, fpath, pkg }) {
-    const { moduleCache } = pkg.app;
+  constructor({ file, fpath, packet }) {
+    const { moduleCache } = packet.app;
     if (moduleCache[fpath]) return moduleCache[fpath];
     moduleCache[fpath] = this;
 
-    this.app = pkg.app;
-    this.package = pkg;
-    this.name = pkg.name;
-    this.version = pkg.version;
+    this.app = packet.app;
+    this.packet = packet;
+    this.name = packet.name;
+    this.version = packet.version;
 
     this.file = file;
     this.fpath = fpath;
@@ -30,13 +30,13 @@ module.exports = class Module {
 
   get id() {
     const file = this.file.replace(/\.tsx?/, '.js');
-    if (!this.package.parent) return file;
+    if (!this.packet.parent) return file;
     return [this.name, this.version, file].join('/');
   }
 
   get isRootEntry() {
-    const { file, isWorker, package: pkg } = this;
-    return file in pkg.entries && (!pkg.parent || isWorker);
+    const { file, isWorker, packet } = this;
+    return file in packet.entries && (!packet.parent || isWorker);
   }
 
   get isWorker() {
@@ -63,19 +63,19 @@ module.exports = class Module {
 
   get lock() {
     const lock = {};
-    const packages = [];
+    const packets = [];
 
     for (const mod of this.family) {
-      const { package: pkg } = mod;
-      if (packages.includes(pkg)) continue;
-      packages.push(pkg);
-      const { name, version } = pkg;
+      const { packet } = mod;
+      if (packets.includes(packet)) continue;
+      packets.push(packet);
+      const { name, version } = packet;
       const copies = lock[name] || (lock[name] = {});
-      copies[version] = Object.assign(copies[version] || {}, pkg.copy);
+      copies[version] = Object.assign(copies[version] || {}, packet.copy);
     }
 
-    const { package: rootPackage } = this;
-    const { name, version } = rootPackage;
+    const { packet: rootPacket } = this;
+    const { name, version } = rootPacket;
     const copy = lock[name][version];
     copy.dependencies = Object.keys(copy.dependencies).reduce((obj, prop) => {
       if (prop in lock) obj[prop] = copy.dependencies[prop];
@@ -86,7 +86,7 @@ module.exports = class Module {
   }
 
   async _addCache() {
-    const fpath = path.join(this.package.app.cache.dest, this.id);
+    const fpath = path.join(this.packet.app.cache.dest, this.id);
     const dir = path.dirname(fpath);
 
     await fs.mkdir(dir, { recursive: true });
@@ -102,22 +102,22 @@ module.exports = class Module {
   }
 
   async parseRelative(dep) {
-    const { package: pkg } = this;
+    const { packet } = this;
     const file = path.join(path.dirname(this.file), dep);
 
-    return await pkg.parseFile(file);
+    return await packet.parseFile(file);
   }
 
   async parseNonRelative(dep) {
-    const { package: pkg } = this;
+    const { packet } = this;
     const [, name, , entry] = dep.match(rModuleId);
-    let mod = await pkg.parsePackage({ name, entry });
+    let mod = await packet.parsePacket({ name, entry });
 
-    // Allow root/a => package/b => root/c
+    // Allow root/a => packet/b => root/c
     if (!mod) {
-      const { rootPackage } = pkg;
-      const specifier = name == rootPackage.name ? (entry || rootPackage.main) : dep;
-      mod = await rootPackage.parseFile(specifier);
+      const { rootPacket } = packet;
+      const specifier = name == rootPacket.name ? (entry || rootPacket.main) : dep;
+      mod = await rootPacket.parseFile(specifier);
     }
 
     return mod;
@@ -141,9 +141,9 @@ module.exports = class Module {
       }
     }
 
-    const { package: pkg } = this;
-    if (dep == 'stream') pkg.browser.stream = 'readable-stream';
-    const specifier = pkg.browser[dep] || pkg.browser[`${dep}.js`] || dep;
+    const { packet } = this;
+    if (dep == 'stream') packet.browser.stream = 'readable-stream';
+    const specifier = packet.browser[dep] || packet.browser[`${dep}.js`] || dep;
     const mod = dep.startsWith('.')
       ? await this.parseRelative(specifier)
       : await this.parseNonRelative(specifier);
@@ -156,7 +156,7 @@ module.exports = class Module {
     mod.loaders = loaders;
     if (loaders['worker-loader']) {
       // modules required by worker-loader shall be treated as entries.
-      mod.package.entries[mod.file] = mod;
+      mod.packet.entries[mod.file] = mod;
     } else {
       if (!mod.parent) mod.parent = this;
       this.children.push(mod);
@@ -183,7 +183,7 @@ module.exports = class Module {
 
   /**
    * Find deps of code and compare them with existing `this.deps` to see if there's
-   * new dep to parse. Only the modules of the root package are checked.
+   * new dep to parse. Only the modules of the root packet are checked.
    * @param {Object} opts
    * @param {string} opts.code
    * @returns {Array}
@@ -191,7 +191,7 @@ module.exports = class Module {
   async checkDeps({ code }) {
     const deps = this.matchImport(code);
 
-    if (!this.package.parent && this.deps) {
+    if (!this.packet.parent && this.deps) {
       for (const dep of deps) {
         if (this.deps.includes(dep)) continue;
         await this.parseDep(dep);
@@ -214,7 +214,7 @@ module.exports = class Module {
   }
 
   async reload() {
-    debug(`reloading ${this.file} (${this.package.dir})`);
+    debug(`reloading ${this.file} (${this.packet.dir})`);
     const { code, map } = await this.load();
     this.deps = await this.checkDeps({ code });
     this.addCache(code, await this.transpile({ code, map }));

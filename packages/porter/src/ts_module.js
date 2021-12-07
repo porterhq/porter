@@ -5,14 +5,14 @@ const JsModule = require('./js_module');
 
 module.exports = class TsModule extends JsModule {
   _transpile({ code, }) {
-    const { fpath, package: pkg } = this;
-    const ts = pkg.tryRequire('typescript');
+    const { fpath, packet } = this;
+    const ts = packet.tryRequire('typescript');
 
     if (!ts) return { code };
 
-    const tsconfig = pkg.transpiler === 'typescript'
-      ? pkg.transpilerOpts
-      : require(path.join(pkg.dir, 'tsconfig.json'));
+    const tsconfig = packet.transpiler === 'typescript'
+      ? packet.transpilerOpts
+      : require(path.join(packet.dir, 'tsconfig.json'));
 
     const { compilerOptions } = tsconfig;
     const { outputText, diagnostics, sourceMapText } = ts.transpileModule(code, {
@@ -25,7 +25,7 @@ module.exports = class TsModule extends JsModule {
     let map;
 
     if (sourceMapText) {
-      const source = path.relative(pkg.app.root, fpath);
+      const source = path.relative(packet.app.root, fpath);
       map = JSON.parse(sourceMapText);
       map.sources = [ source ];
       map.file = source;

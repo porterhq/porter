@@ -25,7 +25,7 @@ describe('WasmModule', function() {
   });
 
   it('should be able to parse json module', async function() {
-    const mod = porter.package.files['require-json/foo.json'];
+    const mod = porter.packet.files['require-json/foo.json'];
     assert.equal(mod.status, MODULE_LOADED);
   });
 });

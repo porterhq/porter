@@ -8,36 +8,36 @@ const Packet = require('./packet');
  */
 module.exports = class FakePacket extends Packet {
   constructor(opts) {
-    const { app, dir, paths, package: pkg, lock } = opts;
-    super({ app, dir, paths, package: pkg });
+    const { app, dir, paths, packet, lock } = opts;
+    super({ app, dir, paths, packet });
 
     this._lock = lock;
-    this._package = pkg;
+    this._packet = packet;
 
-    const { name, version } = pkg;
+    const { name, version } = packet;
     Object.assign(this, { name, version });
   }
 
   /**
-   * The real package lock should be used
+   * The real packet lock should be used
    */
   get lock() {
     return this._lock;
   }
 
   /**
-   * The real package name and version should be used.
+   * The real packet name and version should be used.
    */
   get loaderConfig() {
-    return { ...super.loaderConfig, package: this._package };
+    return { ...super.loaderConfig, package: this._packet };
   }
 
   /**
    * To eliminate "unmet dependency" warnings.
    * @param {Object} opts
    */
-  async parsePackage({ name, entry }) {
-    const mod = await super.parsePackage({ name, entry });
+  async parsePacket({ name, entry }) {
+    const mod = await super.parsePacket({ name, entry });
     if (mod) return mod;
 
     const { _lock: lock } = this;

@@ -36,7 +36,7 @@ describe('CssModule', function() {
   });
 
   it('should transpile css module', async function() {
-    const mod = porter.package.files['stylesheets/app.css'];
+    const mod = porter.packet.files['stylesheets/app.css'];
     const result = await mod.load();
     await assert.doesNotReject(async function() {
       await mod.transpile(result);
@@ -44,7 +44,7 @@ describe('CssModule', function() {
   });
 
   it('should transpile with correct source map', async function() {
-    const mod = porter.package.files['stylesheets/app.css'];
+    const mod = porter.packet.files['stylesheets/app.css'];
     const { map } = await mod.obtain();
     assert.deepEqual(map.sources, [
       'components/stylesheets/common/reset.css',
@@ -56,7 +56,7 @@ describe('CssModule', function() {
   });
 
   it('should set status to MODULE_LOADED after parse', async function() {
-    const mod = porter.package.files['stylesheets/app.css'];
+    const mod = porter.packet.files['stylesheets/app.css'];
     assert.equal(mod.status, MODULE_LOADED);
   });
 });

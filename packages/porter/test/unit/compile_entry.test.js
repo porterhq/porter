@@ -48,10 +48,10 @@ describe('porter.compileEntry()', function() {
         `
       }, { all: true, writeFile: false, loaderConfig: { preload: undefined } });
 
-      const { name, version, main } = porter.package.find({ name: 'jquery' });
+      const { name, version, main } = porter.packet.find({ name: 'jquery' });
       expect(code).to.contain(`${name}/${version}/${main}`);
       // fake modules should be removed afterwards
-      expect(Object.keys(porter.package.files)).to.not.contain('fake/entry.js');
+      expect(Object.keys(porter.packet.files)).to.not.contain('fake/entry.js');
     });
   });
 

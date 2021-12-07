@@ -51,7 +51,7 @@ describe('porter.compileAll()', function() {
     assert(manifest['lazyload.js']);
   });
 
-  it('should compile entries with same-package dependencies bundled', async function () {
+  it('should compile entries with same-packet dependencies bundled', async function () {
     const fpath = path.join(dest, manifest['home.js']);
     const content = await readFile(fpath, 'utf8');
     assert(content.includes('define("home_dep.js",'));
@@ -70,7 +70,7 @@ describe('porter.compileAll()', function() {
 
   it('should compile lazyload dependencies as isolated packets', async function() {
     // path is lazyloaded but not preloaded
-    const packet = porter.package.find({ name: 'path' });
+    const packet = porter.packet.find({ name: 'path' });
     const bundle = packet.bundle;
     assert(entries.includes(`public/${bundle.outputPath}`));
   });

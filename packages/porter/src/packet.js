@@ -41,16 +41,16 @@ Module.create = function(opts) {
 const { lstat, readFile, realpath, writeFile } = fs;
 
 module.exports = class Packet {
-  constructor({ app, dir, paths, parent, package: pkg }) {
-    // packageCache is necessary because there might be multiple asynchronous parsing tasks on the same package, such as `a => b` and `a => c => b`, which might return multiple package instance of `b` since neither one can find the other during the `Package.create()` call.
-    const { packageCache } = app;
-    if (packageCache[dir]) return packageCache[dir];
-    packageCache[dir] = this;
+  constructor({ app, dir, paths, parent, packet }) {
+    // packetCache is necessary because there might be multiple asynchronous parsing tasks on the same packet, such as `a => b` and `a => c => b`, which might return multiple packet instance of `b` since neither one can find the other during the `packet.create()` call.
+    const { packetCache } = app;
+    if (packetCache[dir]) return packetCache[dir];
+    packetCache[dir] = this;
 
     this.app = app;
     this.dir = dir;
-    this.name = pkg.name;
-    this.version = pkg.version;
+    this.name = packet.name;
+    this.version = packet.version;
     this.paths = paths || [dir];
     this.parent = parent;
     this.dependencies = {};
@@ -59,22 +59,22 @@ module.exports = class Packet {
     this.files = {};
     this.folder = {};
     this.browser = {};
-    this.browserify = pkg.browserify;
+    this.browserify = packet.browserify;
     this.depPaths = [];
     this.loaderCache = {};
-    this.isolated = app.bundleExcept.includes(pkg.name);
+    this.isolated = app.bundleExcept.includes(packet.name);
 
-    if (!parent && pkg.babel) {
+    if (!parent && packet.babel) {
       this.transpiler = 'babel';
-      this.transpilerOpts = pkg.babel;
+      this.transpilerOpts = packet.babel;
     }
 
-    // should prefer pkg.module but since we don't have tree shaking yet...
-    const main = typeof pkg.browser == 'string' ? pkg.browser : (pkg.main || pkg.module);
+    // should prefer packet.module but since we don't have tree shaking yet...
+    const main = typeof packet.browser == 'string' ? packet.browser : (packet.main || packet.module);
     this.main = main ? main.replace(/^\.\//, '') : 'index.js';
 
-    if (typeof pkg.browser == 'object') {
-      Object.assign(this.browser, pkg.browser);
+    if (typeof packet.browser == 'object') {
+      Object.assign(this.browser, packet.browser);
     }
 
     // https://github.com/foliojs/brotli.js/pull/22
@@ -87,22 +87,22 @@ module.exports = class Packet {
     const content = await readFile(path.join(dir, 'package.json'), 'utf8');
     const data = JSON.parse(content);
 
-    // prefer existing package to de-duplicate packages
-    if (app.package) {
+    // prefer existing packet to de-duplicate packets
+    if (app.packet) {
       const { name, version } = data;
-      const pkg = app.package.find({ name, version });
-      if (pkg) return pkg;
+      const packet = app.packet.find({ name, version });
+      if (packet) return packet;
     }
 
-    const pkg = new Packet({ dir, parent, app, package: data });
-    await pkg.prepare();
-    return pkg;
+    const packet = new Packet({ dir, parent, app, packet: data });
+    await packet.prepare();
+    return packet;
   }
 
-  get rootPackage() {
-    let pkg = this;
-    while (pkg.parent) pkg = pkg.parent;
-    return pkg;
+  get rootPacket() {
+    let packet = this;
+    while (packet.parent) packet = packet.parent;
+    return packet;
   }
 
   get bundle() {
@@ -124,18 +124,18 @@ module.exports = class Packet {
   }
 
   /**
-   * Find package by name or by name and version in the package tree.
+   * Find packet by name or by name and version in the packet tree.
    * @param {Object} opts
    * @param {string} opts.name
    * @param {string} opts.version
-   * @returns {Package}
+   * @returns {Packet}
    */
   find({ name, version }) {
     if (!name) return this;
 
-    for (const pkg of this.all) {
-      if (name == pkg.name) {
-        if (!version || pkg.version == version) return pkg;
+    for (const packet of this.all) {
+      if (name == packet.name) {
+        if (!version || packet.version == version) return packet;
       }
     }
   }
@@ -144,8 +144,8 @@ module.exports = class Packet {
     const result = [];
 
     if (!name) return result;
-    for (const pkg of this.all) {
-      if (name == pkg.name) result.push(pkg);
+    for (const packet of this.all) {
+      if (name == packet.name) result.push(packet);
     }
 
     return result;
@@ -153,14 +153,14 @@ module.exports = class Packet {
 
   async parseDepPaths() {
     const { depPaths } = this;
-    let pkg = this;
+    let packet = this;
 
-    while (pkg) {
-      const depPath = path.join(pkg.dir, 'node_modules');
+    while (packet) {
+      const depPath = path.join(packet.dir, 'node_modules');
       if (existsSync(depPath) && !depPaths.includes(depPath)) {
         depPaths.push(depPath);
       }
-      pkg = pkg.parent;
+      packet = packet.parent;
     }
   }
 
@@ -193,11 +193,11 @@ module.exports = class Packet {
     await this.parseDepPaths();
     const { name, transpiler, app, main } = this;
 
-    if (this === app.package) await this.prepareTranspiler();
+    if (this === app.packet) await this.prepareTranspiler();
 
     if (app.transpile.only.includes(name) && !transpiler) {
-      this.transpiler = app.package.transpiler;
-      this.transpilerOpts = app.package.transpilerOpts;
+      this.transpiler = app.packet.transpiler;
+      this.transpilerOpts = app.packet.transpilerOpts;
     }
 
     this.extensions = [
@@ -319,7 +319,7 @@ module.exports = class Packet {
 
       // There might be multiple resolves on same file.
       if (file in files) return files[file];
-      const mod = Module.create({ file, fpath, pkg: this });
+      const mod = Module.create({ file, fpath, packet: this });
       return mod;
     }
   }
@@ -332,7 +332,7 @@ module.exports = class Packet {
 
     if (!mod) throw new Error(`unknown entry ${entry} (${dir})`);
     entries[mod.file] = files[mod.file] = mod;
-    if (this === app.package) app.entries = Object.keys(entries);
+    if (this === app.packet) app.entries = Object.keys(entries);
 
     await mod.parse();
     return mod;
@@ -361,7 +361,7 @@ module.exports = class Packet {
     const { moduleCache } = this.app;
     const fpath = path.join(paths[0], entry);
     delete moduleCache[fpath];
-    const mod = Module.create({ file: entry, fpath, pkg: this });
+    const mod = Module.create({ file: entry, fpath, packet: this });
 
     Object.assign(mod, { deps, code, fake: true });
     entries[mod.file] = files[mod.file] = mod;
@@ -369,19 +369,19 @@ module.exports = class Packet {
     return mod;
   }
 
-  async parsePackage({ name, entry }) {
+  async parsePacket({ name, entry }) {
     if (this.dependencies[name]) {
-      const pkg = this.dependencies[name];
-      return await pkg.parseEntry(entry);
+      const packet = this.dependencies[name];
+      return await packet.parseEntry(entry);
     }
 
     for (const depPath of this.depPaths) {
       const dir = path.join(depPath, name);
       if (existsSync(dir)) {
         const { app } = this;
-        const pkg = await Packet.create({ dir, parent: this, app });
-        this.dependencies[pkg.name] = pkg;
-        return await pkg.parseEntry(entry);
+        const packet = await Packet.create({ dir, parent: this, app });
+        this.dependencies[packet.name] = packet;
+        return await packet.parseEntry(entry);
       }
     }
   }
@@ -407,10 +407,10 @@ module.exports = class Packet {
       ? JSON.parse(JSON.stringify(this.app.lock))
       : {};
 
-    for (const pkg of this.all) {
-      const { name, version,  } = pkg;
+    for (const packet of this.all) {
+      const { name, version,  } = packet;
       const copies = lock[name] || (lock[name] = {});
-      copies[version] = { ...copies[version], ...pkg.copy };
+      copies[version] = { ...copies[version], ...packet.copy };
     }
 
     return lock;
@@ -448,7 +448,7 @@ module.exports = class Packet {
   get loaderConfig() {
     const { app, name, version, main } = this;
     const { baseUrl, map, timeout } = app;
-    const preload = name == app.package.name ? app.preload : [];
+    const preload = name == app.packet.name ? app.preload : [];
 
     return {
       baseUrl,

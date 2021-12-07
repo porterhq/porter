@@ -22,7 +22,7 @@ describe('Module', function() {
   });
 
   it('should be iteratable with module.family', async function() {
-    const pkg = porter.package.find({ name: 'lodash' });
+    const pkg = porter.packet.find({ name: 'lodash' });
 
     for (const entry of Object.values(pkg.entries)) {
       const files = {};
@@ -35,12 +35,12 @@ describe('Module', function() {
   });
 
   it('should generate compact lock', function() {
-    assert('react-color' in porter.package.lock);
-    assert(!('react-color' in porter.package.entries['home.js'].lock));
+    assert('react-color' in porter.packet.lock);
+    assert(!('react-color' in porter.packet.entries['home.js'].lock));
   });
 
   it('should eliminate heredoc when minify', async function() {
-    const mod = porter.package.files['home.js'];
+    const mod = porter.packet.files['home.js'];
     mod.cache = null;
     await mod.minify();
     const { code } = mod.cache;
@@ -48,7 +48,7 @@ describe('Module', function() {
   });
 
   it('should invalidate dev cache when minify', async function() {
-    const mod = porter.package.files['home.js'];
+    const mod = porter.packet.files['home.js'];
 
     // create dev cache
     mod.cache = null;
