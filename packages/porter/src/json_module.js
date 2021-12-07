@@ -3,10 +3,12 @@
 const { promises: { readFile } } = require('fs');
 
 const Module = require('./module');
+const { MODULE_LOADED } = require('./constants');
 
 module.exports = class JsonModule extends Module {
   async parse() {
     // nothing to parse here, just pure json data
+    this.status = MODULE_LOADED;
   }
 
   matchImport() {

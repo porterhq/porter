@@ -27,7 +27,8 @@ module.exports = function({ types: t }) {
     VariableDeclaration(path) {
       const { node } = path;
       const { init } = node.declarations[0];
-      if (t.isCallExpression(init) && init.callee.name === 'require' && init.arguments[0].value === 'heredoc') {
+      const expr = t.isMemberExpression(init) ? init.object : init;
+      if (t.isCallExpression(expr) && expr.callee.name === 'require' && expr.arguments[0].value === 'heredoc') {
         path.remove();
       }
     },

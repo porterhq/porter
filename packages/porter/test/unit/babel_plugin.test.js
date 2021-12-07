@@ -13,6 +13,14 @@ describe('test/deheredoc.test.js', function() {
     assert.equal(result.code, 'const a = 1;');
   });
 
+  it('should remove require("heredoc").strip', function() {
+    const result = babel.transform(`
+    const heredoc = require('heredoc').strip;
+    const a = 1;
+  `, { plugins: [ plugin ] });
+  assert.equal(result.code, 'const a = 1;');
+  });
+
   it('should replace heredoc(function() {/* text */}) with text', function() {
     const result = babel.transform(`
       function foo() {

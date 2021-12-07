@@ -1,6 +1,7 @@
 'use strict';
 
 const { promises: { readFile } } = require('fs');
+const { MODULE_LOADED } = require('./constants');
 const Module = require('./module');
 
 module.exports = class WasmModule extends Module {
@@ -14,6 +15,7 @@ module.exports = class WasmModule extends Module {
 
   async parse() {
     // unnecessary
+    this.status = MODULE_LOADED;
   }
 
   matchImport() {
