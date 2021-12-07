@@ -480,6 +480,17 @@ module.exports = class Packet {
     const entries = [];
     const { app, isolated, main, bundles, files } = this;
 
+    // the modules might not be fully parsed yet, the process returns early when parsing multiple times.
+    await new Promise(resolve => {
+      (function poll() {
+        if (Object.values(files).every(mod => mod.status >= MODULE_LOADED)) {
+          resolve();
+        } else {
+          setTimeout(poll, 10);
+        }
+      })();
+    });
+
     for (const mod of Object.values(this.entries)) {
       if (mod.isRootEntry) entries.push(mod.file);
     }
@@ -492,8 +503,6 @@ module.exports = class Packet {
         packet: this,
         entries: entry === main ? null : [ entry ],
       });
-      // skip obtaining if packet modules aren't fully parsed
-      if (Object.values(files).some(mod => mod.status < MODULE_LOADED)) continue;
       if (bundle.entries.length > 0) await bundle.obtain();
     }
   }
