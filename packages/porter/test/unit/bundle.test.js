@@ -25,12 +25,12 @@ describe('Bundle without preload', function() {
 
   describe('[Symbol.iterator]', function() {
     it('should iterate over all modules that belong to bundle', async function() {
-      assert.deepEqual(Object.keys(porter.package.bundles).sort(), [
+      assert.deepEqual(Object.keys(porter.packet.bundles).sort(), [
         'home.js',
         'stylesheets/app.css',
         'test/suite.js',
       ]);
-      const bundle = porter.package.bundles['home.js'];
+      const bundle = porter.packet.bundles['home.js'];
       const modules = Array.from(bundle);
       assert.deepEqual(modules.map(mod => mod.file).sort(), [
         'cyclic-dep/foo.js',
@@ -40,14 +40,14 @@ describe('Bundle without preload', function() {
     });
 
     it('should bundle all dependencies separately since preload is off', async function() {
-      for (const dep of porter.package.all) {
-        if (dep !== porter.package) assert.ok(dep.bundle);
+      for (const dep of porter.packet.all) {
+        if (dep !== porter.packet) assert.ok(dep.bundle);
       }
     });
 
     it('should append @babel/runtime', async function() {
       // injected by @babel/plugin-transform-runtime
-      const runtime = porter.package.find({ name: '@babel/runtime' });
+      const runtime = porter.packet.find({ name: '@babel/runtime' });
       assert.ok(runtime.bundle);
       assert.ok(runtime.bundle.output);
     });
@@ -55,7 +55,7 @@ describe('Bundle without preload', function() {
 
   describe('bundle.contenthash', function() {
     it('should refresh if bundle entries change', async function() {
-      const packet = porter.package.find({ name: '@babel/runtime' });
+      const packet = porter.packet.find({ name: '@babel/runtime' });
       const bundle = packet.bundle;
       const { contenthash } = bundle;
       assert.ok(bundle);
@@ -94,52 +94,52 @@ describe('Bundle with preload', function() {
 
   describe('[Symbol.iterator]', function() {
     it('should dependencies unless specificly excluded', async function() {
-      const bundle = porter.package.bundles['preload.js'];
+      const bundle = porter.packet.bundles['preload.js'];
       const modules = Array.from(bundle);
 
-      const selfModules = modules.filter(mod => mod.package === porter.package);
+      const selfModules = modules.filter(mod => mod.packet === porter.packet);
       assert.deepEqual(selfModules.map(mod => mod.file).sort(), [
         'preload.js',
         'preload_dep.js',
       ]);
 
-      const yenModules = modules.filter(mod => mod.package.name === 'yen');
+      const yenModules = modules.filter(mod => mod.packet.name === 'yen');
       assert.deepEqual(yenModules.map(mod => mod.file).sort(), [ 'events.js', 'index.js' ]);
     });
 
     it('should exclude isolated dependencies', async function() {
-      const bundle = porter.package.bundles['home.js'];
+      const bundle = porter.packet.bundles['home.js'];
       const modules = Array.from(bundle);
-      const preloadBundle = porter.package.bundles['preload.js'];
+      const preloadBundle = porter.packet.bundles['preload.js'];
       const preloadModules = Array.from(preloadBundle);
 
       // react is isolated from preload bundle
-      const react = porter.package.find({ name: 'react' });
+      const react = porter.packet.find({ name: 'react' });
       const reactModules = Array.from(react.bundle);
 
       assert.ok(reactModules.every(mod => !modules.includes(mod)));
       assert.ok(reactModules.every(mod => !preloadModules.includes(mod)));
-      assert.ok(reactModules.some(mod => mod.package.name === 'object-assign'));
+      assert.ok(reactModules.some(mod => mod.packet.name === 'object-assign'));
       assert.equal(react.bundle.entry, react.main);
       assert.equal(react.bundle.output.replace(/.[a-f0-9]{8}/, ''), react.main);
     });
 
     it('should have dependencies of isolated packets bundled together', async function() {
-      const chart = porter.package.find({ name: 'chart.js' });
+      const chart = porter.packet.find({ name: 'chart.js' });
       const chartModules = Array.from(chart.bundle);
-      assert.ok(chartModules.some(mod => mod.package.name === 'moment'));
+      assert.ok(chartModules.some(mod => mod.packet.name === 'moment'));
     });
 
     it('should still preload dependencies of isolated dependencies', async function() {
       // scheduler is dependency of react-dom, which should not be bundled separately
-      const scheduler = porter.package.find({ name: 'scheduler' });
+      const scheduler = porter.packet.find({ name: 'scheduler' });
       assert.equal(scheduler.bundle, null);
     });
   });
 
   describe('bundle.output', function() {
     it('should work', async function() {
-      const bundle = porter.package.bundles['home.js'];
+      const bundle = porter.packet.bundles['home.js'];
       const { entry, output } = bundle;
       assert.ok(new RegExp(`^${entry.replace('.js', '.[a-f0-9]{8}.js')}$`).test(output));
     });
@@ -147,7 +147,7 @@ describe('Bundle with preload', function() {
 
   describe('bundle.contenthash', function() {
     it('should work', async function() {
-      const bundle = porter.package.bundles['home.js'];
+      const bundle = porter.packet.bundles['home.js'];
       const { contenthash } = bundle;
       assert.ok(/[a-f0-9]{8}/.test(contenthash));
     });
@@ -173,7 +173,7 @@ describe('Bundle with TypeScript', function() {
 
   describe('bundle.output', function() {
     it('should convert extension of languages targeting js to .js', async function() {
-      const bundle = porter.package.bundles['app.tsx'];
+      const bundle = porter.packet.bundles['app.tsx'];
       assert.equal(bundle.entry, 'app.tsx');
       assert.equal(path.extname(bundle.output), '.js');
     });

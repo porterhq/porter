@@ -13,10 +13,10 @@ const { MODULE_LOADING, MODULE_LOADED } = require('./constants');
 
 module.exports = class JsModule extends Module {
   matchImport(code) {
-    const { package: pkg } = this;
+    const { packet } = this;
 
     return matchRequire.findAll(code).filter(dep => {
-      return pkg.browser[dep] !== false && dep !== 'heredoc';
+      return packet.browser[dep] !== false && dep !== 'heredoc';
     });
   }
 
@@ -26,8 +26,8 @@ module.exports = class JsModule extends Module {
    * @param {string} code
    */
   async browserify(fpath, code) {
-    const { package: pkg } = this;
-    const transforms = (pkg.browserify && pkg.browserify.transform) || [];
+    const { packet } = this;
+    const transforms = (packet.browserify && packet.browserify.transform) || [];
     const whitelist = ['envify', 'loose-envify', 'brfs'];
     let stream;
 
@@ -35,7 +35,7 @@ module.exports = class JsModule extends Module {
       if (whitelist.includes(name)) {
         const factory = name == 'envify' || name == 'loose-envify'
           ? require('loose-envify')
-          : pkg.tryRequire(name);
+          : packet.tryRequire(name);
         const transform = factory(fpath, {
           RBOWSER: true,
           NODE_ENV: process.env.NODE_ENV || 'development',
@@ -60,11 +60,11 @@ module.exports = class JsModule extends Module {
     if (this.status >= MODULE_LOADING) return;
     this.status = MODULE_LOADING;
 
-    const { package: pkg, app } = this;
+    const { app } = this;
     const { code } = await this.load();
     const deps = this.deps || this.matchImport(code);
 
-    const cachePath = path.join(pkg.app.cache.dest, `${this.id}.cache`);
+    const cachePath = path.join(app.cache.dest, `${this.id}.cache`);
     const cache = await readFile(cachePath, 'utf8').catch(() => {});
 
     if (cache) {
@@ -139,19 +139,19 @@ module.exports = class JsModule extends Module {
   }
 
   async _transpile({ code, }) {
-    const { fpath, package: pkg, app } = this;
-    const babel = pkg.transpiler === 'babel' && pkg.tryRequire('@babel/core');
+    const { fpath, packet, app } = this;
+    const babel = packet.transpiler === 'babel' && packet.tryRequire('@babel/core');
     if (!babel) return;
 
     /**
      * `babel.transform` finds presets and plugins relative to `fpath`. If `fpath`
-     * doesn't start with pkg.dir, it's quite possible that the needed presets or
+     * doesn't start with packet.dir, it's quite possible that the needed presets or
      * plugins might not be found.
      */
-    if (!fpath.startsWith(pkg.dir)) return;
+    if (!fpath.startsWith(packet.dir)) return;
 
     const transpilerOptions = {
-      ...pkg.transpilerOpts,
+      ...packet.transpilerOpts,
       sourceMaps: true,
       sourceRoot: '/',
       ast: false,
@@ -164,8 +164,8 @@ module.exports = class JsModule extends Module {
   }
 
   uglify({ code, map }) {
-    const { fpath } = this;
-    const source = path.relative(this.package.app.root, fpath);
+    const { fpath, app } = this;
+    const source = path.relative(app.root, fpath);
 
     const result = UglifyJS.minify({ [source]: code }, {
       compress: {

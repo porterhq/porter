@@ -28,13 +28,13 @@ function requestPath(urlPath, status = 200, listener = app.callback()) {
 
 async function checkReload({ sourceFile, targetFile, pathname }) {
   sourceFile = sourceFile || targetFile;
-  const sourceModule = await porter.package.parseFile(sourceFile);
-  const targetModule = await porter.package.parseEntry(targetFile);
+  const sourceModule = await porter.packet.parseFile(sourceFile);
+  const targetModule = await porter.packet.parseEntry(targetFile);
   await porter.pack();
   pathname = pathname || `/${targetModule.id}`;
 
   const { fpath: sourcePath } = sourceModule;
-  const bundle = porter.package.bundles[pathname.slice(1)];
+  const bundle = porter.packet.bundles[pathname.slice(1)];
   let cachePath = path.join(porter.cache.dest, bundle.outputPath);
 
   const source = await readFile(sourcePath, 'utf8');
@@ -45,7 +45,7 @@ async function checkReload({ sourceFile, targetFile, pathname }) {
     if (process.platform !== 'darwin' && process.platform !== 'win32') {
       // https://stackoverflow.com/questions/10468504/why-fs-watchfile-called-twice-in-node
       // recursive option not supported on linux platform, reload again to make sure test passes.
-      await porter.package.reload('change', sourceFile);
+      await porter.packet.reload('change', sourceFile);
     }
     // {@link Package#watch} takes time to reload
     await new Promise(resolve => setTimeout(resolve, 1000));
@@ -104,7 +104,7 @@ describe('Porter', function() {
     });
 
     it('should handle components', async function () {
-      const { name, version } = porter.package;
+      const { name, version } = porter.packet;
       await requestPath(`/${name}/${version}/home.js`);
       await requestPath(`/${name}/home.js`, 404);
       await requestPath('/home.js');
@@ -121,18 +121,18 @@ describe('Porter', function() {
     });
 
     it('should handle dependencies', async function () {
-      const { name, version, bundle } = porter.package.find({ name: 'yen' });
+      const { name, version, bundle } = porter.packet.find({ name: 'yen' });
       await requestPath(`/${name}/${version}/${bundle.entry}`);
     });
 
     it('should handle recursive dependencies', async function () {
       // object-assign isn't in system's dependencies
-      const { name, version, bundle } = porter.package.find({ name: 'object-assign' });
+      const { name, version, bundle } = porter.packet.find({ name: 'object-assign' });
       await requestPath(`/${name}/${version}/${bundle.entry}`);
     });
 
     it('should handle stylesheets', async function () {
-      const { name, version } = porter.package;
+      const { name, version } = porter.packet;
       await requestPath(`/${name}/${version}/stylesheets/app.css`);
       await requestPath('/stylesheets/app.css');
     });
@@ -141,10 +141,10 @@ describe('Porter', function() {
       await requestPath('/raw/logo.jpg');
     });
 
-    it('should handle package manifest', async function() {
-      const yen = porter.package.find({ name: 'yen' });
+    it('should handle packet manifest', async function() {
+      const yen = porter.packet.find({ name: 'yen' });
       const { name, version, main } = yen;
-      const { manifest } = porter.package.lock[name][version];
+      const { manifest } = porter.packet.lock[name][version];
       await requestPath(`/${name}/${version}/${manifest[main]}`);
     });
 
@@ -157,17 +157,17 @@ describe('Porter', function() {
     it('should work with express app', async function() {
       const express = require('express');
       const listener = express().use(porter.func());
-      const { name, version } = porter.package;
+      const { name, version } = porter.packet;
       await requestPath(`/${name}/${version}/home.js`, 200, listener);
     });
   });
 
   describe('{ cache }', function() {
     it('should cache generated style', async function () {
-      const { name, version } = porter.package;
+      const { name, version } = porter.packet;
       await requestPath(`/${name}/${version}/stylesheets/app.css`);
 
-      const { cache } = porter.package.files['stylesheets/app.css'];
+      const { cache } = porter.packet.files['stylesheets/app.css'];
       assert(!cache.code.includes('@import'));
     });
 
@@ -223,20 +223,20 @@ describe('Porter', function() {
   describe('Source Map in Porter_readFile()', function() {
     beforeEach(async function() {
       await fs.rm(path.join(root, 'public'), { recursive: true, force: true });
-      await porter.package.parseEntry('home.js');
-      await porter.package.pack();
+      await porter.packet.parseEntry('home.js');
+      await porter.packet.pack();
     });
 
     it('should set sourceMappingURL accordingly', async function() {
       const res = await requestPath('/home.js', 200);
-      const bundle = porter.package.bundles['home.js'];
+      const bundle = porter.packet.bundles['home.js'];
       const fname = path.basename(bundle.output);
       assert.equal(res.text.split('\n').pop(), `//# sourceMappingURL=${fname}.map`);
     });
 
     it('should generate source map when accessing /${file}', async function() {
       await requestPath('/home.js', 200);
-      const bundle = porter.package.bundles['home.js'];
+      const bundle = porter.packet.bundles['home.js'];
       const fpath = path.join(root, `public/${bundle.output}.map`);
       assert(existsSync(fpath));
 
@@ -247,7 +247,7 @@ describe('Porter', function() {
 
     it('should generate source map when accessing ${file}?main', async function() {
       await requestPath('/home.js?main', 200);
-      const bundle = porter.package.bundles['home.js'];
+      const bundle = porter.packet.bundles['home.js'];
       const fpath = path.join(root, `public/${bundle.output}.map`);
       assert(existsSync(fpath));
 
@@ -258,7 +258,7 @@ describe('Porter', function() {
     });
 
     it('should generate source map when accessing dependencies', async function() {
-      const { name, version, bundle } = porter.package.find({ name: 'react' });
+      const { name, version, bundle } = porter.packet.find({ name: 'react' });
       await requestPath(`/${name}/${version}/${bundle.entry}`, 200);
       const fpath = path.join(root, `public/${name}/${version}/${bundle.output}.map`);
       assert(existsSync(fpath));

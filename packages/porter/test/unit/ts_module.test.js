@@ -23,7 +23,7 @@ describe('TsModule', function() {
   });
 
   it('should resolve ts module', async function() {
-    const mod = porter.package.files['app.tsx'];
+    const mod = porter.packet.files['app.tsx'];
     assert.ok(mod);
     // module id should always ends with .js
     assert.equal(path.extname(mod.id), '.js');

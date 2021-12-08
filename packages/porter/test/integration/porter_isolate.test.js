@@ -26,25 +26,25 @@ describe('Porter_readFile()', function() {
     await porter.destroy();
   });
 
-  it('should isolate package from entry bundle', async function() {
+  it('should isolate packet from entry bundle', async function() {
     const { text: mainText } = await requestPath('/home.js?main');
     // expect(mainText).to.contain('define') hangs if test fails
     assert.ok(mainText.includes('define("home.js"'));
-    const react = porter.package.find({ name: 'react' });
+    const react = porter.packet.find({ name: 'react' });
     assert.ok(!mainText.includes(`define("react/${react.version}/${react.main}"`));
   });
 
-  it('should isolate package from preload bundle', async function() {
+  it('should isolate packet from preload bundle', async function() {
     const { text: preloadText } = await requestPath('/preload.js');
     assert.ok(preloadText.includes('define("preload.js"'));
-    const reactDom = porter.package.find({ name: 'react-dom' });
+    const reactDom = porter.packet.find({ name: 'react-dom' });
     assert.ok(!preloadText.includes(`define("react-dom/${reactDom.version}/${reactDom.main}"`));
   });
 
   it('should be mutually exclusive', async function() {
     const { text: mainText } = await requestPath('/home.js?main');
     const { text: preloadText } = await requestPath('/preload.js');
-    const reactDom = porter.package.find({ name: 'react-dom' });
+    const reactDom = porter.packet.find({ name: 'react-dom' });
     const { text: reactText } = await requestPath(`/react-dom/${reactDom.version}/${reactDom.bundle.entry}`);
 
     const rdefine = /define\("[^"]+"/g;

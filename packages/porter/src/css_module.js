@@ -43,7 +43,7 @@ module.exports = class CssModule extends Module {
 
   async transpile({ code, map }) {
     const { fpath, app } = this;
-    const { cssTranspiler } = this.package.app;
+    const { cssTranspiler } = app;
 
     /**
      * PostCSS doesn't support sourceRoot yet

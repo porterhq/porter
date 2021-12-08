@@ -64,9 +64,9 @@ module.exports = class Bundle {
       for (const mod of entry.children) {
         if (done[mod.id]) continue;
         // exclude external modules if module packet is isolated
-        if (mod.package !== packet && scope !== 'all') continue;
+        if (mod.packet !== packet && scope !== 'all') continue;
         if (mod.preloaded && !preload && !packet.isolated) continue;
-        if (mod.package !== packet && mod.package.isolated) continue;
+        if (mod.packet !== packet && mod.packet.isolated) continue;
         // might be WasmModule
         if (mod.isolated) continue;
         yield* iterateEntry(mod, preload);

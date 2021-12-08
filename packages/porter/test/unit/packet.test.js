@@ -33,36 +33,36 @@ describe('Packet', function() {
 
   describe('packet.parseFile()', function() {
     it('parse into recursive dependencies map by traversing components', function() {
-      expect(porter.package.name).to.be('@cara/demo-app');
-      expect(porter.package.dependencies.yen.version).to.equal('1.2.4');
+      expect(porter.packet.name).to.be('@cara/demo-app');
+      expect(porter.packet.dependencies.yen.version).to.equal('1.2.4');
     });
 
     it('parse require directory in components', function() {
-      expect(porter.package.folder).to.eql({
+      expect(porter.packet.folder).to.eql({
         'require-directory/math': true,
       });
     });
 
     it('parse require directory in node_modules', function() {
-      expect(porter.package.dependencies.inferno.folder).to.eql({ 'dist': true });
+      expect(porter.packet.dependencies.inferno.folder).to.eql({ 'dist': true });
     });
 
     it('parse require dir/ in node_modules', function() {
       // no need to track specifiers like require('lib/animations/transitions/')
       // because loader.js has that kind of specifiers covered already.
-      expect(porter.package.dependencies['react-stack-grid'].folder).to.eql({});
+      expect(porter.packet.dependencies['react-stack-grid'].folder).to.eql({});
     });
 
     if (process.platform == 'darwin' || process.platform == 'win32') {
       it('should warn if specifier is not fully resolved', async function() {
         this.sinon.spy(console, 'warn');
-        await porter.package.parseFile('Home.js');
+        await porter.packet.parseFile('Home.js');
         assert(console.warn.calledWithMatch('case mismatch'));
       });
     }
 
     it('recognize css @import', function() {
-      const cssFiles = Object.keys(porter.package.files).filter(file => file.endsWith('.css'));
+      const cssFiles = Object.keys(porter.packet.files).filter(file => file.endsWith('.css'));
       expect(cssFiles).to.eql([
         'stylesheets/app.css',
         'stylesheets/common/base.css',
@@ -71,7 +71,7 @@ describe('Packet', function() {
     });
 
     it('recognize browser field', function() {
-      const stream = porter.package.find({ name: 'readable-stream' });
+      const stream = porter.packet.find({ name: 'readable-stream' });
       const files = Object.keys(stream.files);
       expect(files).to.contain('lib/internal/streams/stream-browser.js');
       expect(files).to.contain('readable-browser.js');
@@ -81,35 +81,35 @@ describe('Packet', function() {
     });
 
     it('disable module in browser field', function() {
-      const iconv = porter.package.find({ name: 'iconv-lite' });
+      const iconv = porter.packet.find({ name: 'iconv-lite' });
       expect(Object.keys(iconv.files)).to.not.contain('lib/extend-node');
       expect(Object.keys(iconv.files)).to.not.contain('lib/streams');
     });
 
     it('shim stream with readable-stream', function() {
-      const iconv = porter.package.find({ name: 'iconv-lite' });
+      const iconv = porter.packet.find({ name: 'iconv-lite' });
       expect(iconv.browser.stream).to.eql('readable-stream');
       expect('readable-stream' in iconv.dependencies).to.be.ok();
 
-      const stream = porter.package.find({ name: 'readable-stream' });
+      const stream = porter.packet.find({ name: 'readable-stream' });
       // shouldn't shim itself
       expect(Object.keys(stream.browser)).to.not.contain('readable-stream');
     });
   });
 
-  describe('package.prepare()', function() {
-    it('should recognize package.babel', async function() {
+  describe('packet.prepare()', function() {
+    it('should recognize packet.babel', async function() {
       const porter2 = new Porter({
         root: path.join(__dirname, '../fixtures/demo-package-babel'),
       });
       await porter2.ready;
-      assert.equal(porter2.package.transpiler, 'babel');
-      assert.deepEqual(porter.package.transpilerOpts.presets, [ '@babel/preset-env' ]);
+      assert.equal(porter2.packet.transpiler, 'babel');
+      assert.deepEqual(porter.packet.transpilerOpts.presets, [ '@babel/preset-env' ]);
     });
 
     it('should recognize .babelrc', async function() {
-      assert.equal(porter.package.transpiler, 'babel');
-      assert.deepEqual(porter.package.transpilerOpts.presets, [ '@babel/preset-env' ]);
+      assert.equal(porter.packet.transpiler, 'babel');
+      assert.deepEqual(porter.packet.transpilerOpts.presets, [ '@babel/preset-env' ]);
     });
 
     it('should set transpiler for dependencies if enabled', async function() {
@@ -121,37 +121,37 @@ describe('Packet', function() {
         },
       });
       await porter2.ready;
-      const packet = porter2.package.find({ name: 'yen' });
+      const packet = porter2.packet.find({ name: 'yen' });
       assert.equal(packet.transpiler, 'babel');
     });
   });
 
-  describe('package.find()', function() {
+  describe('packet.find()', function() {
     it('should find({ name, version })', function() {
       const name = 'yen';
       const version = '1.2.4';
-      const pkg = porter.package.find({ name, version });
+      const pkg = porter.packet.find({ name, version });
       expect(pkg.name).to.eql(name);
       expect(pkg.version).to.eql(version);
     });
 
     it('should find({ name })', function() {
-      const pkg = porter.package.find({ name: 'react' });
+      const pkg = porter.packet.find({ name: 'react' });
       expect(pkg.name).to.eql('react');
     });
   });
 
-  describe('package.findAll()', function() {
+  describe('packet.findAll()', function() {
     it('should findAll({ name })', function() {
-      const packages = porter.package.findAll({ name: 'react' });
-      expect(packages[0].name).to.eql('react');
+      const packets = porter.packet.findAll({ name: 'react' });
+      expect(packets[0].name).to.eql('react');
     });
   });
 
-  describe('package.lock', function() {
+  describe('packet.lock', function() {
     it('should flatten dependencies', function () {
       const pkg = require(path.join(root, 'package.json'));
-      const { lock } = porter.package;
+      const { lock } = porter.packet;
       expect(lock).to.be.an(Object);
       const deps = lock[pkg.name][pkg.version].dependencies;
       for (const name in deps) {
@@ -160,7 +160,7 @@ describe('Packet', function() {
     });
 
     it('should contain @babel/runtime manifest', async function() {
-      const { lock } = porter.package;
+      const { lock } = porter.packet;
       assert.ok(lock['@babel/runtime']);
       // { manifest: { 'index.js': 'index.fc8964e4.js' } }
       const meta = Object.values(lock['@babel/runtime']).shift();
@@ -168,17 +168,17 @@ describe('Packet', function() {
     });
   });
 
-  describe('package.compile()', function () {
+  describe('packet.compile()', function () {
     it('should reuse existing bundle', async function() {
-      const packet = porter.package.find({ name: 'react' });
+      const packet = porter.packet.find({ name: 'react' });
       const { bundle, main } = packet;
       assert.ok(bundle);
       const compiledBundle = await packet.compile(main);
       assert.equal(bundle, compiledBundle);
     });
 
-    it('should compile with package.compile(...entries)', async function () {
-      const pkg = porter.package.find({ name: 'react' });
+    it('should compile with packet.compile(...entries)', async function () {
+      const pkg = porter.packet.find({ name: 'react' });
       const { name, version, main } = pkg;
       const bundle = await pkg.compile(main);
       const entries = await glob(`public/${name}/**/*.{css,js,map}`, { cwd: root });
@@ -187,7 +187,7 @@ describe('Packet', function() {
     });
 
     it('should generate source map of modules as well', async function() {
-      const pkg = porter.package.find({ name: 'react' });
+      const pkg = porter.packet.find({ name: 'react' });
       const { name, version, main, } = pkg;
       const bundle = await pkg.compile(main);
       const fpath = path.join(root, 'public', `${name}/${version}/${bundle.output}.map`);
@@ -195,8 +195,8 @@ describe('Packet', function() {
       expect(map.sources).to.contain('node_modules/react/index.js');
     });
 
-    it('should compile package with different main entry', async function () {
-      const pkg = porter.package.find({ name: 'chart.js' });
+    it('should compile packet with different main entry', async function () {
+      const pkg = porter.packet.find({ name: 'chart.js' });
       const { name, version, main,  } = pkg;
       const bundle = await pkg.compile(main);
       const entries = await glob(`public/${name}/**/*.{css,js,map}`, { cwd: root });
@@ -205,7 +205,7 @@ describe('Packet', function() {
     });
 
     it('should compile entry with folder module', async function() {
-      const pkg = porter.package.find({ name: 'react-datepicker' });
+      const pkg = porter.packet.find({ name: 'react-datepicker' });
       const { name, version, main } = pkg;
       await pkg.compileAll();
       const bundle = pkg.bundles[main];
@@ -215,7 +215,7 @@ describe('Packet', function() {
     });
 
     it('should compile entry with browser field', async function() {
-      const pkg = porter.package.find({ name: 'cropper' });
+      const pkg = porter.packet.find({ name: 'cropper' });
       const { name, version, main, dir } = pkg;
       const bundle = await pkg.compile(main);
       const entries = await glob(`public/${name}/**/*.{css,js,map}`, { cwd: root });
@@ -225,10 +225,10 @@ describe('Packet', function() {
     });
 
     it('should compile lazyload modules without bundling', async function() {
-      const { package: pkg } = porter;
+      const { packet } = porter;
       const manifest = {};
-      await pkg.parseFile('lazyload.js');
-      await pkg.compile('lazyload.js', { manifest, loader: false, package: false });
+      await packet.parseFile('lazyload.js');
+      await packet.compile('lazyload.js', { manifest, loader: false, package: false });
       assert.ok(manifest['lazyload.js']);
       await assert.doesNotReject(async function() {
         await access(path.join(root, `public/${manifest['lazyload.js']}`));
@@ -238,7 +238,7 @@ describe('Packet', function() {
 
   describe('packet.reload()', function() {
     it('should be able to handle cyclic dependencies', async function() {
-      await porter.package.reload('change', 'home.js');
+      await porter.packet.reload('change', 'home.js');
     });
   });
 });

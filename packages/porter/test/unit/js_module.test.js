@@ -26,14 +26,14 @@ describe('JsModule', function() {
   });
 
   it('should transpile dependencies with correct source map', async function() {
-    const pkg = porter.package.find({ name: 'yen' });
+    const pkg = porter.packet.find({ name: 'yen' });
     const mod = pkg.files['events.js'];
     const { map } = await mod.obtain();
     assert.deepEqual(map.sources, [ 'node_modules/yen/events.js' ]);
   });
 
   it('should not stop at broken cache', async function() {
-    const mod = porter.package.files['home.js'];
+    const mod = porter.packet.files['home.js'];
     mod.loaded = false;
     const cachePath = path.join(porter.cache.dest, `${mod.id}.cache`);
     await fs.writeFile(cachePath, 'gibberish');
@@ -43,7 +43,7 @@ describe('JsModule', function() {
   });
 
   it('should set status to MODULE_LOADED after parse', async function() {
-    const mod = porter.package.files['home.js'];
+    const mod = porter.packet.files['home.js'];
     assert.equal(mod.status, MODULE_LOADED);
   });
 });

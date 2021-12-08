@@ -14,7 +14,7 @@ describe('FakePacket', function() {
       root: path.join(__dirname, '../../../demo-app'),
     });
     await target.ready;
-    const { loaderConfig } = target.package;
+    const { loaderConfig } = target.packet;
     porter = new Porter({
       root: path.join(__dirname, '../../../demo-proxy'),
       ...loaderConfig,
@@ -28,7 +28,7 @@ describe('FakePacket', function() {
 
   it('should recognize local modules', async function() {
     // should be able to parse the modules of demo-proxy, which is not proxied
-    const mod = await porter.package.parseModule('shelter.js');
+    const mod = await porter.packet.parseModule('shelter.js');
     assert.ok(mod);
     assert.equal(mod.name, '@cara/demo-app');
     assert.equal(mod.file, 'shelter.js');
