@@ -63,6 +63,7 @@ module.exports = class Bundle {
     function* iterate(entry, preload) {
       for (const mod of entry.children) {
         if (done[mod.id]) continue;
+        if (path.extname(mod.file) === '.css') continue;
         // exclude external modules if module packet is isolated
         if (mod.packet !== packet && scope !== 'all') continue;
         if (mod.preloaded && !preload && !packet.isolated) continue;
