@@ -1,0 +1,14 @@
+{
+  "name": "@cara/demo-css-in-js",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@babel/core": "^7.16.0"
+  },
+  "dependencies": {
+    "cropper": "^4.1.0"
+  }
+}

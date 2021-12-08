@@ -51,6 +51,18 @@ describe('Bundle without preload', function() {
       assert.ok(runtime.bundle);
       assert.ok(runtime.bundle.output);
     });
+
+    it('should iterate over stylesheets', async function() {
+      const bundle = porter.packet.bundles['stylesheets/app.css'];
+      const modules = Array.from(bundle);
+      assert.deepEqual(modules.map(mod => path.relative(porter.root, mod.fpath)), [
+        'components/stylesheets/common/reset.css',
+        'components/stylesheets/common/base.css',
+        'node_modules/cropper/dist/cropper.css',
+        'node_modules/prismjs/themes/prism.css',
+        'components/stylesheets/app.css',
+      ]);
+    });
   });
 
   describe('bundle.contenthash', function() {
@@ -152,6 +164,21 @@ describe('Bundle with preload', function() {
       assert.ok(/[a-f0-9]{8}/.test(contenthash));
     });
   });
+
+  describe('bundle.obtain()', function() {
+    it('should obtain correct source map', async function() {
+      const bundle = porter.packet.bundles['stylesheets/app.css'];
+      const { map } = await bundle.obtain();
+      const { sources } = JSON.parse(map.toString());
+      assert.deepEqual(sources.map(source => source.replace(/^\//, '')), [
+        'components/stylesheets/common/reset.css',
+        'components/stylesheets/common/base.css',
+        'node_modules/cropper/dist/cropper.css',
+        'node_modules/prismjs/themes/prism.css',
+        'components/stylesheets/app.css',
+      ]);
+    });
+  });
 });
 
 describe('Bundle with TypeScript', function() {
@@ -173,9 +200,77 @@ describe('Bundle with TypeScript', function() {
 
   describe('bundle.output', function() {
     it('should convert extension of languages targeting js to .js', async function() {
-      const bundle = porter.packet.bundles['app.tsx'];
-      assert.equal(bundle.entry, 'app.tsx');
+      const bundle = porter.packet.bundles['app.js'];
+      assert.equal(bundle.entry, 'app.js');
       assert.equal(path.extname(bundle.output), '.js');
+    });
+  });
+});
+
+describe('Bundle with CSS in JS', function() {
+  const root = path.resolve(__dirname, '../../../demo-css-in-js');
+  let porter;
+
+  before(async function() {
+    porter = new Porter({
+      root,
+      entries: [ 'home.js' ],
+    });
+    await fs.rm(porter.cache.dest, { recursive: true, force: true });
+    await porter.ready;
+  });
+
+  after(async function() {
+    await porter.destroy();
+  });
+
+  describe('[Symbol.iterator]', function() {
+    it('should not bundle css modules into js bundle', async function() {
+      const bundle = porter.packet.bundles['home.js'];
+      const modules = [ ...bundle ];
+      assert.deepEqual(modules.map(mod => path.relative(root, mod.fpath)), [
+        'components/home_dep.js',
+        'components/home.js',
+      ]);
+    });
+
+    it('should generate css bundle if there are css in js', async function() {
+      const bundle = porter.packet.bundles['home.css'];
+      assert.ok(bundle);
+      const modules = [ ...bundle ];
+      assert.deepEqual(modules.map(mod => path.relative(root, mod.fpath)), [
+        'node_modules/cropper/dist/cropper.css',
+        'components/stylesheets/app.css',
+      ]);
+    });
+  });
+
+  describe('bundle.obtain()', function() {
+    it('should work', async function() {
+      const bundle = porter.packet.bundles['home.css'];
+      const result = await bundle.obtain();
+      assert.ok(result.code.includes('.cropper'));
+      assert.ok(result.code.includes('.css-in-js'));
+
+      const map = result.map.toJSON();
+      assert.deepEqual(map.sources.map(source => source.replace(/^\//, '')), [
+        'node_modules/cropper/dist/cropper.css',
+        'components/stylesheets/app.css',
+      ]);
+    });
+  });
+
+  describe('bundle.output', function() {
+    it('should work', async function() {
+      const bundle = porter.packet.bundles['home.css'];
+      assert.equal(bundle.output, `home.${bundle.contenthash}.css`);
+    });
+  });
+
+  describe('bundle.outputPath', function() {
+    it('should work', async function() {
+      const bundle = porter.packet.bundles['home.css'];
+      assert.equal(bundle.outputPath, `home.${bundle.contenthash}.css`);
     });
   });
 });

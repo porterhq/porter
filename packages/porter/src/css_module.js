@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('fs/promises');
+const path = require('path');
 
 const Module = require('./module');
 const { MODULE_LOADING, MODULE_LOADED } = require('./constants');
@@ -31,7 +32,9 @@ module.exports = class CssModule extends Module {
     const code = this.code || (await fs.readFile(fpath, 'utf8'));
     const deps = this.deps || this.matchImport(code);
 
-    await Promise.all(deps.map(this.parseDep, this));
+    // ordering matters in css modules
+    const result = await Promise.all(deps.map(this.parseDep, this));
+    this.children = result.filter(mod => mod != null);
     this.status = MODULE_LOADED;
   }
 
@@ -57,11 +60,15 @@ module.exports = class CssModule extends Module {
         inline: false,
         sourcesContent: false,
         annotation: false,
+        absolute: true,
       }
     });
 
     map = JSON.parse(result.map);
     map.sourceRoot = app.source.root;
+    map.sources = map.sources.map(source => {
+      return path.relative(app.root, source.replace(/^file:/, ''));
+    });
 
     return { code: result.css, map };
   }

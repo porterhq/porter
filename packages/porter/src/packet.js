@@ -239,8 +239,8 @@ module.exports = class Packet {
     const { files, bundles } = this;
     const mod = files[filename];
     const ext = path.extname(filename);
-    const { mtime } = await fs.stat(mod.fpath);
-    if (mod.reloaded >= mtime) return;
+    const { mtime } = await fs.stat(mod.fpath).catch(() => ({ mtime: null }));
+    if (mtime === null || mod.reloaded >= mtime) return;
     mod.reloaded = mtime;
     await mod.reload();
 
@@ -330,7 +330,9 @@ module.exports = class Packet {
     const { app, dir, entries, files } = this;
     const mod = await this.parseModule(entry);
 
+    if (!mod && entry.endsWith('.css')) return;
     if (!mod) throw new Error(`unknown entry ${entry} (${dir})`);
+
     entries[mod.file] = files[mod.file] = mod;
     if (this === app.packet) app.entries = Object.keys(entries);
 
@@ -557,7 +559,6 @@ module.exports = class Packet {
     const { dest } = this.app;
     const mod = this.files[entries[0]];
     const bundle = Bundle.create({ ...opts, packet: this, entries });
-    const { entry } = bundle;
     const specifier = path.relative(app.root, this.parent ? dir : mod.fpath);
 
     debug(`compile ${specifier} start %s`, entries);
@@ -565,7 +566,7 @@ module.exports = class Packet {
     const { code, map } = this.setSourceMap({ output: bundle.output, ...result });
 
     if (!this.parent) {
-      manifest[entry.replace(/\.(?:jsx?|tsx?)$/, '.js')] = bundle.output;
+      manifest[bundle.entry] = bundle.output;
     }
 
     if (mod && mod.fake) {
