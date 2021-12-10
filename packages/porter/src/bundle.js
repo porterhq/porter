@@ -8,8 +8,17 @@ const { SourceMapConsumer, SourceMapGenerator, SourceNode } = require('source-ma
 const debug = require('debug')('porter');
 const Module = require('./module');
 
-function getEntry(packet, entries) {
-  return entries && entries.length === 1 ? entries[0] : packet.main;
+const extMap = {
+  '.js': [ '.js', '.jsx', '.ts', '.tsx', '.json' ],
+  '.wasm': [ '.wasm' ],
+  '.css': [ '.css' ],
+};
+
+const rExt = /(\.\w+)?$/;
+
+function getEntry(packet, entries, format = '.js') {
+  const entry =  entries && (entries.length === 1 || !packet.parent) ? entries[0] : packet.main;
+  return entry.replace(rExt, format);
 }
 
 module.exports = class Bundle {
@@ -18,11 +27,43 @@ module.exports = class Bundle {
   #map = null;
   #etag = null;
   #contenthash = null;
+  #reloading = null;
+
+  static wrap(options = {}) {
+    const { packet, entries } = options;
+    // the default bundle
+    const bundle = Bundle.create(options);
+    const results = [ bundle ];
+
+    // default bundle is css bundle already
+    if (bundle.format === '.css') return results;
+
+    // see if a css bundle is needed
+    const entry = packet.files[entries[0]];
+    let found = false;
+    for (const mod of entry.family) {
+      if (path.extname(mod.file) === '.css') {
+        found = true;
+        break;
+      }
+    }
+
+    if (found) {
+      // eslint-disable-next-line no-use-before-define
+      const cssBundle = Bundle.create({ packet, entries, format: '.css' });
+      results.push(cssBundle);
+    }
+
+    return results;
+  }
 
   static create(options = {}) {
     const { packet, entries } = options;
+    if (!options.format) {
+      options.format = (entries && path.extname(entries[0] || '') === '.css' ? '.css' : '.js');
+    }
     const { bundles } = packet;
-    const entry = getEntry(packet, entries);
+    const entry = getEntry(packet, entries, options.format);
     let bundle = bundles[entry];
     if (!bundle) {
       bundle = new Bundle(options);
@@ -32,7 +73,7 @@ module.exports = class Bundle {
   }
 
   constructor(options = {}) {
-    const { packet, entries, loaderConfig } = options;
+    const { packet, entries, loaderConfig, format = '.js' } = options;
     const { app } = packet;
 
     this.app = app;
@@ -42,12 +83,13 @@ module.exports = class Bundle {
     this.loaderCache = {};
 
     let scope = 'packet';
-    if (app.preload.length > 0 || options.all) {
+    if (app.preload.length > 0 || options.all || format === '.css') {
       scope = 'all';
     } else if (options.package === false) {
       scope = 'module';
     }
     this.scope = scope;
+    this.format = format;
   }
 
   /**
@@ -57,17 +99,19 @@ module.exports = class Bundle {
    * - module is one of the bundle exceptions
    */
   * [Symbol.iterator]() {
-    const { entries, packet, scope } = this;
+    const { entries, packet, scope, format } = this;
+    const extensions = extMap[format];
     const done = {};
 
     function* iterate(entry, preload) {
       for (const mod of entry.children) {
         if (done[mod.id]) continue;
-        if (path.extname(mod.file) === '.css') continue;
-        // exclude external modules if module packet is isolated
-        if (mod.packet !== packet && scope !== 'all') continue;
-        if (mod.preloaded && !preload && !packet.isolated) continue;
-        if (mod.packet !== packet && mod.packet.isolated) continue;
+        if (format === '.js') {
+          // exclude external modules if module packet is isolated
+          if (mod.packet !== packet && scope !== 'all') continue;
+          if (mod.preloaded && !preload && !packet.isolated) continue;
+          if (mod.packet !== packet && mod.packet.isolated) continue;
+        }
         // might be WasmModule
         if (mod.isolated) continue;
         yield* iterateEntry(mod, preload);
@@ -77,13 +121,12 @@ module.exports = class Bundle {
     function* iterateEntry(entry, preload = false) {
       done[entry.id] = true;
       yield* iterate(entry, preload);
-      yield entry;
+      if (extensions.includes(path.extname(entry.file))) yield entry;
       // iterate again in case new dependencies such as @babel/runtime were found
-      yield* iterate(entry, preload);
+      if (format === '.js') yield* iterate(entry, preload);
     }
 
     for (const name of entries) {
-      if (name.endsWith('.css')) continue;
       const entry = packet.files[name];
       if (!entry) throw new Error(`unparsed entry ${name} (${packet.dir})`);
       // might be a mocked module from FakePacket
@@ -110,8 +153,8 @@ module.exports = class Bundle {
   }
 
   get entry() {
-    const { packet } = this;
-    return getEntry(packet, this.#entries);
+    const { packet, format } = this;
+    return getEntry(packet, this.#entries, format);
   }
 
   get output() {
@@ -119,9 +162,7 @@ module.exports = class Bundle {
     const code = this.#code;
     if (entries.length === 0 || !code) return '';
     const { entry, contenthash } = this;
-    return entry.replace(/(\.\w+)?$/, (m, ext = '.js') => {
-      return `.${contenthash}${ext === '.css' ? ext : '.js'}`;
-    });
+    return entry.replace(rExt, `.${contenthash}$1`);
   }
 
   get contenthash() {
@@ -183,6 +224,11 @@ module.exports = class Bundle {
   }
 
   async reload() {
+    if (this.#reloading) clearTimeout(this.#reloading);
+    this.#reloading = setTimeout(() => this._reload(), 100);
+  }
+
+  async _reload() {
     const { app, entry, packet, outputPath } = this;
     if (!outputPath) return;
     debug(`reloading ${entry} -> ${outputPath} (${packet.dir})`);
@@ -202,19 +248,10 @@ module.exports = class Bundle {
    * @param {Object} opts.loaderConfig overrides {@link Packet#loaderConfig}
    */
   async obtain({ loader, minify = false } = {}) {
-    const { app, entries, packet, entry } = this;
+    const { app, entries, packet, format } = this;
 
     if (this.#etag === JSON.stringify({ entries })) {
       return { code: this.#code, map: this.#map };
-    }
-
-    if (path.extname(entry) === '.css') {
-      const mod = packet.files[entry];
-      const result = minify ? await mod.minify() : await mod.obtain();
-      this.#code = result.code;
-      this.#map = result.map;
-      this.#etag = JSON.stringify({ entries });
-      return result;
     }
 
     const node = new SourceNode();
@@ -228,7 +265,7 @@ module.exports = class Bundle {
     }
     const mod = packet.files[entries[0]];
 
-    if (!mod) {
+    if (!mod && format === '.js') {
       const { name, version } = packet;
       throw new Error(`unable to find ${entries[0]} in packet ${name} v${version}`);
     }
@@ -240,12 +277,12 @@ module.exports = class Bundle {
       }
     }
 
-    if (mod.isRootEntry && !mod.isPreload) {
+    if (mod.isRootEntry && !mod.isPreload && format === '.js') {
       const lock = preloaded && mod.fake ? mod.lock : packet.lock;
       node.prepend(`Object.assign(porter.lock, ${JSON.stringify(lock)})`);
     }
 
-    if (mod.isRootEntry && loader !== false) {
+    if (mod.isRootEntry && loader !== false && format === '.js') {
       // bundle with loader unless turned off specifically
       const { code, map } = minify
         ? await this.minifyLoader(loaderConfig)

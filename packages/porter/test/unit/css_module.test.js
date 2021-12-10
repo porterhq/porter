@@ -11,12 +11,9 @@ const { MODULE_LOADED } = require('../../src/constants');
 
 describe('CssModule', function() {
   const root = path.resolve(__dirname, '../../../demo-app');
-  const cwd = process.cwd();
   let porter;
 
   before(async function() {
-    // change directory into packages/demo-app to have postcss resolve paths correctly
-    process.chdir(root);
     porter = new Porter({
       root,
       paths: ['components', 'browser_modules'],
@@ -31,8 +28,16 @@ describe('CssModule', function() {
   });
 
   after(async function() {
-    process.chdir(cwd);
     await porter.destroy();
+  });
+
+  it('should parse @import in given order', async function() {
+    const mod = porter.packet.files['stylesheets/app.css'];
+    assert.deepEqual(mod.children.map(child => path.relative(porter.root, child.fpath)), [
+      'components/stylesheets/common/base.css',
+      'node_modules/cropper/dist/cropper.css',
+      'node_modules/prismjs/themes/prism.css',
+    ]);
   });
 
   it('should transpile css module', async function() {
@@ -47,10 +52,6 @@ describe('CssModule', function() {
     const mod = porter.packet.files['stylesheets/app.css'];
     const { map } = await mod.obtain();
     assert.deepEqual(map.sources, [
-      'components/stylesheets/common/reset.css',
-      'components/stylesheets/common/base.css',
-      'node_modules/cropper/dist/cropper.css',
-      'node_modules/prismjs/themes/prism.css',
       'components/stylesheets/app.css',
     ]);
   });

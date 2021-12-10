@@ -276,6 +276,12 @@
       }
     }
 
+    if (mod.id.slice(-4) === '.css') {
+      mod.status = MODULE_FETCHED;
+      mod.ignite();
+      return;
+    }
+
     if (mod.status < MODULE_FETCHING) {
       mod.status = MODULE_FETCHING;
       var uri = parseUri(mod.id);

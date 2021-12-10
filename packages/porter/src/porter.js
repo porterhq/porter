@@ -1,6 +1,5 @@
 'use strict';
 
-const atImport = require('postcss-import');
 const crypto = require('crypto');
 const debug = require('debug')('porter');
 const { existsSync, promises: fs } = require('fs');
@@ -18,6 +17,7 @@ const rExt = /\.(?:css|gif|jpg|jpeg|js|png|svg|swf|ico)$/i;
 const { rModuleId } = require('./module');
 const Bundle = require('./bundle');
 const { MODULE_LOADED } = require('./constants');
+const AtImport = require('./at_import');
 
 class Porter {
   constructor(opts) {
@@ -52,30 +52,8 @@ class Porter {
     this.lazyload = [].concat(opts.lazyload || []);
 
     this.source = { serve: false, root: '/', ...opts.source };
-    this.cssTranspiler = postcss([
-      atImport({
-        path: paths,
-        resolve: this.atImportResolve.bind(this)
-      }),
-      ...(opts.postcssPlugins || []),
-    ]);
+    this.cssTranspiler = postcss([ AtImport ].concat(opts.postcssPlugins || []));
     this.ready = this.prepare(opts);
-  }
-
-  async atImportResolve(id, baseDir, importOptions) {
-    if (id.startsWith('.')) return path.join(baseDir, id);
-
-    const [fpath] = await this.packet.resolve(id);
-    if (fpath) return fpath;
-
-    const [, name, , file] = id.match(rModuleId);
-    if (name in this.packet.dependencies) {
-      const packet = this.packet.dependencies[name];
-      const result = await packet.resolve(file);
-      return result[0];
-    } else {
-      return id;
-    }
   }
 
   readFilePath(fpath) {
@@ -107,8 +85,8 @@ class Porter {
       const mod = packet.files[file];
       // module might not ready yet
       if (mod.status < MODULE_LOADED) continue;
-      const bundle = packet.bundles[file] || Bundle.create({ packet, entries: [ file ] });
-      await bundle.obtain();
+      const bundles = Bundle.wrap({ packet, entries: [ file ] });
+      await Promise.all(bundles.map(bundle => bundle.obtain()));
     }
   }
 
@@ -282,6 +260,7 @@ class Porter {
 
     const bundle = packet.bundles[file];
     // @babel/runtime has no main
+    // css bundles might be extracted from corresponding js bundles
     if (bundle) return { file, fake: true, packet };
   }
 
@@ -291,8 +270,8 @@ class Porter {
     }
 
     map.sources = map.sources.map(source => source.replace(/^\//, ''));
-    const { output } = bundle;
-    code += output.endsWith('.js')
+    const { output, format } = bundle;
+    code += format === '.js'
       ? `\n//# sourceMappingURL=${path.basename(output)}.map`
       : `\n/*# sourceMappingURL=${path.basename(output)}.map */`;
 
@@ -311,20 +290,25 @@ class Porter {
   async readCss(id, query) {
     id = id.replace(/\.[a-f0-9]{8}\.css$/, '.css');
     const isEntry = true;
-    const mod = await this.parseId(id, { isEntry });
-    if (isEntry) await this.pack();
+    let mod = await this.parseId(id, { isEntry });
+    // css bundle needs the corresponding js bundle be ready first
+    if (mod) {
+      if (isEntry && !mod.fake) await this.pack();
+    } else {
+      await this.parseId(id.replace(/\.css$/, '.js'), { isEntry });
+      if (isEntry) await this.pack();
+      mod = await this.parseId(id, { isEntry });
+    }
 
-    const { mtime } = await lstat(mod.fpath);
-    const { packet } = mod;
+    if (!mod) return;
+    const { fake, packet } = mod;
+    const mtime = fake ? new Date().toGMTString() : (await lstat(mod.fpath)).mtime.toJSON();
     const bundle = packet.bundles[mod.file];
     if (!bundle) throw new Error(`unknown bundle ${mod.file} in ${packet.name}`);
     const result = await bundle.obtain();
     const { code } = await this.writeSourceMap({ bundle, ...result });
 
-    return [
-      code,
-      { 'Last-Modified': mtime.toJSON()
-    }];
+    return [ code, { 'Last-Modified': mtime }];
   }
 
   async readJs(id, query) {
@@ -338,7 +322,7 @@ class Porter {
 
     const { fake, packet } = mod;
     const mtime = fake ? new Date().toGMTString() : (await lstat(mod.fpath)).mtime.toJSON();
-    const bundle = packet.bundles[mod.file];
+    const bundle = packet.bundles[mod.file.replace(/\.\w+$/, '.js')];
     if (!bundle) throw new Error(`unknown bundle ${mod.file} in ${packet.name}`);
     const result = await bundle.obtain({ loader: isMain  });
 

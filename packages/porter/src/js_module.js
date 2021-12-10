@@ -8,6 +8,7 @@ const { promises: { readFile } } = require('fs');
 
 const Module = require('./module');
 const matchRequire = require('./match_require');
+const namedImport = require('./named_import');
 
 const { MODULE_LOADING, MODULE_LOADED } = require('./constants');
 
@@ -81,15 +82,21 @@ module.exports = class JsModule extends Module {
       }
     }
 
-    await Promise.all(deps.map(this.parseDep, this));
+    const result = await Promise.all(deps.map(this.parseDep, this));
+    this.children = result.filter(mod => mod != null);
     this.status = MODULE_LOADED;
   }
 
   async load() {
-    const { fpath } = this;
+    const { fpath, app } = this;
     // fake entries will provide code directly
     const source = this.code || await readFile(fpath, 'utf8');
-    const code = await this.browserify(fpath, source);
+    let code = await this.browserify(fpath, source);
+    if (app.transpile.namedImport) {
+      for (const options of [].concat(app.transpile.namedImport)) {
+        code = namedImport.replaceAll(code, options);
+      }
+    }
     return { code };
   }
 
@@ -138,10 +145,10 @@ module.exports = class JsModule extends Module {
     return this.cache;
   }
 
-  async _transpile({ code, }) {
+  async _transpile({ code, map }) {
     const { fpath, packet, app } = this;
     const babel = packet.transpiler === 'babel' && packet.tryRequire('@babel/core');
-    if (!babel) return;
+    if (!babel) return { code, map };
 
     /**
      * `babel.transform` finds presets and plugins relative to `fpath`. If `fpath`
@@ -154,6 +161,7 @@ module.exports = class JsModule extends Module {
       ...packet.transpilerOpts,
       sourceMaps: true,
       sourceRoot: '/',
+      inputSourceMap: map,
       ast: false,
       filename: fpath,
       filenameRelative: path.relative(app.root, fpath),

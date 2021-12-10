@@ -4,7 +4,7 @@ const babel = require('@babel/core');
 const { strict: assert } = require('assert');
 const plugin = require('../../src/babel_plugin');
 
-describe('test/deheredoc.test.js', function() {
+describe('test/unit/babel_plugin.test.js', function() {
   it('should remove require("heredoc")', function() {
     const result = babel.transform(`
       const heredoc = require('heredoc');

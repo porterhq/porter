@@ -47,3 +47,27 @@ describe('JsModule', function() {
     assert.equal(mod.status, MODULE_LOADED);
   });
 });
+
+describe('JsModule import CSS', function() {
+  const root = path.resolve(__dirname, '../../../demo-css-in-js');
+  let porter;
+
+  before(async function() {
+    porter = new Porter({ root, entries: ['home.js'] });
+    await fs.rm(porter.cache.dest, { recursive: true, force: true });
+    await porter.ready;
+  });
+
+  after(async function() {
+    await porter.destroy();
+  });
+
+  it('should have css dependencies parsed', async function() {
+    const mod = porter.packet.files['home.js'];
+    assert.deepEqual(mod.children.map(child => path.relative(root, child.fpath)), [
+      'node_modules/cropper/dist/cropper.css',
+      'components/stylesheets/app.css',
+      'components/home_dep.js',
+    ]);
+  });
+});

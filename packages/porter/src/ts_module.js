@@ -4,7 +4,7 @@ const path = require('path');
 const JsModule = require('./js_module');
 
 module.exports = class TsModule extends JsModule {
-  _transpile({ code, }) {
+  async _transpile({ code, }) {
     const { fpath, packet } = this;
     const ts = packet.tryRequire('typescript');
 
