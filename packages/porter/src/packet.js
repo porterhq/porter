@@ -557,9 +557,8 @@ module.exports = class Packet {
 
     const { app, dir } = this;
     const { dest } = this.app;
-    const mod = this.files[entries[0]];
     const bundle = Bundle.create({ ...opts, packet: this, entries });
-    const specifier = path.relative(app.root, this.parent ? dir : mod.fpath);
+    const specifier = this.parent ? path.relative(app.root, dir) : bundle.entry;
 
     debug(`compile ${specifier} start %s`, entries);
     const result = await bundle.minify();
@@ -569,6 +568,7 @@ module.exports = class Packet {
       manifest[bundle.entry] = bundle.output;
     }
 
+    const mod = this.files[entries[0]];
     if (mod && mod.fake) {
       delete this.files[mod.file];
       delete this.entries[mod.file];
