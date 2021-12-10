@@ -1,6 +1,7 @@
 {
   "name": "@cara/demo-css-in-js",
   "version": "4.0.0-alpha.9",
+  "private": true,
   "description": "",
   "main": "index.js",
   "author": "",
