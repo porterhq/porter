@@ -10,10 +10,12 @@ const util = require('util');
 const glob = util.promisify(require('glob'));
 const Module = require('./module');
 const CssModule = require('./css_module');
+const LessModule = require('./less_module');
 const JsModule = require('./js_module');
 const TsModule = require('./ts_module');
 const JsonModule = require('./json_module');
 const WasmModule = require('./wasm_module');
+const Stub = require('./stub');
 const Bundle = require('./bundle');
 const { MODULE_LOADED } = require('./constants');
 
@@ -33,21 +35,37 @@ Module.create = function(opts) {
     case '.ts':
     case '.tsx':
       return new TsModule(opts);
-    default:
+    case '.js':
+    case '.jsx':
       return new JsModule(opts);
+    case '.less':
+      return new LessModule(opts);
+    default:
+      return new Stub(opts);
   }
 };
 
 const { lstat, readFile, realpath, writeFile } = fs;
 
 module.exports = class Packet {
-  constructor({ app, dir, paths, parent, packet }) {
+  constructor({ app, dir, paths, parent, packet, alias } = {}) {
     // packetCache is necessary because there might be multiple asynchronous parsing tasks on the same packet, such as `a => b` and `a => c => b`, which might return multiple packet instance of `b` since neither one can find the other during the `packet.create()` call.
     const { packetCache } = app;
     if (packetCache[dir]) return packetCache[dir];
     packetCache[dir] = this;
 
-    this.app = app;
+    Object.defineProperties(this, {
+      app: {
+        value: app,
+        configurable: true,
+        enumerable: false,
+      },
+      loaderCache: {
+        value: {},
+        configurable: true,
+        enumerable: false,
+      },
+    });
     this.dir = dir;
     this.name = packet.name;
     this.version = packet.version;
@@ -61,8 +79,8 @@ module.exports = class Packet {
     this.browser = {};
     this.browserify = packet.browserify;
     this.depPaths = [];
-    this.loaderCache = {};
-    this.isolated = app.bundleExcept.includes(packet.name);
+    this.isolated = app.bundle.exclude.includes(packet.name);
+    this.alias = alias || {};
 
     if (!parent && packet.babel) {
       this.transpiler = 'babel';
@@ -164,22 +182,34 @@ module.exports = class Packet {
     }
   }
 
-  async prepareTranspiler() {
-    if (!this.transpiler) {
-      const obj = { babel: '.babelrc', typescript: 'tsconfig.json' };
+  async findTranspiler() {
+    if (this.transpiler) return;
+    const obj = { babel: '.babelrc', typescript: 'tsconfig.json' };
+    for (const dir of this.paths.concat(this.dir)) {
       for (const prop in obj) {
-        const configPath = path.join(this.dir, obj[prop]);
-        if (existsSync(configPath)) {
+        const configPath = path.join(dir, obj[prop]);
+        const content = await readFile(configPath, 'utf8').catch(() => '');
+        if (!content) continue;
+        try {
           this.transpiler = prop;
-          const content = await readFile(configPath, 'utf8');
-          try {
-            this.transpilerOpts = JSON.parse(content);
-          } catch (err) {
-            throw new Error(`${err.message} (${configPath})`);
-          }
-          break;
+          this.transpilerOpts = JSON.parse(content);
+        } catch (err) {
+          throw new Error(`${err.message} (${configPath})`);
         }
+        return;
       }
+    }
+  }
+
+  async prepareTranspiler() {
+    await this.findTranspiler();
+
+    if (this.transpiler === 'babel') {
+      const babel = this.tryRequire('@babel/core/package.json');
+      this.transpilerVersion = babel && babel.version;
+    } else if (this.transpiler === 'typescript') {
+      const ts = this.tryRequire('typescript/package.json');
+      this.transpilerVersion = ts && ts.version;
     }
 
     if (this.transpiler === 'babel') {
@@ -195,16 +225,10 @@ module.exports = class Packet {
 
     if (this === app.packet) await this.prepareTranspiler();
 
-    if (app.transpile.only.includes(name) && !transpiler) {
+    if (app.transpile.include.includes(name) && !transpiler) {
       this.transpiler = app.packet.transpiler;
       this.transpilerOpts = app.packet.transpilerOpts;
     }
-
-    this.extensions = [
-      '.js', '.jsx', '/index.js', '/index.jsx',
-      '.ts', '.tsx', '/index.ts', '/index.tsx',
-      '.d.ts',
-    ];
 
     const [ fpath ] = await this.resolve(this.normalizeFile(main));
     if (fpath) this.main = path.relative(this.dir, fpath);
@@ -270,25 +294,27 @@ module.exports = class Packet {
         // ignored
       }
     }
-    console.error(new Error(`Cannot find module ${name} (${this.dir})`));
+    console.error(new Error(`Cannot find dependency ${name} (${this.dir})`));
   }
 
   normalizeFile(file) {
-    const { browser } = this;
+    const { alias, browser } = this;
+
+    for (const key in alias) {
+      const prefix = `${key}/`;
+      if (file.startsWith(prefix)) {
+        file = `${alias[key]}${file.slice(prefix.length)}`;
+      }
+    }
 
     // "browser" mapping in package.json
-    file = (browser[`./${file}`] || browser[`./${file}.js`] || file).replace(/^[\.\/]+/, '');
+    const result = browser[`./${file}`] || browser[`./${file}.js`];
 
-    // if the mapped result is empty, default to index.js
-    if (!file) file = 'index.js';
+    if (result === false) return false;
+    if (typeof result === 'string') file = result.replace(/^[\.\/]+/, '');
 
     // explicit directory require
     if (file.endsWith('/')) file += 'index.js';
-
-    // extension duduction
-    if (!['.css', '.js', '.jsx', '.ts', '.tsx', '.json', '.wasm'].includes(path.extname(file))) {
-      file += '.js';
-    }
 
     return file;
   }
@@ -298,8 +324,10 @@ module.exports = class Packet {
     const originFile = file;
     file = this.normalizeFile(file);
 
+    // if file is disabled in browser field
+    if (file === false) return;
     // if parsed already
-    if (file in files) return files[file];
+    if (files.hasOwnProperty(file)) return files[file];
 
     const [fpath, suffix] = await this.resolve(file);
 
@@ -313,16 +341,11 @@ module.exports = class Packet {
       // ignore d.ts
       if (fpath.endsWith('.d.ts')) return false;
 
-      if ([ '.ts', '.tsx' ].includes(suffix)) {
-        file = file.replace(/\.\w+$/, suffix);
-      }
-      else if (suffix.includes('/index')) {
-        file = file.replace(/\.\w+$/, suffix);
-        folder[originFile] = true;
-      }
-
+      file += suffix;
       // There might be multiple resolves on same file.
       if (file in files) return files[file];
+      if (suffix.startsWith('/index')) folder[originFile] = true;
+
       const mod = Module.create({ file, fpath, packet: this });
       return mod;
     }
@@ -335,7 +358,6 @@ module.exports = class Packet {
     const mod = await this.parseModule(entry);
 
     if (mod === false) return mod;
-    if (!mod && entry.endsWith('.css')) return;
     if (!mod) throw new Error(`unknown entry ${entry} (${dir})`);
 
     entries[mod.file] = files[mod.file] = mod;
@@ -394,15 +416,14 @@ module.exports = class Packet {
   }
 
   async resolve(file) {
-    const [, fname, ext] = file.match(/^(.*?)(\.(?:\w+))$/);
-    const suffixes = /\.[jt]sx?$/.test(ext) ? this.extensions : [ext];
+    const { app, paths } = this;
+    const { suffixes } = app.resolve;
 
-    for (const dir of this.paths) {
+    for (const dir of paths) {
       for (const suffix of suffixes) {
-        const fpath = path.join(dir, `${fname}${suffix}`);
-        if (existsSync(fpath) && (await lstat(fpath)).isFile()) {
-          return [fpath, suffix];
-        }
+        const fpath = path.join(dir, `${file}${suffix}`);
+        const stats = await lstat(fpath).catch(() => null);
+        if (stats && stats.isFile()) return [fpath, suffix];
       }
     }
 
@@ -553,7 +574,7 @@ module.exports = class Packet {
     const { manifest = {} } = opts;
 
     // compile({ entry: 'fake/entry', deps, code }, opts)
-    if (typeof entries[0] == 'object') {
+    if (typeof entries[0] === 'object') {
       await this.parseFakeEntry(entries[0]);
       entries[0] = entries[0].entry;
       // clear bundle cache, fake entries should always start from stratch
@@ -561,7 +582,6 @@ module.exports = class Packet {
     }
 
     const { app, dir } = this;
-    const { dest } = this.app;
     const bundle = Bundle.create({ ...opts, packet: this, entries });
     const specifier = this.parent ? path.relative(app.root, dir) : bundle.entry;
 
@@ -581,7 +601,7 @@ module.exports = class Packet {
 
     if (!opts.writeFile) return { code, map };
 
-    const fpath = path.join(app.dest, bundle.outputPath);
+    const fpath = path.join(app.output.path, bundle.outputPath);
     await fs.mkdir(path.dirname(fpath), { recursive: true });
     await Promise.all([
       writeFile(fpath, code),
@@ -589,7 +609,7 @@ module.exports = class Packet {
         if (k !== 'sourcesContent') return v;
       }))
     ]);
-    debug(`compile ${specifier} -> ${path.relative(dest, fpath)} end`);
+    debug(`compile ${specifier} -> ${bundle.outputPath} end`);
     return bundle;
   }
 

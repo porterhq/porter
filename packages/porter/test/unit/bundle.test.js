@@ -15,7 +15,7 @@ describe('Bundle without preload', function() {
       paths: ['components', 'browser_modules'],
       entries: ['home.js', 'test/suite.js', 'stylesheets/app.css'],
     });
-    await fs.rm(porter.cache.dest, { recursive: true, force: true });
+    await fs.rm(porter.cache.path, { recursive: true, force: true });
     await porter.ready;
   });
 
@@ -94,7 +94,7 @@ describe('Bundle with preload', function() {
       entries: ['home.js', 'test/suite.js', 'stylesheets/app.css'],
       preload: 'preload',
       bundle: {
-        except: ['react', 'react-dom', 'chart.js'],
+        exclude: ['react', 'react-dom', 'chart.js'],
       },
     });
     await porter.ready;
@@ -190,7 +190,7 @@ describe('Bundle with TypeScript', function() {
       root,
       entries: ['app.tsx', 'app.css'],
     });
-    await fs.rm(porter.cache.dest, { recursive: true, force: true });
+    await fs.rm(porter.cache.path, { recursive: true, force: true });
     await porter.ready;
   });
 
@@ -200,23 +200,37 @@ describe('Bundle with TypeScript', function() {
 
   describe('bundle.output', function() {
     it('should convert extension of languages targeting js to .js', async function() {
-      const bundle = porter.packet.bundles['app.js'];
-      assert.equal(bundle.entry, 'app.js');
+      const bundle = porter.packet.bundles['app.tsx'];
+      assert.equal(bundle.entry, 'app.tsx');
       assert.equal(path.extname(bundle.output), '.js');
     });
   });
 });
 
 describe('Bundle with CSS in JS', function() {
-  const root = path.resolve(__dirname, '../../../demo-css-in-js');
+  const root = path.resolve(__dirname, '../../../demo-complex');
   let porter;
 
   before(async function() {
     porter = new Porter({
       root,
-      entries: [ 'home.js' ],
+      paths: 'app/web',
+      entries: [ 'home.jsx', 'about.jsx' ],
+      resolve: {
+        alias: {
+          '@': 'app/web',
+        },
+        extensions: [ '*', '.js', '.jsx', '.css', '.less' ],
+        import: {
+          libraryName: 'antd',
+          style: true,
+        },
+      },
+      lessOptions: {
+        javascriptEnabled: true,
+      },
     });
-    await fs.rm(porter.cache.dest, { recursive: true, force: true });
+    await fs.rm(porter.cache.path, { recursive: true, force: true });
     await porter.ready;
   });
 
@@ -226,21 +240,36 @@ describe('Bundle with CSS in JS', function() {
 
   describe('[Symbol.iterator]', function() {
     it('should not bundle css modules into js bundle', async function() {
-      const bundle = porter.packet.bundles['home.js'];
+      const bundle = porter.packet.bundles['home.jsx'];
       const modules = [ ...bundle ];
       assert.deepEqual(modules.map(mod => path.relative(root, mod.fpath)), [
-        'components/home_dep.js',
-        'components/home.js',
+        'app/web/home_dep.js',
+        'app/web/home.jsx',
       ]);
     });
 
     it('should generate css bundle if there are css in js', async function() {
       const bundle = porter.packet.bundles['home.css'];
       assert.ok(bundle);
+      assert.equal(bundle.format, '.css');
       const modules = [ ...bundle ];
       assert.deepEqual(modules.map(mod => path.relative(root, mod.fpath)), [
         'node_modules/cropper/dist/cropper.css',
-        'components/stylesheets/app.css',
+        'app/web/stylesheets/app.less',
+      ]);
+    });
+
+    it('should append css dependencies to css bundle', async function() {
+      const bundle = porter.packet.bundles['about.css'];
+      assert.ok(bundle);
+      assert.equal(bundle.format, '.css');
+      const modules = [ ...bundle ];
+      assert.deepEqual(modules.map(mod => path.relative(root, mod.fpath)), [
+        'node_modules/antd/lib/style/default.less',
+        'node_modules/antd/lib/layout/style/index.less',
+        'node_modules/antd/lib/menu/style/index.less',
+        'node_modules/antd/lib/tooltip/style/index.less',
+        'app/web/about.less',
       ]);
     });
   });
@@ -250,12 +279,12 @@ describe('Bundle with CSS in JS', function() {
       const bundle = porter.packet.bundles['home.css'];
       const result = await bundle.obtain();
       assert.ok(result.code.includes('.cropper'));
-      assert.ok(result.code.includes('.css-in-js'));
+      assert.ok(result.code.includes('.page'));
 
       const map = result.map.toJSON();
       assert.deepEqual(map.sources.map(source => source.replace(/^\//, '')), [
         'node_modules/cropper/dist/cropper.css',
-        'components/stylesheets/app.css',
+        'app/web/stylesheets/app.less',
       ]);
     });
   });

@@ -65,20 +65,23 @@ module.exports = class JsModule extends Module {
     const { code } = await this.load();
     const deps = this.deps || this.matchImport(code);
 
-    const cachePath = path.join(app.cache.dest, `${this.id}.cache`);
-    const cache = await readFile(cachePath, 'utf8').catch(() => {});
+    const cachePath = path.join(app.cache.path, `${this.id}.cache`);
+    const cacheContent = await readFile(cachePath, 'utf8').catch(() => {});
 
-    if (cache) {
+    if (cacheContent) {
+      const relativePath = path.relative(app.root, cachePath);
       let data = {};
       try {
-        data = JSON.parse(cache);
+        data = JSON.parse(cacheContent);
       } catch (err) {
-        console.warn(new Error(`cache broken ${path.relative(app.root, cachePath)}`));
+        console.warn(new Error(`cache broken ${relativePath}`));
       }
-      if (data.digest === crypto.createHash('md5').update(code).digest('hex')) {
-        this.cache = data;
+      if (data.etag !== app.cache.etag) {
+        debug(`cache invalidated ${relativePath} (${data.etag} !== ${app.cache.etag})`);
+      } else if (data.digest !== crypto.createHash('md5').update(code).digest('hex')) {
+        debug(`cache invalidated ${relativePath} (${data.digest})`);
       } else {
-        debug(`cache invalidated ${path.relative(app.root, cachePath)}`);
+        this.cache = data;
       }
     }
 
@@ -92,8 +95,8 @@ module.exports = class JsModule extends Module {
     // fake entries will provide code directly
     const source = this.code || await readFile(fpath, 'utf8');
     let code = await this.browserify(fpath, source);
-    if (app.transpile.namedImport) {
-      for (const options of [].concat(app.transpile.namedImport)) {
+    if (app.resolve.import) {
+      for (const options of [].concat(app.resolve.import)) {
         code = namedImport.replaceAll(code, options);
       }
     }
@@ -118,6 +121,7 @@ module.exports = class JsModule extends Module {
       for (const dep of this.deps) {
         if (!deps.includes(dep)) await this.parseDep(dep);
       }
+      if (!this.packet) console.log(deps, this.deps);
       code = result.code;
       map = result.map;
     }

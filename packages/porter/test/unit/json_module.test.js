@@ -16,7 +16,7 @@ describe('WasmModule', function() {
       paths: ['components', 'browser_modules'],
       entries: ['home.js', 'test/suite.js'],
     });
-    await fs.rm(porter.cache.dest, { recursive: true, force: true });
+    await fs.rm(porter.cache.path, { recursive: true, force: true });
     await porter.ready;
   });
 

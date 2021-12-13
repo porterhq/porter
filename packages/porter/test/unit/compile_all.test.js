@@ -26,7 +26,7 @@ describe('porter.compileAll()', function() {
       lazyload: ['lazyload.js'],
       source: { root: 'http://localhost:3000/' }
     });
-    await fs.rm(porter.cache.dest, { recursive: true, force: true });
+    await fs.rm(porter.cache.path, { recursive: true, force: true });
     await porter.ready;
 
     await porter.compileAll({

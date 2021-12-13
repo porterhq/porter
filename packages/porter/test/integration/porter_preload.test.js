@@ -2,11 +2,10 @@
 
 const assert = require('assert').strict;
 const Koa = require('koa');
-const path = require('path');
 const request = require('supertest');
 
 const porter = require('../../../demo-app/lib/porter_preload');
-const { existsSync, promises: fs } = require('fs');
+const fs = require('fs/promises');
 
 const { readFile, writeFile } = fs;
 const app = new Koa();
@@ -30,10 +29,7 @@ async function checkReload({ sourceFile, targetFile, pathname }) {
   const targetModule = await porter.packet.parseEntry(targetFile);
   pathname = pathname || `/${targetModule.id}`;
   const { fpath: sourcePath } = sourceModule;
-  const bundle = porter.packet.bundles[pathname.slice(1)];
-  let cachePath = path.join(porter.cache.dest, bundle.outputPath);
   await requestPath(pathname);
-  assert(existsSync(cachePath));
 
   const source = await readFile(sourcePath, 'utf8');
   const mark = `/* changed ${Date.now().toString(36)} */`;
@@ -47,11 +43,8 @@ async function checkReload({ sourceFile, targetFile, pathname }) {
       await porter.packet.reload('change', sourceFile);
     }
 
-    assert(!existsSync(cachePath));
-    await requestPath(pathname);
-    cachePath = path.join(porter.cache.dest, bundle.outputPath);
-    assert(existsSync(cachePath));
-    assert((await readFile(cachePath, 'utf8')).includes(mark));
+    const res = await requestPath(pathname);
+    assert(res.text.includes(mark));
   } finally {
     await writeFile(sourcePath, source);
   }
@@ -59,7 +52,7 @@ async function checkReload({ sourceFile, targetFile, pathname }) {
 
 describe('Porter_readFile()', function() {
   before(async function() {
-    await fs.rm(porter.cache.dest, { recursive: true, force: true });
+    await fs.rm(porter.cache.path, { recursive: true, force: true });
     await porter.ready;
   });
 

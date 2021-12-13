@@ -1,15 +1,13 @@
-node_modules
 tmp
+public
+node_modules
 dist
 coverage
 .nyc_output
 .porter-cache
 
-packages/*/node_modules
-packages/*/package-lock.json
-packages/*/public
-
 .DS_Store
 *~
 *.log
 manifest.json
+package-lock.json

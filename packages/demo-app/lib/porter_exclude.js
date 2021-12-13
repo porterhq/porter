@@ -13,6 +13,6 @@ module.exports = new Porter({
   },
   preload: 'preload',
   bundle: {
-    except: ['react', 'react-dom'],
+    exclude: ['react', 'react-dom'],
   }
 });

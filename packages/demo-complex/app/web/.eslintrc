@@ -1,5 +1,6 @@
 {
   "parserOptions": {
     "sourceType": "module"
-  }
+  },
+  "plugins": [ "jsx" ]
 }
