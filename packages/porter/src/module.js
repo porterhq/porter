@@ -114,7 +114,7 @@ module.exports = class Module {
     let mod = await packet.parsePacket({ name, entry });
 
     // Allow root/a => packet/b => root/c
-    if (!mod) {
+    if (mod == null) {
       const { rootPacket } = packet;
       const specifier = name == rootPacket.name ? (entry || rootPacket.main) : dep;
       mod = await rootPacket.parseFile(specifier);
@@ -147,6 +147,8 @@ module.exports = class Module {
     const mod = dep.startsWith('.')
       ? await this.parseRelative(specifier)
       : await this.parseNonRelative(specifier);
+
+    if (mod === false) return mod;
 
     if (!mod) {
       console.error(new Error(`unmet dependency ${dep} (${this.fpath})`).stack);
