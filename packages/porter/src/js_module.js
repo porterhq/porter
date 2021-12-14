@@ -83,7 +83,7 @@ module.exports = class JsModule extends Module {
     }
 
     const result = await Promise.all(deps.map(this.parseDep, this));
-    this.children = result.filter(mod => mod != null);
+    this.children = result.filter(mod => !!mod);
     this.status = MODULE_LOADED;
   }
 

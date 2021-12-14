@@ -203,6 +203,7 @@ module.exports = class Packet {
     this.extensions = [
       '.js', '.jsx', '/index.js', '/index.jsx',
       '.ts', '.tsx', '/index.ts', '/index.tsx',
+      '.d.ts',
     ];
 
     const [ fpath ] = await this.resolve(this.normalizeFile(main));
@@ -309,6 +310,9 @@ module.exports = class Packet {
         console.warn(err.stack);
       }
 
+      // ignore d.ts
+      if (fpath.endsWith('.d.ts')) return false;
+
       if ([ '.ts', '.tsx' ].includes(suffix)) {
         file = file.replace(/\.\w+$/, suffix);
       }
@@ -330,6 +334,7 @@ module.exports = class Packet {
     const { app, dir, entries, files } = this;
     const mod = await this.parseModule(entry);
 
+    if (mod === false) return mod;
     if (!mod && entry.endsWith('.css')) return;
     if (!mod) throw new Error(`unknown entry ${entry} (${dir})`);
 
@@ -347,8 +352,8 @@ module.exports = class Packet {
     if (mod) {
       files[mod.file] = mod;
       await mod.parse();
-      return mod;
     }
+    return mod;
   }
 
   /**
