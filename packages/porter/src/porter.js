@@ -45,7 +45,7 @@ class Porter {
 
     const bundle = { exclude: [], ...opts.bundle };
     const resolve = {
-      extensions: [ '*', '.js', '.jsx', '.ts', '.tsx', '.json', '.css' ],
+      extensions: [ '*', '.js', '.jsx', '.ts', '.tsx', '.d.ts', '.json', '.css' ],
       alias: {},
       ...opts.resolve,
     };
@@ -117,9 +117,12 @@ class Porter {
           if (mod.status >= MODULE_LOADED) {
             resolve();
           } else {
-            setTimeout(poll, 1000);
+            setTimeout(poll, 100);
           }
         })();
+        setTimeout(function waitTimeout() {
+          reject(new Error(`timeout on packing entry ${mod.file}`));
+        }, 30000);
       });
     }
 
@@ -304,18 +307,17 @@ class Porter {
     const packet = this.packet.find({ name, version });
     if (!packet) throw new Error(`unknown dependency ${id}`);
 
+    const ext = path.extname(file);
+    let mod;
     // in case root entry is not parsed yet
     if (packet === this.packet) {
-      const ext = path.extname(file);
-      let mod = await packet.parseEntry(file.replace(rExt, '')).catch(() => null);
+      mod = await packet.parseEntry(file.replace(rExt, '')).catch(() => null);
       if (ext === '.css') mod = await packet.parseEntry(file).catch(() => null);
-      if (!mod) return;
-      // get the real file extension
-      if (ext === '.js') file = mod.file;
       await this.pack();
     }
 
-    return packet.bundles[file];
+    // prefer the real file extension
+    return packet.bundles[mod ? mod.file : file];
   }
 
   async readCss(outputPath, query) {

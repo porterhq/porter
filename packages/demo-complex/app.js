@@ -15,20 +15,22 @@ pug.use(app);
 
 const router = new Router();
 router.get('/about', async (ctx, next) => {
-  await ctx.render('default');
+  await ctx.render('default', { entry: 'about' });
+});
+router.get('/', async (ctx, next) => {
+  await ctx.render('default', { entry: 'home' });
 });
 
 const porter = new Porter({
   paths: 'app/web',
   resolve: {
     alias: {
-      '@': 'app/web',
+      '@/': '',
     },
     extensions: [ '*', '.js', '.jsx', '.css', '.less' ],
-    import: {
-      libraryName: 'antd',
-      style: 'css',
-    },
+    import: [
+      { libraryName: 'antd', style: 'css' },
+    ],
   },
   lessOptions: {
     javascriptEnabled: true,

@@ -58,6 +58,7 @@ describe('JsModule import CSS', function() {
       paths: 'app/web',
       entries: ['home.jsx'],
       resolve: {
+        alias: { '@/': '' },
         extensions: [ '*', '.js', '.jsx', '.css', '.less' ],
       },
     });
@@ -75,6 +76,7 @@ describe('JsModule import CSS', function() {
       'node_modules/react-dom/index.js',
       'node_modules/react/index.js',
       'app/web/home_dep.js',
+      'app/web/utils/index.js',
       'node_modules/cropper/dist/cropper.css',
       'app/web/stylesheets/app.less',
     ]);

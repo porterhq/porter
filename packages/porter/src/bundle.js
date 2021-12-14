@@ -34,9 +34,6 @@ module.exports = class Bundle {
     const bundle = Bundle.create(options);
     const results = [ bundle ];
 
-    // default bundle is css bundle already
-    if (bundle.format === '.css') return results;
-
     // see if a css bundle is needed
     const entry = packet.files[entries[0]];
     const cssExtensions = extMap['.css'];
@@ -51,7 +48,9 @@ module.exports = class Bundle {
     if (found) {
       const cssBundle = Bundle.create({ packet, entries, format: '.css' });
       // existing css bundle might not contain all of the css dependencies
-      cssBundle.entries = entries;
+      for (const file of entries) {
+        if (!cssBundle.entries.includes(file)) cssBundle.entries.push(file);
+      }
       results.push(cssBundle);
     }
 
@@ -136,8 +135,8 @@ module.exports = class Bundle {
 
       /**
        * preloaded modules should be included in following scenarios:
-       * - bundling preload.js itself.
-       * - bundling a program generated entry that needs to be self contained.
+       * - bundling preload.js itself
+       * - bundling a program generated entry that needs to be self contained
        * - bundling a web worker
        */
       const preload = entry.isPreload || entry.fake || (entry.isWorker);

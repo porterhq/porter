@@ -21,6 +21,11 @@ describe('Packet', function() {
       root,
       paths: ['components', 'browser_modules'],
       entries: ['home.js', 'test/suite.js', 'stylesheets/app.css'],
+      resolve: {
+        alias: {
+          '@/': '',
+        },
+      },
     });
     await fs.rm(porter.cache.path, { recursive: true, force: true });
     await porter.ready;
@@ -28,6 +33,20 @@ describe('Packet', function() {
 
   after(async function() {
     await porter.destroy();
+  });
+
+  describe('packet.resolve()', function() {
+    it('resolve object-inspect', async function() {
+      const inspect = porter.packet.find({ name: 'object-inspect' });
+      assert.ok(inspect);
+      // ./util.inspect is neglected in browser field of object-inspect
+      assert.ok(!inspect.files.hasOwnProperty('util.inspect.js'));
+    });
+
+    it('resolve alias', async function() {
+      const mod = await porter.packet.parseFile('@/home_dep.js');
+      assert.equal(mod, porter.packet.files['home_dep.js']);
+    });
   });
 
   describe('packet.parseFile()', function() {
@@ -85,14 +104,10 @@ describe('Packet', function() {
       expect(Object.keys(iconv.files)).to.not.contain('lib/streams');
     });
 
-    it('shim stream with readable-stream', function() {
+    it('should not still require stream', function() {
+      // because lib/streams is already neglected in browser field
       const iconv = porter.packet.find({ name: 'iconv-lite' });
-      expect(iconv.browser.stream).to.eql('readable-stream');
-      expect('readable-stream' in iconv.dependencies).to.be.ok();
-
-      const stream = porter.packet.find({ name: 'readable-stream' });
-      // shouldn't shim itself
-      expect(Object.keys(stream.browser)).to.not.contain('readable-stream');
+      expect(Object.keys(iconv.dependencies)).to.not.contain('stream');
     });
   });
 

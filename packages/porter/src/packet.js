@@ -33,6 +33,7 @@ Module.create = function(opts) {
     case '.wasm':
       return new WasmModule(opts);
     case '.ts':
+      return opts.file.endsWith('.d.ts') ? new Stub(opts) : new TsModule(opts);
     case '.tsx':
       return new TsModule(opts);
     case '.js':
@@ -298,34 +299,36 @@ module.exports = class Packet {
   }
 
   normalizeFile(file) {
-    const { alias, browser } = this;
-
-    for (const key in alias) {
-      const prefix = `${key}/`;
-      if (file.startsWith(prefix)) {
-        file = `${alias[key]}${file.slice(prefix.length)}`;
-      }
-    }
+    const { browser } = this;
 
     // "browser" mapping in package.json
-    const result = browser[`./${file}`] || browser[`./${file}.js`];
-
-    if (result === false) return false;
+    let result = browser[`./${file}`];
+    if (result === undefined) result = browser[`./${file}.js`];
+    if (result === false) return result;
     if (typeof result === 'string') file = result.replace(/^[\.\/]+/, '');
 
     // explicit directory require
-    if (file.endsWith('/')) file += 'index.js';
+    if (file.endsWith('/')) file += 'index';
 
     return file;
   }
 
   async parseModule(file) {
-    const { files, folder, name } = this;
+    const { files, folder, name, alias } = this;
+
+    // alias takes precedence over original specifier
+    for (const key in alias) {
+      if (file.startsWith(key)) {
+        file = alias[key] + file.slice(key.length);
+        break;
+      }
+    }
+
     const originFile = file;
     file = this.normalizeFile(file);
 
-    // if file is disabled in browser field
-    if (file === false) return;
+    // if neglected in browser field
+    if (file === false) return false;
     // if parsed already
     if (files.hasOwnProperty(file)) return files[file];
 
@@ -375,6 +378,7 @@ module.exports = class Packet {
       files[mod.file] = mod;
       await mod.parse();
     }
+
     return mod;
   }
 
@@ -474,11 +478,12 @@ module.exports = class Packet {
   }
 
   get loaderConfig() {
-    const { app, name, version, main } = this;
+    const { app, name, version, main, alias } = this;
     const { baseUrl, map, timeout } = app;
     const preload = name == app.packet.name ? app.preload : [];
 
     return {
+      alias,
       baseUrl,
       map,
       preload,

@@ -7,6 +7,10 @@ module.exports = class Stub extends Module {
   async parse() {
     this.status = MODULE_LOADED;
   }
-  async load() {}
-  async transpile() {}
+  async load() {
+    return {};
+  }
+  async transpile() {
+    return {};
+  }
 };

@@ -218,7 +218,7 @@ describe('Bundle with CSS in JS', function() {
       entries: [ 'home.jsx', 'about.jsx' ],
       resolve: {
         alias: {
-          '@': 'app/web',
+          '@': '',
         },
         extensions: [ '*', '.js', '.jsx', '.css', '.less' ],
         import: {
@@ -244,6 +244,8 @@ describe('Bundle with CSS in JS', function() {
       const modules = [ ...bundle ];
       assert.deepEqual(modules.map(mod => path.relative(root, mod.fpath)), [
         'app/web/home_dep.js',
+        'app/web/i18n/index.js',
+        'app/web/utils/index.js',
         'app/web/home.jsx',
       ]);
     });

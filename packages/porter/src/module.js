@@ -152,6 +152,7 @@ module.exports = class Module {
       ? await this.parseRelative(specifier)
       : await this.parseNonRelative(specifier);
 
+    // module is neglected in browser field
     if (mod === false) return mod;
 
     if (!mod) {

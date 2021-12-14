@@ -8,9 +8,8 @@ import {
   VideoCameraOutlined,
   UploadOutlined,
 } from '@ant-design/icons';
-import classNames from 'classnames';
 
-import styles from './about.less';
+import './about.less';
 
 const { Header, Sider, Content } = Layout;
 
@@ -37,7 +36,7 @@ function About() {
           </Menu.Item>
         </Menu>
       </Sider>
-      <Layout className={classNames('site-layout', styles.content)}>
+      <Layout className="site-layout">
         <Header className="site-layout-background" style={{ padding: 0 }}>
           {React.createElement(collapsed ? MenuUnfoldOutlined : MenuFoldOutlined, {
             className: 'trigger',
