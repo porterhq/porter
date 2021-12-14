@@ -23,7 +23,7 @@ describe('CssModule', function() {
         cssnano(),
       ],
     });
-    await fs.rm(porter.cache.dest, { recursive: true, force: true });
+    await fs.rm(porter.cache.path, { recursive: true, force: true });
     await porter.ready;
   });
 

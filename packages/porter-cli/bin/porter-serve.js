@@ -141,7 +141,7 @@ async function serve() {
     source: { serve: true },
     entries: [ program.suite ],
     lazyload: program.lazyload,
-    transpile: { only: program.include },
+    transpile: { include: program.include },
   });
   app.use(porter.async());
 

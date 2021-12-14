@@ -12,7 +12,6 @@ const glob = util.promisify(require('glob'));
 
 const Porter = require('../..');
 
-
 describe('Packet', function() {
   const root = path.resolve(__dirname, '../../../demo-app');
   let porter;
@@ -22,13 +21,32 @@ describe('Packet', function() {
       root,
       paths: ['components', 'browser_modules'],
       entries: ['home.js', 'test/suite.js', 'stylesheets/app.css'],
+      resolve: {
+        alias: {
+          '@/': '',
+        },
+      },
     });
-    await fs.rm(porter.cache.dest, { recursive: true, force: true });
+    await fs.rm(porter.cache.path, { recursive: true, force: true });
     await porter.ready;
   });
 
   after(async function() {
     await porter.destroy();
+  });
+
+  describe('packet.resolve()', function() {
+    it('resolve object-inspect', async function() {
+      const inspect = porter.packet.find({ name: 'object-inspect' });
+      assert.ok(inspect);
+      // ./util.inspect is neglected in browser field of object-inspect
+      assert.ok(!inspect.files.hasOwnProperty('util.inspect.js'));
+    });
+
+    it('resolve alias', async function() {
+      const mod = await porter.packet.parseFile('@/home_dep.js');
+      assert.equal(mod, porter.packet.files['home_dep.js']);
+    });
   });
 
   describe('packet.parseFile()', function() {
@@ -86,14 +104,10 @@ describe('Packet', function() {
       expect(Object.keys(iconv.files)).to.not.contain('lib/streams');
     });
 
-    it('shim stream with readable-stream', function() {
+    it('should not still require stream', function() {
+      // because lib/streams is already neglected in browser field
       const iconv = porter.packet.find({ name: 'iconv-lite' });
-      expect(iconv.browser.stream).to.eql('readable-stream');
-      expect('readable-stream' in iconv.dependencies).to.be.ok();
-
-      const stream = porter.packet.find({ name: 'readable-stream' });
-      // shouldn't shim itself
-      expect(Object.keys(stream.browser)).to.not.contain('readable-stream');
+      expect(Object.keys(iconv.dependencies)).to.not.contain('stream');
     });
   });
 
@@ -117,7 +131,7 @@ describe('Packet', function() {
         root,
         entries: [ 'home.js' ],
         transpile: {
-          only: [ 'yen' ],
+          include: [ 'yen' ],
         },
       });
       await porter2.ready;
@@ -179,48 +193,48 @@ describe('Packet', function() {
 
     it('should compile with packet.compile(...entries)', async function () {
       const pkg = porter.packet.find({ name: 'react' });
-      const { name, version, main } = pkg;
+      const { name, main } = pkg;
       const bundle = await pkg.compile(main);
       const entries = await glob(`public/${name}/**/*.{css,js,map}`, { cwd: root });
-      expect(entries).to.contain(`public/${name}/${version}/${bundle.output}`);
-      expect(entries).to.contain(`public/${name}/${version}/${bundle.output}.map`);
+      expect(entries).to.contain(`public/${bundle.outputPath}`);
+      expect(entries).to.contain(`public/${bundle.outputPath}.map`);
     });
 
     it('should generate source map of modules as well', async function() {
       const pkg = porter.packet.find({ name: 'react' });
-      const { name, version, main, } = pkg;
+      const { main, } = pkg;
       const bundle = await pkg.compile(main);
-      const fpath = path.join(root, 'public', `${name}/${version}/${bundle.output}.map`);
+      const fpath = path.join(root, 'public', `${bundle.outputPath}.map`);
       const map = JSON.parse(await readFile(fpath, 'utf8'));
       expect(map.sources).to.contain('node_modules/react/index.js');
     });
 
     it('should compile packet with different main entry', async function () {
       const pkg = porter.packet.find({ name: 'chart.js' });
-      const { name, version, main,  } = pkg;
+      const { name, main,  } = pkg;
       const bundle = await pkg.compile(main);
       const entries = await glob(`public/${name}/**/*.{css,js,map}`, { cwd: root });
-      expect(entries).to.contain(`public/${name}/${version}/${bundle.output}`);
-      expect(entries).to.contain(`public/${name}/${version}/${bundle.output}.map`);
+      expect(entries).to.contain(`public/${bundle.outputPath}`);
+      expect(entries).to.contain(`public/${bundle.outputPath}.map`);
     });
 
     it('should compile entry with folder module', async function() {
       const pkg = porter.packet.find({ name: 'react-datepicker' });
-      const { name, version, main } = pkg;
+      const { name, main } = pkg;
       await pkg.compileAll();
       const bundle = pkg.bundles[main];
       const entries = await glob(`public/${name}/**/*.{css,js,map}`, { cwd: root });
-      expect(entries).to.contain(`public/${name}/${version}/${bundle.output}`);
-      expect(entries).to.contain(`public/${name}/${version}/${bundle.output}.map`);
+      expect(entries).to.contain(`public/${bundle.outputPath}`);
+      expect(entries).to.contain(`public/${bundle.outputPath}.map`);
     });
 
     it('should compile entry with browser field', async function() {
       const pkg = porter.packet.find({ name: 'cropper' });
-      const { name, version, main, dir } = pkg;
+      const { name, main, dir } = pkg;
       const bundle = await pkg.compile(main);
       const entries = await glob(`public/${name}/**/*.{css,js,map}`, { cwd: root });
-      expect(entries).to.contain(`public/${name}/${version}/${bundle.output}`);
-      expect(entries).to.contain(`public/${name}/${version}/${bundle.output}.map`);
+      expect(entries).to.contain(`public/${bundle.outputPath}`);
+      expect(entries).to.contain(`public/${bundle.outputPath}.map`);
       expect(require(`${dir}/package.json`).browser).to.eql(main);
     });
 

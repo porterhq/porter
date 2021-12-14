@@ -11,14 +11,13 @@ const Module = require('./module');
 const extMap = {
   '.js': [ '.js', '.jsx', '.ts', '.tsx', '.json' ],
   '.wasm': [ '.wasm' ],
-  '.css': [ '.css' ],
+  '.css': [ '.css', '.less' ],
 };
 
 const rExt = /(\.\w+)?$/;
 
-function getEntry(packet, entries, format = '.js') {
-  const entry =  entries && (entries.length === 1 || !packet.parent) ? entries[0] : packet.main;
-  return entry.replace(rExt, format);
+function getEntry(packet, entries) {
+  return entries && (entries.length === 1 || !packet.parent) ? entries[0] : packet.main;
 }
 
 module.exports = class Bundle {
@@ -35,22 +34,23 @@ module.exports = class Bundle {
     const bundle = Bundle.create(options);
     const results = [ bundle ];
 
-    // default bundle is css bundle already
-    if (bundle.format === '.css') return results;
-
     // see if a css bundle is needed
     const entry = packet.files[entries[0]];
+    const cssExtensions = extMap['.css'];
     let found = false;
     for (const mod of entry.family) {
-      if (path.extname(mod.file) === '.css') {
+      if (cssExtensions.includes(path.extname(mod.file))) {
         found = true;
         break;
       }
     }
 
     if (found) {
-      // eslint-disable-next-line no-use-before-define
       const cssBundle = Bundle.create({ packet, entries, format: '.css' });
+      // existing css bundle might not contain all of the css dependencies
+      for (const file of entries) {
+        if (!cssBundle.entries.includes(file)) cssBundle.entries.push(file);
+      }
       results.push(cssBundle);
     }
 
@@ -63,11 +63,12 @@ module.exports = class Bundle {
       options.format = (entries && path.extname(entries[0] || '') === '.css' ? '.css' : '.js');
     }
     const { bundles } = packet;
-    const entry = getEntry(packet, entries, options.format);
-    let bundle = bundles[entry];
+    const entry = getEntry(packet, entries);
+    const key = options.format === '.css' ? entry.replace(rExt, '.css') : entry;
+    let bundle = bundles[key];
     if (!bundle) {
       bundle = new Bundle(options);
-      bundles[entry] = bundle;
+      bundles[key] = bundle;
     }
     return bundle;
   }
@@ -134,8 +135,8 @@ module.exports = class Bundle {
 
       /**
        * preloaded modules should be included in following scenarios:
-       * - bundling preload.js itself.
-       * - bundling a program generated entry that needs to be self contained.
+       * - bundling preload.js itself
+       * - bundling a program generated entry that needs to be self contained
        * - bundling a web worker
        */
       const preload = entry.isPreload || entry.fake || (entry.isWorker);
@@ -152,17 +153,21 @@ module.exports = class Bundle {
     });
   }
 
+  set entries(files) {
+    this.#entries = files;
+  }
+
   get entry() {
-    const { packet, format } = this;
-    return getEntry(packet, this.#entries, format);
+    const { packet } = this;
+    return getEntry(packet, this.#entries);
   }
 
   get output() {
     const { entries } = this;
     const code = this.#code;
     if (entries.length === 0 || !code) return '';
-    const { entry, contenthash } = this;
-    return entry.replace(rExt, `.${contenthash}$1`);
+    const { entry, contenthash, format } = this;
+    return entry.replace(rExt, `.${contenthash}${format}`);
   }
 
   get contenthash() {
@@ -232,7 +237,7 @@ module.exports = class Bundle {
     const { app, entry, packet, outputPath } = this;
     if (!outputPath) return;
     debug(`reloading ${entry} -> ${outputPath} (${packet.dir})`);
-    await fs.unlink(path.join(app.cache.dest, outputPath)).catch(() => {});
+    await fs.unlink(path.join(app.cache.path, outputPath)).catch(() => {});
     this.#code = null;
     this.#map = null;
     this.#etag = null;
@@ -254,6 +259,7 @@ module.exports = class Bundle {
       return { code: this.#code, map: this.#map };
     }
 
+    this.updatedAt = new Date();
     const node = new SourceNode();
     const loaderConfig = Object.assign(packet.loaderConfig, this.loaderConfig);
     const preloaded = app.preload.length > 0;

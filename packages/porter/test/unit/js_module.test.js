@@ -15,9 +15,9 @@ describe('JsModule', function() {
       root,
       paths: ['components', 'browser_modules'],
       entries: ['home.js', 'test/suite.js'],
-      transpile: { only: [ 'yen' ] },
+      transpile: { include: [ 'yen' ] },
     });
-    await fs.rm(porter.cache.dest, { recursive: true, force: true });
+    await fs.rm(porter.cache.path, { recursive: true, force: true });
     await porter.ready;
   });
 
@@ -35,7 +35,7 @@ describe('JsModule', function() {
   it('should not stop at broken cache', async function() {
     const mod = porter.packet.files['home.js'];
     mod.loaded = false;
-    const cachePath = path.join(porter.cache.dest, `${mod.id}.cache`);
+    const cachePath = path.join(porter.cache.path, `${mod.id}.cache`);
     await fs.writeFile(cachePath, 'gibberish');
     await assert.doesNotReject(async function() {
       await mod.parse();
@@ -49,12 +49,20 @@ describe('JsModule', function() {
 });
 
 describe('JsModule import CSS', function() {
-  const root = path.resolve(__dirname, '../../../demo-css-in-js');
+  const root = path.resolve(__dirname, '../../../demo-complex');
   let porter;
 
   before(async function() {
-    porter = new Porter({ root, entries: ['home.js'] });
-    await fs.rm(porter.cache.dest, { recursive: true, force: true });
+    porter = new Porter({
+      root,
+      paths: 'app/web',
+      entries: ['home.jsx'],
+      resolve: {
+        alias: { '@/': '' },
+        extensions: [ '*', '.js', '.jsx', '.css', '.less' ],
+      },
+    });
+    await fs.rm(porter.cache.path, { recursive: true, force: true });
     await porter.ready;
   });
 
@@ -63,11 +71,14 @@ describe('JsModule import CSS', function() {
   });
 
   it('should have css dependencies parsed', async function() {
-    const mod = porter.packet.files['home.js'];
+    const mod = porter.packet.files['home.jsx'];
     assert.deepEqual(mod.children.map(child => path.relative(root, child.fpath)), [
+      'node_modules/react-dom/index.js',
+      'node_modules/react/index.js',
+      'app/web/home_dep.js',
+      'app/web/utils/index.js',
       'node_modules/cropper/dist/cropper.css',
-      'components/stylesheets/app.css',
-      'components/home_dep.js',
+      'app/web/stylesheets/app.less',
     ]);
   });
 });

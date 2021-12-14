@@ -28,4 +28,14 @@ describe('TsModule', function() {
     // module id should always ends with .js
     assert.equal(path.extname(mod.id), '.js');
   });
+
+  it('should neglect d.ts', async function() {
+    const mod = porter.packet.files['app.tsx'];
+    assert.deepEqual(mod.children.map(child => path.relative(root, child.fpath)), [
+      'node_modules/react/index.js',
+      'node_modules/react-dom/index.js',
+      'node_modules/prismjs/prism.js',
+      'components/home.tsx',
+    ]);
+  });
 });

@@ -4,19 +4,21 @@ const crypto = require('crypto');
 const debug = require('debug')('porter');
 const path = require('path');
 const fs = require('fs/promises');
-const { MODULE_INIT } = require('./constants');
-
-const rModuleId = /^((?:@[^\/]+\/)?[^\/]+)(?:\/(\d+\.\d+\.\d+[^\/]*))?(?:\/(.*))?$/;
+const { MODULE_INIT, rModuleId } = require('./constants');
 
 module.exports = class Module {
-  static rModuleId = rModuleId;
-
   constructor({ file, fpath, packet }) {
     const { moduleCache } = packet.app;
     if (moduleCache[fpath]) return moduleCache[fpath];
     moduleCache[fpath] = this;
 
-    this.app = packet.app;
+    Object.defineProperties(this, {
+      app: {
+        value: packet.app,
+        configurable: true,
+        enumerable: false,
+      },
+    });
     this.packet = packet;
     this.name = packet.name;
     this.version = packet.version;
@@ -86,7 +88,8 @@ module.exports = class Module {
   }
 
   async _addCache() {
-    const fpath = path.join(this.packet.app.cache.dest, this.id);
+    const { app } = this;
+    const fpath = path.join(app.cache.path, this.id);
     const dir = path.dirname(fpath);
 
     await fs.mkdir(dir, { recursive: true });
@@ -94,10 +97,11 @@ module.exports = class Module {
   }
 
   addCache(source, opts) {
+    const { app } = this;
     const digest = crypto.createHash('md5').update(source).digest('hex');
     const map = typeof opts.map === 'string' ? JSON.parse(opts.map) : opts.map;
 
-    this.cache = { ...opts, map, digest };
+    this.cache = { ...opts, map, digest, etag: app.cache.etag };
     this._addCache().catch(err => console.error(err.stack));
   }
 
@@ -148,6 +152,7 @@ module.exports = class Module {
       ? await this.parseRelative(specifier)
       : await this.parseNonRelative(specifier);
 
+    // module is neglected in browser field
     if (mod === false) return mod;
 
     if (!mod) {

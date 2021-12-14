@@ -8,15 +8,14 @@ const path = require('path');
 const postcss = require('postcss');
 const { SourceMapGenerator } = require('source-map');
 
-const { lstat, readFile, writeFile } = fs;
+const { lstat, readFile } = fs;
 
 const FakePacket = require('./fake_packet');
 const Packet = require('./packet');
 
 const rExt = /\.(?:css|gif|jpg|jpeg|js|png|svg|swf|ico)$/i;
-const { rModuleId } = require('./module');
 const Bundle = require('./bundle');
-const { MODULE_LOADED } = require('./constants');
+const { MODULE_LOADED, rModuleId } = require('./constants');
 const AtImport = require('./at_import');
 
 class Porter {
@@ -25,22 +24,56 @@ class Porter {
     const paths = [].concat(opts.paths == null ? 'components' : opts.paths).map(loadPath => {
       return path.resolve(root, loadPath);
     });
-    const dest = path.resolve(root, opts.dest || 'public');
-    const transpile = { only: [], ...opts.transpile };
-    const cache = { dest, ...opts.cache };
-    const bundleExcept = opts.bundle && opts.bundle.except || [];
+    const output = { path: 'public', ...opts.output };
+    output.path = path.resolve(root, output.path);
 
-    Object.assign(this, { root, dest, cache, transpile, bundleExcept });
+    const transpile = { include: [], ...opts.transpile };
+    const cache = {
+      path: output.path,
+      identifier({ packet }) {
+        const { version } = require('../package.json');
+        return JSON.stringify([
+          version,
+          packet.transpiler,
+          packet.transpilerVersion,
+          packet.transpilerOpts,
+        ]);
+      },
+      ...opts.cache,
+    };
+    cache.path = path.resolve(root, cache.path);
+
+    const bundle = { exclude: [], ...opts.bundle };
+    const resolve = {
+      extensions: [ '*', '.js', '.jsx', '.ts', '.tsx', '.d.ts', '.json', '.css' ],
+      alias: {},
+      ...opts.resolve,
+    };
+    resolve.suffixes = resolve.extensions.reduce((result, ext) => {
+      if (ext === '*') return result.concat('');
+      return result.concat(ext, `/index${ext}`);
+    }, []);
+
+    Object.assign(this, { root, output, cache, transpile, bundle, resolve });
+    Object.defineProperties(this, {
+      moduleCache: {
+        value: {},
+        configurable: true,
+        enumerable: false,
+      },
+      packetCache: {
+        value: {},
+        configurable: true,
+        enumerable: false,
+      },
+    });
+
     const packet = opts.package || require(path.join(root, 'package.json'));
-
-    cache.dest = path.resolve(root, cache.dest);
-
-    this.moduleCache = {};
-    this.packetCache = {};
+    const packetOptions = { alias: resolve.alias, dir: root, paths, app: this, packet };
 
     this.packet = opts.package
-      ? new FakePacket({ dir: root, paths, app: this, packet: opts.package, lock: opts.lock })
-      : new Packet({ dir: root, paths, app: this, packet });
+      ? new FakePacket({ ...packetOptions, lock: opts.lock })
+      : new Packet(packetOptions);
 
     this.baseUrl = opts.baseUrl || '/';
     this.map = opts.map;
@@ -53,6 +86,7 @@ class Porter {
 
     this.source = { serve: false, root: '/', ...opts.source };
     this.cssTranspiler = postcss([ AtImport ].concat(opts.postcssPlugins || []));
+    this.lessOptions = opts.lessOptions;
     this.ready = this.prepare(opts);
   }
 
@@ -77,14 +111,34 @@ class Porter {
   async pack() {
     const { packet, entries, preload } = this;
 
+    function waitFor(mod) {
+      return new Promise((resolve, reject) => {
+        (function poll() {
+          if (mod.status >= MODULE_LOADED) {
+            resolve();
+          } else {
+            setTimeout(poll, 100);
+          }
+        })();
+        setTimeout(function waitTimeout() {
+          reject(new Error(`timeout on packing entry ${mod.file}`));
+        }, 30000);
+      });
+    }
+
+    const files = preload.concat(entries);
+
+    for (const file of files) {
+      const mod = packet.files[file];
+      // module might not ready yet
+      if (mod.status < MODULE_LOADED) await waitFor(mod);
+    }
+
     for (const dep of packet.all) {
       if (dep !== packet) await dep.pack();
     }
 
-    for (const file of preload.concat(entries)) {
-      const mod = packet.files[file];
-      // module might not ready yet
-      if (mod.status < MODULE_LOADED) continue;
+    for (const file of files) {
       const bundles = Bundle.wrap({ packet, entries: [ file ] });
       await Promise.all(bundles.map(bundle => bundle.obtain()));
     }
@@ -101,12 +155,13 @@ class Porter {
 
   async prepare(opts = {}) {
     const { packet } = this;
-    const { entries, lazyload, preload } = this;
+    const { entries, lazyload, preload, cache } = this;
 
     // enable envify for root packet by default
     if (!packet.browserify) packet.browserify = { transform: ['envify'] };
 
     await packet.prepare();
+    cache.etag = cache.identifier(this);
 
     await Promise.all([
       ...this.prepareFiles(preload),
@@ -127,9 +182,6 @@ class Porter {
     }
 
     await this.pack();
-
-    const { cache } = this;
-    await fs.rm(path.join(cache.dest, '**/*.{css,js,map}'), { recursive: true, force: true });
   }
 
   async compilePackets(opts) {
@@ -255,86 +307,56 @@ class Porter {
     const packet = this.packet.find({ name, version });
     if (!packet) throw new Error(`unknown dependency ${id}`);
 
-    const mod = isEntry ? await packet.parseEntry(file) : await packet.parseFile(file);
-    if (mod) return mod;
+    const ext = path.extname(file);
+    let mod;
+    // in case root entry is not parsed yet
+    if (packet === this.packet) {
+      mod = await packet.parseEntry(file.replace(rExt, '')).catch(() => null);
+      if (ext === '.css') mod = await packet.parseEntry(file).catch(() => null);
+      await this.pack();
+    }
 
-    const bundle = packet.bundles[file];
-    // @babel/runtime has no main
-    // css bundles might be extracted from corresponding js bundles
-    if (bundle) return { file, fake: true, packet };
+    // prefer the real file extension
+    return packet.bundles[mod ? mod.file : file];
   }
 
-  async writeSourceMap({ bundle, code, map }) {
+  async readCss(outputPath, query) {
+    const isEntry = true;
+    const id = outputPath.replace(/\.[a-f0-9]{8}\.css$/, '.css');
+
+    const bundle = await this.parseId(id, { isEntry });
+    if (!bundle) return;
+
+    const result = await bundle.obtain();
+    const code = `${result.code}\n/*# sourceMappingURL=${path.basename(bundle.output)}.map */`;
+    return [ code, { 'Last-Modified': bundle.updatedAt }];
+  }
+
+  async readJs(outputPath, query) {
+    const isMain = outputPath.endsWith('.js') && 'main' in query;
+    const isEntry = isMain || 'entry' in query;
+    const id = outputPath.replace(/\.[a-f0-9]{8}\.js$/, '.js');
+
+    const bundle = await this.parseId(id, { isEntry });
+    if (!bundle) return;
+
+    const result = await bundle.obtain({ loader: isMain  });
+    const code = `${result.code}\n//# sourceMappingURL=${path.basename(bundle.output)}.map`;
+    return [ code, { 'Last-Modified': bundle.updatedAt } ];
+  }
+
+  async readMap(mapPath) {
+    const id = mapPath.replace(/(?:\.[a-f0-9]{8})?(\.(?:css|js)).map$/, '$1');
+    const bundle = await this.parseId(id);
+    if (!bundle) return;
+
+    let { map } = await bundle.obtain();
     if (map instanceof SourceMapGenerator) {
       map = map.toJSON();
     }
-
     map.sources = map.sources.map(source => source.replace(/^\//, ''));
-    const { output, format } = bundle;
-    code += format === '.js'
-      ? `\n//# sourceMappingURL=${path.basename(output)}.map`
-      : `\n/*# sourceMappingURL=${path.basename(output)}.map */`;
 
-    const fpath = path.join(this.cache.dest, bundle.outputPath);
-    await fs.mkdir(path.dirname(fpath), { recursive: true });
-    await Promise.all([
-      writeFile(fpath, code),
-      writeFile(`${fpath}.map`, JSON.stringify(map, (k, v) => {
-        if (k !== 'sourcesContent') return v;
-      }))
-    ]);
-
-    return { code };
-  }
-
-  async readCss(id, query) {
-    id = id.replace(/\.[a-f0-9]{8}\.css$/, '.css');
-    const isEntry = true;
-    let mod = await this.parseId(id, { isEntry });
-    // css bundle needs the corresponding js bundle be ready first
-    if (mod) {
-      if (isEntry && !mod.fake) await this.pack();
-    } else {
-      await this.parseId(id.replace(/\.css$/, '.js'), { isEntry });
-      if (isEntry) await this.pack();
-      mod = await this.parseId(id, { isEntry });
-    }
-
-    if (!mod) return;
-    const { fake, packet } = mod;
-    const mtime = fake ? new Date().toGMTString() : (await lstat(mod.fpath)).mtime.toJSON();
-    const bundle = packet.bundles[mod.file];
-    if (!bundle) throw new Error(`unknown bundle ${mod.file} in ${packet.name}`);
-    const result = await bundle.obtain();
-    const { code } = await this.writeSourceMap({ bundle, ...result });
-
-    return [ code, { 'Last-Modified': mtime }];
-  }
-
-  async readJs(id, query) {
-    const isMain = id.endsWith('.js') && 'main' in query;
-    const isEntry = isMain || 'entry' in query;
-    id = id.replace(/\.[a-f0-9]{8}\.js$/, '.js');
-    const mod = await this.parseId(id, { isEntry });
-
-    if (!mod) return;
-    if (isEntry) await this.pack();
-
-    const { fake, packet } = mod;
-    const mtime = fake ? new Date().toGMTString() : (await lstat(mod.fpath)).mtime.toJSON();
-    const bundle = packet.bundles[mod.file.replace(/\.\w+$/, '.js')];
-    if (!bundle) throw new Error(`unknown bundle ${mod.file} in ${packet.name}`);
-    const result = await bundle.obtain({ loader: isMain  });
-
-    const { code } = await this.writeSourceMap({ bundle, ...result });
-    return [code, { 'Last-Modified': mtime }];
-  }
-
-  async readMap(id) {
-    const fpath = path.join(this.cache.dest, id);
-    if (existsSync(fpath)) {
-      return this.readFilePath(fpath);
-    }
+    return [ map, { 'Last-Modified': bundle.updatedAt } ];
   }
 
   async readWasm(id) {
@@ -395,10 +417,12 @@ class Porter {
     }
 
     if (result) {
+      const body = result[0];
+      const content = typeof body === 'string' ? body : JSON.stringify(body);
       result[1] = {
         'Cache-Control': 'max-age=0',
         'Content-Type': mime.lookup(ext),
-        ETag: crypto.createHash('md5').update(result[0]).digest('hex'),
+        ETag: crypto.createHash('md5').update(content).digest('hex'),
         ...result[1]
       };
     }

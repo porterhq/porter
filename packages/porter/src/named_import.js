@@ -89,6 +89,6 @@ exports.replaceAll = function replaceAll(content, options = {}) {
   const pattern = new RegExp(`import\\s*\\{([^{}]+?)\\}\\s*from\\s*(['"])${libraryName}\\2;?`, 'g');
   return content.replace(pattern, function replace(m, names) {
     const imports = getImports(names);
-    return formatImports(imports, options);
+    return formatImports(imports, options) + '\n'.repeat(m.split('\n').length - 1);;
   });
 };

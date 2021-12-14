@@ -43,6 +43,7 @@
   var basePath = system.baseUrl.replace(/([^\/])$/, '$1/');
   var baseUrl = new URL(basePath, global.location.origin).toString();
   var pkg = system.package;
+  var alias = system.alias;
 
 
   function onload(el, callback) {
@@ -403,6 +404,15 @@
     if (!parent.version) Object.assign(parent, pkg, { file: context });
     var parentMap = lock[parent.name][parent.version];
 
+    if (parent.name === pkg.name) {
+      for (const key in alias) {
+        if (specifier.startsWith(key)) {
+          specifier = resolve(parent.name, parent.version, alias[key] + specifier.slice(key.length));
+          break;
+        }
+      }
+    }
+
     if (parentMap.browser) {
       var mapped = parentMap.browser[specifier];
       if (mapped === false) return '';
@@ -435,11 +445,15 @@
     var file = mod.file || map.main || 'index.js';
 
     if (map.browser) {
-      file = map.browser['./' + file] || map.browser['./' + file + '.js'] || file;
+      let result = map.browser['./' + file];
+      if (result === undefined) result = map.browser['./' + file + '.js'];
+      if (result === false) return '';
+      if (typeof result === 'string') file = result;
     }
     if (map.folder && map.folder[file]) file += '/index.js';
 
     file = suffix(file);
+    // root entry might still in id format when loading web worker from dependencies
     var id = resolve(name, version, file);
     return name === pkg.name && !registry[id] ? file : id;
   };
