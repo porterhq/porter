@@ -47,6 +47,12 @@ describe('Packet', function() {
       const mod = await porter.packet.parseFile('@/home_dep.js');
       assert.equal(mod, porter.packet.files['home_dep.js']);
     });
+
+    it('normalize relative path ./', async function() {
+      const callBind = porter.packet.find({ name: 'call-bind' });
+      assert.ok(callBind);
+      assert.deepEqual(Object.keys(callBind.files), [ 'index.js', 'callBound.js' ]);
+    });
   });
 
   describe('packet.parseFile()', function() {
