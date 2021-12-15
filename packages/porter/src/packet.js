@@ -345,9 +345,9 @@ module.exports = class Packet {
       if (fpath.endsWith('.d.ts')) return false;
 
       file += suffix;
+      if (suffix.startsWith('/index')) folder[originFile] = true;
       // There might be multiple resolves on same file.
       if (file in files) return files[file];
-      if (suffix.startsWith('/index')) folder[originFile] = true;
 
       const mod = Module.create({ file, fpath, packet: this });
       return mod;
