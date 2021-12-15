@@ -305,12 +305,12 @@ module.exports = class Packet {
     let result = browser[`./${file}`];
     if (result === undefined) result = browser[`./${file}.js`];
     if (result === false) return result;
-    if (typeof result === 'string') file = result.replace(/^[\.\/]+/, '');
+    if (typeof result === 'string') file = result;
 
     // explicit directory require
     if (file.endsWith('/')) file += 'index';
 
-    return file;
+    return file.replace(/^[\.\/]+/, '');
   }
 
   async parseModule(file) {

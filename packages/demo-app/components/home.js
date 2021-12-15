@@ -6,7 +6,15 @@ require('yen/events');
 const Chart = require('chart.js');
 const $ = require('jquery');
 require('cropper');
+
+// "browser": {
+//   "./util.inspect.js": false
+// },
 require('object-inspect');
+
+// require('./')
+require('call-bind');
+
 const Prism = require('prismjs');
 const heredoc = require('heredoc');
 require('./home_dep');
