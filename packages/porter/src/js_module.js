@@ -76,8 +76,12 @@ module.exports = class JsModule extends Module {
       } catch (err) {
         console.warn(new Error(`cache broken ${relativePath}`));
       }
-      if (data.etag === app.cache.etag && data.digest === crypto.createHash('md5').update(code).digest('hex')) {
-        this.cache = data;
+      if (data.etag === app.cache.etag) {
+        if (data.digest === crypto.createHash('md5').update(code).digest('hex')) {
+          this.cache = data;
+        } else {
+          debug(`cache invalidated ${path.relative(app.root, cachePath)}`);
+        }
       }
     }
 
