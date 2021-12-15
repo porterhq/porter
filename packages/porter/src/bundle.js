@@ -27,6 +27,7 @@ module.exports = class Bundle {
   #etag = null;
   #contenthash = null;
   #reloading = null;
+  #loaderCache = {};
 
   static wrap(options = {}) {
     const { packet, entries } = options;
@@ -79,15 +80,15 @@ module.exports = class Bundle {
 
     this.app = app;
     this.packet = packet;
-    this.#entries = Array.isArray(entries) && entries.length > 0 ? entries : null;
     this.loaderConfig = loaderConfig;
-    this.loaderCache = {};
+    this.#entries = Array.isArray(entries) && entries.length > 0 ? entries : null;
+    this.#loaderCache = {};
 
     let scope = 'packet';
-    if (app.preload.length > 0 || options.all || format === '.css') {
-      scope = 'all';
-    } else if (options.package === false) {
+    if (options.package === false) {
       scope = 'module';
+    } else if (app.preload.length > 0 || options.all || format === '.css') {
+      scope = 'all';
     }
     this.scope = scope;
     this.format = format;
@@ -132,6 +133,8 @@ module.exports = class Bundle {
       if (!entry) throw new Error(`unparsed entry ${name} (${packet.dir})`);
       // might be a mocked module from FakePacket
       if (!(entry instanceof Module)) continue;
+      // lazyloaded module
+      if (scope === 'module') return yield entry;
 
       /**
        * preloaded modules should be included in following scenarios:
@@ -162,6 +165,12 @@ module.exports = class Bundle {
     return getEntry(packet, this.#entries);
   }
 
+  get entryPath() {
+    const { entry, packet } = this;
+    const { name, version } = packet;
+    return packet.parent ? path.join(name, version, entry) : entry;
+  }
+
   get output() {
     const { entries } = this;
     const code = this.#code;
@@ -182,7 +191,6 @@ module.exports = class Bundle {
   get outputPath() {
     const { output, packet } = this;
     const { name, version } = packet;
-
     return packet.parent ? path.join(name, version, output) : output;
   }
 
@@ -213,10 +221,8 @@ module.exports = class Bundle {
   }
 
   async minifyLoader(loaderConfig = {}) {
-    const { loaderCache } = this;
-    const searchParams = new URLSearchParams();
-    for (const key in loaderConfig) searchParams.set(key, loaderConfig[key]);
-    const cacheKey = searchParams.toString();
+    const loaderCache = this.#loaderCache;
+    const cacheKey = JSON.stringify(loaderConfig);
     if (loaderCache[cacheKey]) return loaderCache[cacheKey];
     const code = await this.packet.parseLoader(loaderConfig);
 
@@ -253,7 +259,7 @@ module.exports = class Bundle {
    * @param {Object} opts.loaderConfig overrides {@link Packet#loaderConfig}
    */
   async obtain({ loader, minify = false } = {}) {
-    const { app, entries, packet, format } = this;
+    const { app, entries, packet, format, scope } = this;
 
     if (this.#etag === JSON.stringify({ entries })) {
       return { code: this.#code, map: this.#map };
@@ -263,6 +269,11 @@ module.exports = class Bundle {
     const node = new SourceNode();
     const loaderConfig = Object.assign(packet.loaderConfig, this.loaderConfig);
     const preloaded = app.preload.length > 0;
+
+    // bundling at module scope is trivial, hence ignored
+    if (scope !== 'module') {
+      debug('bundle start', this.entryPath, format, entries);
+    }
 
     for (const mod of this) {
       const { code, map } = minify ? await mod.minify() : await mod.obtain();
@@ -303,7 +314,7 @@ module.exports = class Bundle {
     this.#map = result.map;
     this.#etag = JSON.stringify({ entries });
     this.#contenthash = null;
-
+    if (scope !== 'module') debug('bundle complete', this.outputPath);
     return result;
   }
 

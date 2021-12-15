@@ -13,6 +13,7 @@ describe('Bundle without preload', function() {
     porter = new Porter({
       root,
       paths: ['components', 'browser_modules'],
+      lazyload: ['lazyload.js'],
       entries: ['home.js', 'test/suite.js', 'stylesheets/app.css'],
     });
     await fs.rm(porter.cache.path, { recursive: true, force: true });
@@ -27,6 +28,7 @@ describe('Bundle without preload', function() {
     it('should iterate over all modules that belong to bundle', async function() {
       assert.deepEqual(Object.keys(porter.packet.bundles).sort(), [
         'home.js',
+        'lazyload.js',
         'stylesheets/app.css',
         'test/suite.js',
       ]);
@@ -79,6 +81,14 @@ describe('Bundle without preload', function() {
       // should refresh contenthash
       assert.ok(/[a-f0-9]{8}/.test(bundle.contenthash));
       assert.notEqual(bundle.contenthash, contenthash);
+    });
+  });
+
+  describe('bundle.scope', function() {
+    it('should narrow scope to module if lazyloaded', async function() {
+      const bundle = porter.packet.bundles['lazyload.js'];
+      assert.equal(bundle.scope, 'module');
+      assert.deepEqual([ ...bundle ].map(mod => mod.file), [ 'lazyload.js' ]);
     });
   });
 });

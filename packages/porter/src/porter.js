@@ -18,6 +18,24 @@ const Bundle = require('./bundle');
 const { MODULE_LOADED, rModuleId } = require('./constants');
 const AtImport = require('./at_import');
 
+function waitFor(mod) {
+  return new Promise((resolve, reject) => {
+    const { app } = mod;
+
+    (function poll() {
+      if (mod.status >= MODULE_LOADED) return resolve();
+      const blockers = [];
+      for (const child of mod.family) {
+        if (child.status < MODULE_LOADED) {
+          blockers.push(path.relative(app.root, child.fpath));
+        }
+      }
+      debug('loading modules ... %s', blockers);
+      setTimeout(poll, 1000);
+    })();
+  });
+}
+
 class Porter {
   constructor(opts) {
     const root = opts.root || process.cwd();
@@ -66,6 +84,11 @@ class Porter {
         configurable: true,
         enumerable: false,
       },
+      parseCache: {
+        value: {},
+        configurable: true,
+        enumerable: false,
+      },
     });
 
     const packet = opts.package || require(path.join(root, 'package.json'));
@@ -110,22 +133,6 @@ class Porter {
 
   async pack() {
     const { packet, entries, preload } = this;
-
-    function waitFor(mod) {
-      return new Promise((resolve, reject) => {
-        (function poll() {
-          if (mod.status >= MODULE_LOADED) {
-            resolve();
-          } else {
-            setTimeout(poll, 100);
-          }
-        })();
-        setTimeout(function waitTimeout() {
-          reject(new Error(`timeout on packing entry ${mod.file}`));
-        }, 30000);
-      });
-    }
-
     const files = preload.concat(entries);
 
     for (const file of files) {
@@ -294,7 +301,12 @@ class Porter {
     }
   }
 
-  async parseId(id, { isEntry } = {}) {
+  async parseId(id) {
+    const { parseCache } = this;
+    return parseCache[id] || (parseCache[id] = this._parseId(id));
+  }
+
+  async _parseId(id) {
     let [, name, version, file] = id.match(rModuleId);
 
     if (!version) {
@@ -311,9 +323,12 @@ class Porter {
     let mod;
     // in case root entry is not parsed yet
     if (packet === this.packet) {
+      debug('parseEntry', file);
       mod = await packet.parseEntry(file.replace(rExt, '')).catch(() => null);
       if (ext === '.css') mod = await packet.parseEntry(file).catch(() => null);
+      debug('bundle start', file);
       await this.pack();
+      debug('bundle complete', file);
     }
 
     // prefer the real file extension
