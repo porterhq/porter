@@ -193,8 +193,8 @@ class Porter {
   }
 
   async compileExclusivePackets(opts) {
-    const { bundleExcept, lazyload, packet } = this;
-    const exclusives = new Set(bundleExcept);
+    const { bundle, lazyload, packet } = this;
+    const exclusives = new Set(bundle.exclude);
 
     if (lazyload.length > 0) {
       for (const file of lazyload) {

@@ -24,7 +24,8 @@ describe('porter.compileAll()', function() {
       paths: ['components', 'browser_modules'],
       preload: 'preload',
       lazyload: ['lazyload.js'],
-      source: { root: 'http://localhost:3000/' }
+      source: { root: 'http://localhost:3000/' },
+      bundle: { exclude: [ 'react', 'react-dom' ] },
     });
     await fs.rm(porter.cache.path, { recursive: true, force: true });
     await porter.ready;
@@ -61,6 +62,13 @@ describe('porter.compileAll()', function() {
   it('should compile entries in all paths', async function () {
     assert(entries.includes(`public/${manifest['test/suite.js']}`));
     assert(entries.includes(`public/${manifest['test/suite.js']}.map`));
+  });
+
+  it('should compile excluded packets', async function() {
+    const packet = porter.packet.find({ name: 'react' });
+    const { bundle } = packet;
+    assert(entries.includes(`public/${bundle.outputPath}`));
+    assert(entries.includes(`public/${bundle.outputPath}.map`));
   });
 
   it('should compile lazyload files', async function () {
