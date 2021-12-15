@@ -4,6 +4,7 @@ const expect = require('expect.js');
 
 describe('require directory', function() {
   it('require dir', function() {
+    require('./math/index'); // distractor
     const math = require('./math');
     expect(math.add(1, 1)).to.be(2);
   });
