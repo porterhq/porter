@@ -132,6 +132,17 @@ describe('Packet', function() {
       assert.deepEqual(porter.packet.transpilerOpts.presets, [ '@babel/preset-env' ]);
     });
 
+    it('should recognize babel.config.js', async function() {
+      await fs.rm(porter.cache.path, { recursive: true, force: true });
+      const porter3 = new Porter({
+        root: path.join(__dirname, '../fixtures/demo-package-babel-config-js'),
+        paths: ['components'],
+      });
+      await porter3.ready;
+      assert.equal(porter3.packet.transpiler, 'babel');
+      assert.deepEqual(porter3.packet.transpilerOpts.presets, [ '@babel/preset-env' ]);
+    });
+
     it('should set transpiler for dependencies if enabled', async function() {
       const porter2 = new Porter({
         root,

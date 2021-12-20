@@ -185,19 +185,50 @@ module.exports = class Packet {
 
   async findTranspiler() {
     if (this.transpiler) return;
-    const obj = { babel: '.babelrc', typescript: 'tsconfig.json' };
-    for (const dir of this.paths.concat(this.dir)) {
-      for (const prop in obj) {
-        const configPath = path.join(dir, obj[prop]);
-        const content = await readFile(configPath, 'utf8').catch(() => '');
-        if (!content) continue;
-        try {
-          this.transpiler = prop;
-          this.transpilerOpts = JSON.parse(content);
-        } catch (err) {
-          throw new Error(`${err.message} (${configPath})`);
+    const obj = {
+      babel: ['babel.config.js', '.babelrc'],
+      typescript: 'tsconfig.json',
+    };
+    const configMappers = [];
+    for (const key in obj) {
+      const value = obj[key];
+      if (Array.isArray(value)) {
+        for (const config of value) {
+          configMappers.push({
+            transpiler: key,
+            config,
+          });
         }
-        return;
+      } else {
+        configMappers.push({
+          transpiler: key,
+          config: value,
+        });
+      }
+    }
+
+    // TODO: 这里是否应该将 this.dir 放最前面，让它的优先级最高
+    for (const dir of this.paths.concat(this.dir)) {
+      let configPath;
+      let content;
+      for (const configObj of configMappers) {
+        configPath = path.join(dir, configObj.config);
+        if (!existsSync(configPath)) continue;
+        if (path.extname(configObj.config) === '.js') {
+          this.transpiler = configObj.transpiler;
+          this.transpilerOpts = require(configPath)();
+          return;
+        } else {
+          content = await readFile(configPath, 'utf8').catch(() => '');
+          if (!content) continue;
+          try {
+            this.transpiler = configObj.transpiler;
+            this.transpilerOpts = JSON.parse(content);
+          } catch (err) {
+            throw new Error(`${err.message} (${configPath})`);
+          }
+          return;
+        }
       }
     }
   }
