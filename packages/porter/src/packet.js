@@ -208,10 +208,8 @@ module.exports = class Packet {
     }
 
     for (const dir of this.paths.concat(this.dir)) {
-      let configPath;
-      let content;
       for (const configObj of configMappers) {
-        configPath = path.join(dir, configObj.config);
+        const configPath = path.join(dir, configObj.config);
         if (!existsSync(configPath)) continue;
         if (path.extname(configObj.config) === '.js') {
           this.transpiler = configObj.transpiler;
@@ -219,7 +217,7 @@ module.exports = class Packet {
           this.transpilerOpts = require(configPath)({ cache: () => {} });
           return;
         } else {
-          content = await readFile(configPath, 'utf8').catch(() => '');
+          const content = await readFile(configPath, 'utf8').catch(() => '');
           if (!content) continue;
           try {
             this.transpiler = configObj.transpiler;
