@@ -207,7 +207,6 @@ module.exports = class Packet {
       }
     }
 
-    // TODO: 这里是否应该将 this.dir 放最前面，让它的优先级最高
     for (const dir of this.paths.concat(this.dir)) {
       let configPath;
       let content;
@@ -216,7 +215,8 @@ module.exports = class Packet {
         if (!existsSync(configPath)) continue;
         if (path.extname(configObj.config) === '.js') {
           this.transpiler = configObj.transpiler;
-          this.transpilerOpts = require(configPath)();
+          // cache 用于兼容 babel.config.js 中 api.cache 调用
+          this.transpilerOpts = require(configPath)({ cache: () => {} });
           return;
         } else {
           content = await readFile(configPath, 'utf8').catch(() => '');

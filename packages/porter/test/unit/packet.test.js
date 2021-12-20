@@ -133,7 +133,6 @@ describe('Packet', function() {
     });
 
     it('should recognize babel.config.js', async function() {
-      await fs.rm(porter.cache.path, { recursive: true, force: true });
       const porter3 = new Porter({
         root: path.join(__dirname, '../fixtures/demo-package-babel-config-js'),
         paths: ['components'],
@@ -141,6 +140,14 @@ describe('Packet', function() {
       await porter3.ready;
       assert.equal(porter3.packet.transpiler, 'babel');
       assert.deepEqual(porter3.packet.transpilerOpts.presets, [ '@babel/preset-env' ]);
+      assert.deepEqual(porter3.packet.transpilerOpts.plugins, [
+        '@babel/plugin-transform-react-jsx',
+        '@babel/plugin-proposal-object-rest-spread',
+        ['@babel/plugin-proposal-decorators', { 'legacy': true}],
+        ['@babel/plugin-proposal-class-properties', { 'loose': false}],
+        ['@babel/plugin-proposal-private-methods', { 'loose': false }],
+        path.resolve(path.join(__dirname, '../../src/babel_plugin.js')),
+      ]);
     });
 
     it('should set transpiler for dependencies if enabled', async function() {
