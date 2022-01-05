@@ -91,11 +91,27 @@ describe('Porter_readFile()', function() {
     for (const id of mainIds) assert.ok(!preloadIds.includes(id));
   });
 
-  it('should invalidate opts.preload if dependencies change', async function() {
+  it('should invalidate preload if dependencies change', async function() {
     await checkReload({
       sourceFile: 'preload_dep.js',
       targetFile: 'preload.js'
     });
+  });
+
+  it('should invalidate preload if external dependencies change', async function() {
+    const yen = porter.packet.find({ name: 'yen' });
+    const { fpath } = yen.files['index.js'];
+    const content = await fs.readFile(fpath, 'utf-8');
+    await fs.writeFile(fpath, `${content}/* riddikulus */`);
+    await yen.reload('change', 'index.js');
+    await new Promise(resolve => setTimeout(resolve, 200));
+    const bundle = porter.packet.bundles['preload.js'];
+    const { code } = await bundle.obtain();
+    try {
+      assert.ok(code.includes('/* riddikulus */'));
+    } finally {
+      fs.writeFile(fpath, content);
+    }
   });
 
   it('should not override lock in preload', async function() {
