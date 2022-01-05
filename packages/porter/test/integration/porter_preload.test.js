@@ -23,11 +23,11 @@ function requestPath(urlPath, status = 200, listener = app.callback()) {
   });
 }
 
-async function checkReload({ sourceFile, targetFile, pathname }) {
+async function checkReload({ packet = porter.packet, sourceFile, targetFile, pathname }) {
+  if (!packet.watchers) packet.watch();
   sourceFile = sourceFile || targetFile;
-  const sourceModule = await porter.packet.parseFile(sourceFile);
-  const targetModule = await porter.packet.parseEntry(targetFile);
-  pathname = pathname || `/${targetModule.id}`;
+  const sourceModule = await packet.parseFile(sourceFile);
+  pathname = pathname || `/${(await packet.parseEntry(targetFile)).id}`;
   const { fpath: sourcePath } = sourceModule;
   await requestPath(pathname);
 
@@ -36,12 +36,12 @@ async function checkReload({ sourceFile, targetFile, pathname }) {
   await writeFile(sourcePath, `${source}${mark}`);
 
   try {
-    // {@link Package#watch} takes time to reload
-    await new Promise(resolve => setTimeout(resolve, 200));
     // https://stackoverflow.com/questions/10468504/why-fs-watchfile-called-twice-in-node
     if (process.platform !== 'darwin' && process.platform !== 'win32') {
-      await porter.packet.reload('change', sourceFile);
+      await packet.reload('change', sourceFile);
     }
+    // {@link Package#watch} takes time to reload
+    await new Promise(resolve => setTimeout(resolve, 200));
 
     const res = await requestPath(pathname);
     assert(res.text.includes(mark));
@@ -99,19 +99,19 @@ describe('Porter_readFile()', function() {
   });
 
   it('should invalidate preload if external dependencies change', async function() {
-    const yen = porter.packet.find({ name: 'yen' });
-    const { fpath } = yen.files['index.js'];
-    const content = await fs.readFile(fpath, 'utf-8');
-    await fs.writeFile(fpath, `${content}/* riddikulus */`);
-    await yen.reload('change', 'index.js');
-    await new Promise(resolve => setTimeout(resolve, 200));
-    const bundle = porter.packet.bundles['preload.js'];
-    const { code } = await bundle.obtain();
-    try {
-      assert.ok(code.includes('/* riddikulus */'));
-    } finally {
-      fs.writeFile(fpath, content);
-    }
+    await checkReload({
+      packet: porter.packet.find({ name: 'yen' }),
+      sourceFile: 'index.js',
+      pathname: '/preload.js',
+    });
+  });
+
+  it('should invalidate css if external dependencies change', async function() {
+    await checkReload({
+      packet: porter.packet.find({ name: 'cropper' }),
+      sourceFile: 'dist/cropper.css',
+      pathname: '/stylesheets/app.css',
+    });
   });
 
   it('should not override lock in preload', async function() {

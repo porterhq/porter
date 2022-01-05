@@ -291,33 +291,20 @@ module.exports = class Packet {
   }
 
   async reload(eventType, filename) {
-    const { files, app } = this;
+    const { files, app, bundles } = this;
     const mod = files[filename];
-    const ext = path.extname(filename);
     const { mtime } = await fs.stat(mod.fpath).catch(() => ({ mtime: null }));
     if (mtime === null || mod.reloaded >= mtime) return;
     mod.reloaded = mtime;
     await mod.reload();
 
-    const bundles = Object.values(this.bundles);
-    const rootBundles = Object.values(app.packet.bundles);
-
-    for (const bundle of bundles.concat(rootBundles)) {
+    const { bundles: rootBundles } = app.packet;
+    for (const bundle of Object.values(bundles).concat(Object.values(rootBundles))) {
       for (const m of bundle) {
         if (m === mod) {
           await bundle.reload();
           break;
         }
-      }
-    }
-
-    if (ext === '.css') {
-      for (const file in bundles) {
-        if (!file.endsWith('.css')) continue;
-        const bundle = bundles[file];
-        const entry = files[bundle.entry];
-        await entry.reload();
-        await bundle.reload();
       }
     }
   }
