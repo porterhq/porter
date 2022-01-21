@@ -17,6 +17,7 @@ const rExt = /\.(?:css|gif|jpg|jpeg|js|png|svg|swf|ico)$/i;
 const Bundle = require('./bundle');
 const { MODULE_LOADED, rModuleId } = require('./constants');
 const AtImport = require('./at_import');
+const Cache = require('./cache');
 
 function waitFor(mod) {
   return new Promise((resolve, reject) => {
@@ -37,6 +38,8 @@ function waitFor(mod) {
 }
 
 class Porter {
+  #ready = null;
+
   constructor(opts) {
     const root = opts.root || process.cwd();
     const paths = [].concat(opts.paths == null ? 'components' : opts.paths).map(loadPath => {
@@ -46,20 +49,8 @@ class Porter {
     output.path = path.resolve(root, output.path);
 
     const transpile = { include: [], ...opts.transpile };
-    const cache = {
-      path: output.path,
-      identifier({ packet }) {
-        const { version } = require('../package.json');
-        return JSON.stringify([
-          version,
-          packet.transpiler,
-          packet.transpilerVersion,
-          packet.transpilerOpts,
-        ]);
-      },
-      ...opts.cache,
-    };
-    cache.path = path.resolve(root, cache.path);
+    const cachePath = path.resolve(root, opts.cache && opts.cache.path || output.path);
+    const cache = new Cache({ path: cachePath });
 
     const bundle = { exclude: [], ...opts.bundle };
     const resolve = {
@@ -110,7 +101,10 @@ class Porter {
     this.source = { serve: false, root: '/', ...opts.source };
     this.cssTranspiler = postcss([ AtImport ].concat(opts.postcssPlugins || []));
     this.lessOptions = opts.lessOptions;
-    this.ready = this.prepare(opts);
+  }
+
+  get ready() {
+    return this.#ready || (this.#ready = this.prepare());
   }
 
   readFilePath(fpath) {
@@ -160,7 +154,7 @@ class Porter {
     });
   }
 
-  async prepare(opts = {}) {
+  async prepare() {
     const { packet } = this;
     const { entries, lazyload, preload, cache } = this;
 
@@ -168,7 +162,7 @@ class Porter {
     if (!packet.browserify) packet.browserify = { transform: ['envify'] };
 
     await packet.prepare();
-    cache.etag = cache.identifier(this);
+    await cache.prepare({ packet });
 
     await Promise.all([
       ...this.prepareFiles(preload),
@@ -326,9 +320,7 @@ class Porter {
       debug('parseEntry', file);
       mod = await packet.parseEntry(file.replace(rExt, '')).catch(() => null);
       if (ext === '.css') mod = await packet.parseEntry(file).catch(() => null);
-      debug('bundle start', file);
       await this.pack();
-      debug('bundle complete', file);
     }
 
     // prefer the real file extension

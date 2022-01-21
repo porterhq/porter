@@ -1,6 +1,5 @@
 'use strict';
 
-const crypto = require('crypto');
 const debug = require('debug')('porter');
 const path = require('path');
 const UglifyJS = require('uglify-js');
@@ -65,25 +64,7 @@ module.exports = class JsModule extends Module {
     const { code } = await this.load();
     const deps = this.deps || this.matchImport(code);
 
-    const cachePath = path.join(app.cache.path, `${this.id}.cache`);
-    const cacheContent = await readFile(cachePath, 'utf8').catch(() => {});
-
-    if (cacheContent) {
-      const relativePath = path.relative(app.root, cachePath);
-      let data = {};
-      try {
-        data = JSON.parse(cacheContent);
-      } catch (err) {
-        console.warn(new Error(`cache broken ${relativePath}`));
-      }
-      if (data.etag === app.cache.etag) {
-        if (data.digest === crypto.createHash('md5').update(code).digest('hex')) {
-          this.cache = data;
-        } else {
-          debug(`cache invalidated ${path.relative(app.root, cachePath)}`);
-        }
-      }
-    }
+    this.cache = await app.cache.get(this.id, code);
 
     const result = await Promise.all(deps.map(this.parseDep, this));
     this.children = result.filter(mod => !!mod);
@@ -141,7 +122,7 @@ module.exports = class JsModule extends Module {
 
     const { code, map } = await this.load();
     this.deps = this.deps || this.matchImport(code);
-    this.addCache(code, {
+    this.setCache(code, {
       ...this.uglify(await this.transpile({ code, map })),
       minified: true
     });

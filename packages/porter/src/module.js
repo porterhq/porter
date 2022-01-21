@@ -1,9 +1,7 @@
 'use strict';
 
-const crypto = require('crypto');
 const debug = require('debug')('porter');
 const path = require('path');
-const fs = require('fs/promises');
 const { MODULE_INIT, rModuleId } = require('./constants');
 
 module.exports = class Module {
@@ -87,22 +85,11 @@ module.exports = class Module {
     return lock;
   }
 
-  async _addCache() {
+  setCache(source, result) {
     const { app } = this;
-    const fpath = path.join(app.cache.path, this.id);
-    const dir = path.dirname(fpath);
-
-    await fs.mkdir(dir, { recursive: true });
-    await fs.writeFile(`${fpath}.cache`, JSON.stringify(this.cache));
-  }
-
-  addCache(source, opts) {
-    const { app } = this;
-    const digest = crypto.createHash('md5').update(source).digest('hex');
-    const map = typeof opts.map === 'string' ? JSON.parse(opts.map) : opts.map;
-
-    this.cache = { ...opts, map, digest, etag: app.cache.etag };
-    this._addCache().catch(err => console.error(err.stack));
+    if (typeof result.map === 'string') result.map = JSON.parse(result.map);
+    app.cache.set(this.id, source, result).catch(err => console.error(err.stack));
+    this.cache = result;
   }
 
   async parseRelative(dep) {
@@ -215,7 +202,7 @@ module.exports = class Module {
     if (!this.cache) {
       const { code, map } = await this.load();
       this.deps = this.matchImport(code);
-      this.addCache(code, await this.transpile({ code, map }));
+      this.setCache(code, await this.transpile({ code, map }));
     }
     return this.cache;
   }
@@ -224,7 +211,7 @@ module.exports = class Module {
     debug(`reloading ${this.file} (${this.packet.dir})`);
     const { code, map } = await this.load();
     this.deps = await this.checkDeps({ code });
-    this.addCache(code, await this.transpile({ code, map }));
+    this.setCache(code, await this.transpile({ code, map }));
   }
 
   async minify() {
