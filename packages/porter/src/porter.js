@@ -271,6 +271,7 @@ class Porter {
     if (!this.source.serve) return false;
 
     if (file.startsWith('node_modules')) {
+      // cnpm/npminstall rename packages to folders like _@babel_core@7.16.10@@babel/core
       const [, name] = file.replace(/^node_modules\//, '').replace(/^_@?[^@]+@[^@]+@/, '').match(rModuleId);
       // #1 cannot require('mocha') just yet
       return this.packet.find({ name }) || name == 'mocha';
