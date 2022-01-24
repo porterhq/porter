@@ -207,7 +207,7 @@ module.exports = class Packet {
       }
     }
 
-    for (const dir of this.paths.concat(this.dir)) {
+    outer: for (const dir of this.paths.concat(this.dir)) {
       for (const configObj of configMappers) {
         const configPath = path.join(dir, configObj.config);
         if (!existsSync(configPath)) continue;
@@ -215,7 +215,6 @@ module.exports = class Packet {
           this.transpiler = configObj.transpiler;
           // cache 用于兼容 babel.config.js 中 api.cache 调用
           this.transpilerOpts = require(configPath)({ cache: () => {} });
-          return;
         } else {
           const content = await readFile(configPath, 'utf8').catch(() => '');
           if (!content) continue;
@@ -225,8 +224,8 @@ module.exports = class Packet {
           } catch (err) {
             throw new Error(`${err.message} (${configPath})`);
           }
-          return;
         }
+        break outer;
       }
     }
   }
