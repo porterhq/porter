@@ -356,7 +356,7 @@ module.exports = class Packet {
     const [fpath, suffix] = await this.resolve(file);
 
     if (fpath) {
-      const fullPath = (await glob(fpath, { nocase: true, cwd: this.dir}))[0];
+      const fullPath = (await glob(fpath, { nocase: true, cwd: this.dir }))[0];
       if (fpath !== fullPath) {
         const err = new Error(`unable to fully resolve ${file} in ${name}, case mismatch (${fullPath})`);
         console.warn(err.stack);
