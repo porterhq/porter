@@ -264,6 +264,7 @@ class Porter {
   }
 
   async compileEntry(entry, opts) {
+    await this.ready;
     return this.packet.compile(entry, opts);
   }
 
