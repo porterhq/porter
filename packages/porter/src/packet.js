@@ -532,7 +532,7 @@ module.exports = class Packet {
 
   async pack() {
     const entries = [];
-    const { app, isolated, main, bundles, files } = this;
+    const { app, isolated, lazyloaded, main, bundles, files } = this;
 
     // the modules might not be fully parsed yet, the process returns early when parsing multiple times.
     await new Promise(resolve => {
@@ -550,7 +550,7 @@ module.exports = class Packet {
     }
 
     // if packet won't be bundled with root entries, compile as main bundle.
-    if (app.preload.length === 0 || isolated) entries.push(main);
+    if (app.preload.length === 0 || isolated || lazyloaded) entries.push(main);
 
     for (const entry of entries) {
       const bundle = bundles[entry] || Bundle.create({

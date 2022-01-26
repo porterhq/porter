@@ -180,6 +180,11 @@ class Porter {
       const bundle = Bundle.create({ packet, entries: [ file ], package: false });
       packet.bundles[file] = bundle;
       await bundle.obtain();
+
+      const mod = packet.files[file];
+      for (const child of mod.children) {
+        if (child.packet !== packet) child.packet.lazyloaded = true;
+      }
     }
 
     await this.pack();
@@ -194,18 +199,12 @@ class Porter {
   }
 
   async compileExclusivePackets(opts) {
-    const { bundle, lazyload, packet } = this;
+    const { bundle, packet } = this;
     const exclusives = new Set(bundle.exclude);
 
-    if (lazyload.length > 0) {
-      for (const file of lazyload) {
-        const mod = packet.files[file];
-        for (const child of mod.children) {
-          if (child.packet !== packet && !child.preloaded) {
-            exclusives.add(child.packet.name);
-          }
-        }
-      }
+    // lazyloaded packets still need to be compiled because preload might not take place
+    for (const name in packet.dependencies) {
+      if (packet.dependencies[name].lazyloaded) exclusives.add(name);
     }
 
     for (const name of exclusives) {
@@ -398,8 +397,13 @@ class Porter {
       result = await this.readBuiltinJs(file);
     }
     else if (file === 'loaderConfig.json') {
+      const { loaderConfig, lock } = packet;
+      for (const name in packet.dependencies) {
+        const dep = packet.dependencies[name];
+        if (dep.lazyloaded) lock[dep.name][dep.version] = dep.copy;
+      }
       result = [
-        JSON.stringify(Object.assign(packet.loaderConfig, { lock: packet.lock })),
+        JSON.stringify({ ...loaderConfig, lock }),
         { 'Last-Modified': (new Date()).toGMTString() }
       ];
     }
