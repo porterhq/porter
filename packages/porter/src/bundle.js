@@ -255,7 +255,8 @@ module.exports = class Bundle {
 
   async obtain(options = {}) {
     const { entries } = this;
-    const cacheKey  = JSON.stringify({ entries });
+    const { loader } = options;
+    const cacheKey  = JSON.stringify({ entries, loader });
     const task = this.#obtainCache[cacheKey];
     return task || (this.#obtainCache[cacheKey] = this._obtain(options));
   }
@@ -269,7 +270,7 @@ module.exports = class Bundle {
    */
   async _obtain({ loader, minify = false } = {}) {
     const { app, entries, packet, format, scope } = this;
-    const cacheKey = JSON.stringify({ entries });
+    const cacheKey = JSON.stringify({ entries, loader });
 
     if (this.#etag === cacheKey) {
       return { code: this.#code, map: this.#map };
@@ -322,7 +323,7 @@ module.exports = class Bundle {
     const result = node.join('\n').toStringWithSourceMap({ sourceRoot: '/' });
     this.#code = result.code;
     this.#map = result.map;
-    this.#etag = JSON.stringify({ entries });
+    this.#etag = cacheKey;
     this.#contenthash = null;
     this.#obtainCache[cacheKey] = null;
     if (scope !== 'module') debug('bundle complete', this.outputPath);
