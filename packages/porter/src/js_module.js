@@ -28,18 +28,23 @@ module.exports = class JsModule extends Module {
   async browserify(fpath, code) {
     const { packet } = this;
     const transforms = (packet.browserify && packet.browserify.transform) || [];
+    const env = {
+      RBOWSER: true,
+      NODE_ENV: process.env.NODE_ENV || 'development',
+    };
     const whitelist = ['envify', 'loose-envify', 'brfs'];
     let stream;
+
+    for (const key in env) {
+      if (code.includes(key) && !transforms.length) transforms.push('loose-envify');
+    }
 
     for (const name of transforms) {
       if (whitelist.includes(name)) {
         const factory = name == 'envify' || name == 'loose-envify'
           ? require('loose-envify')
           : packet.tryRequire(name);
-        const transform = factory(fpath, {
-          RBOWSER: true,
-          NODE_ENV: process.env.NODE_ENV || 'development',
-        });
+        const transform = factory(fpath, env);
         // normally `transform.end()` should return itself but brfs doesn't yet
         stream = stream ? stream.pipe(transform) : transform.end(code) || transform;
       }

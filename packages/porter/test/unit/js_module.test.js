@@ -46,6 +46,15 @@ describe('JsModule', function() {
     const mod = porter.packet.files['home.js'];
     assert.equal(mod.status, MODULE_LOADED);
   });
+
+  it('should support arbitrary conditional require', async function() {
+    // process.env.NODE_ENV === 'production'
+    await porter.packet.parsePacket({ name: 'mobx' });
+    const pkg = porter.packet.find({ name: 'mobx' });
+    const mod = pkg.files['dist/index.js'];
+    await mod.obtain();
+    assert.deepEqual(mod.deps, [ './mobx.cjs.development.js' ]);
+  });
 });
 
 describe('JsModule import CSS', function() {
