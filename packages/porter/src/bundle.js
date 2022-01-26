@@ -28,6 +28,7 @@ module.exports = class Bundle {
   #contenthash = null;
   #reloading = null;
   #loaderCache = {};
+  #obtainCache = {};
 
   static wrap(options = {}) {
     const { packet, entries } = options;
@@ -248,7 +249,15 @@ module.exports = class Bundle {
     this.#map = null;
     this.#etag = null;
     this.#contenthash = null;
+    this.#obtainCache = {};
     await this.obtain();
+  }
+
+  async obtain(options = {}) {
+    const { entries } = this;
+    const cacheKey  = JSON.stringify({ entries });
+    const task = this.#obtainCache[cacheKey];
+    return task || (this.#obtainCache[cacheKey] = this._obtain(options));
   }
 
   /**
@@ -258,10 +267,11 @@ module.exports = class Bundle {
    * @param {boolean} opts.loader   include the loader when entry is root entry, set to false to explicitly exclude the loader
    * @param {Object} opts.loaderConfig overrides {@link Packet#loaderConfig}
    */
-  async obtain({ loader, minify = false } = {}) {
+  async _obtain({ loader, minify = false } = {}) {
     const { app, entries, packet, format, scope } = this;
+    const cacheKey = JSON.stringify({ entries });
 
-    if (this.#etag === JSON.stringify({ entries })) {
+    if (this.#etag === cacheKey) {
       return { code: this.#code, map: this.#map };
     }
 
@@ -314,6 +324,7 @@ module.exports = class Bundle {
     this.#map = result.map;
     this.#etag = JSON.stringify({ entries });
     this.#contenthash = null;
+    this.#obtainCache[cacheKey] = null;
     if (scope !== 'module') debug('bundle complete', this.outputPath);
     return result;
   }
