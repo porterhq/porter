@@ -182,8 +182,8 @@ class Porter {
       await bundle.obtain();
 
       const mod = packet.files[file];
-      for (const child of mod.children) {
-        if (child.packet !== packet) child.packet.lazyloaded = true;
+      for (const child of mod.family) {
+        if (child.packet && child.packet !== packet) child.packet.lazyloaded = true;
       }
     }
 
