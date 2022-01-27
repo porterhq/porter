@@ -337,7 +337,7 @@ class Porter {
 
     const result = await bundle.obtain();
     const code = `${result.code}\n/*# sourceMappingURL=${path.basename(bundle.output)}.map */`;
-    return [ code, { 'Last-Modified': bundle.updatedAt }];
+    return [ code, { 'Last-Modified': bundle.updatedAt.toGMTString() }];
   }
 
   async readJs(outputPath, query) {
@@ -350,7 +350,7 @@ class Porter {
 
     const result = await bundle.obtain({ loader: isMain  });
     const code = `${result.code}\n//# sourceMappingURL=${path.basename(bundle.output)}.map`;
-    return [ code, { 'Last-Modified': bundle.updatedAt } ];
+    return [ code, { 'Last-Modified': bundle.updatedAt.toGMTString() } ];
   }
 
   async readMap(mapPath) {
@@ -364,7 +364,7 @@ class Porter {
     }
     map.sources = map.sources.map(source => source.replace(/^\//, ''));
 
-    return [ map, { 'Last-Modified': bundle.updatedAt } ];
+    return [ map, { 'Last-Modified': bundle.updatedAt.toGMTString() } ];
   }
 
   async readWasm(id) {
