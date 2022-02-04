@@ -10,26 +10,30 @@ module.exports = class TsModule extends JsModule {
 
     if (!ts) return { code };
 
+    const fileName = path.relative(packet.app.root, fpath);
     const tsconfig = packet.transpiler === 'typescript'
       ? packet.transpilerOpts
       : require(path.join(packet.dir, 'tsconfig.json'));
 
+    // - https://github.com/Microsoft/TypeScript/wiki/Using-the-Compiler-API#a-simple-transform-function
     const { compilerOptions } = tsconfig;
     const { outputText, diagnostics, sourceMapText } = ts.transpileModule(code, {
+      fileName,
       compilerOptions: {
         ...compilerOptions,
         module: ts.ModuleKind.CommonJS,
+        sourceRoot: '/',
         sourceMap: true,
-      }
+        // ts.transpileModule() needs source map not being inlined
+        inlineSourceMap: false,
+      },
     });
     let map;
 
     if (sourceMapText) {
-      const source = path.relative(packet.app.root, fpath);
       map = JSON.parse(sourceMapText);
-      map.sources = [ source ];
-      map.file = source;
-      map.sourceRoot = '/';
+      map.sources = [ fileName ];
+      map.file = fileName;
     }
 
     if (diagnostics.length) {
