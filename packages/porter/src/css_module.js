@@ -65,7 +65,7 @@ module.exports = class CssModule extends Module {
     });
 
     map = JSON.parse(result.map);
-    map.sourceRoot = app.source.root;
+    map.sourceRoot = '/';
     map.sources = map.sources.map(source => {
       return path.relative(app.root, source.replace(/^file:/, ''));
     });

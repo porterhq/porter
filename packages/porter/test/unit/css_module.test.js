@@ -54,6 +54,7 @@ describe('CssModule', function() {
     assert.deepEqual(map.sources, [
       'components/stylesheets/app.css',
     ]);
+    assert.equal(map.sourceRoot, '/');
   });
 
   it('should set status to MODULE_LOADED after parse', async function() {
