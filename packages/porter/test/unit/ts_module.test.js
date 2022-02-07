@@ -38,4 +38,12 @@ describe('TsModule', function() {
       'components/home.tsx',
     ]);
   });
+
+  it('should generate source map', async function() {
+    const mod = porter.packet.files['app.tsx'];
+    const { code, map } = await mod.obtain();
+    assert.equal(typeof code, 'string');
+    assert.equal(typeof map, 'object');
+    assert.equal(map.file, path.relative(root, mod.fpath));
+  });
 });
