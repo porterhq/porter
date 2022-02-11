@@ -101,6 +101,7 @@ class Porter {
     this.source = { serve: false, root: '/', ...opts.source };
     this.cssTranspiler = postcss([ AtImport ].concat(opts.postcssPlugins || []));
     this.lessOptions = opts.lessOptions;
+    this.uglifyOptions = opts.uglifyOptions;
   }
 
   get ready() {

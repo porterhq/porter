@@ -164,6 +164,7 @@ module.exports = class JsModule extends Module {
   uglify({ code, map }) {
     const { fpath, app } = this;
     const source = path.relative(app.root, fpath);
+    const { keep_fnames } = app.uglifyOptions || {};
 
     const result = UglifyJS.minify({ [source]: code }, {
       compress: {
@@ -177,6 +178,7 @@ module.exports = class JsModule extends Module {
           }
         }
       },
+      keep_fnames: keep_fnames instanceof RegExp ? keep_fnames.test(source) : keep_fnames,
       output: { ascii_only: true },
       sourceMap: {
         content: map,
