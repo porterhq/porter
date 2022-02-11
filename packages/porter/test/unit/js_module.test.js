@@ -91,3 +91,31 @@ describe('JsModule import CSS', function() {
     ]);
   });
 });
+
+describe('JsModule uglifyOptions', function() {
+  const root = path.resolve(__dirname, '../../../demo-app');
+  let porter;
+
+  before(async function() {
+    porter = new Porter({
+      root,
+      paths: ['components', 'browser_modules'],
+      entries: ['home.js', 'test/suite.js'],
+      uglifyOptions: {
+        keep_fnames: /home\.js$/,
+      }
+    });
+    await fs.rm(porter.cache.path, { recursive: true, force: true });
+    await porter.ready;
+  });
+
+  after(async function() {
+    await porter.destroy();
+  });
+
+  it('should pass on uglify options', async function() {
+    const mod = porter.packet.files['home.js'];
+    const result = await mod.minify();
+    assert(result.code.includes('function demoCropper'));
+  });
+});
