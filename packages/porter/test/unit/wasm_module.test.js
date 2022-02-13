@@ -16,7 +16,7 @@ describe('WasmModule', function() {
       entries: [ 'home.js' ],
     });
     await fs.rm(porter.cache.path, { recursive: true, force: true });
-    await porter.ready;
+    await porter.ready();
   });
 
   after(async function() {

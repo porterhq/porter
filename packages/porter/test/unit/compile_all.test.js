@@ -28,7 +28,7 @@ describe('porter.compileAll()', function() {
       bundle: { exclude: [ 'react', 'react-dom' ] },
     });
     await fs.rm(porter.cache.path, { recursive: true, force: true });
-    await porter.ready;
+    await porter.ready();
 
     await porter.compileAll({
       entries: ['home.js', 'test/suite.js', 'stylesheets/app.css']

@@ -16,7 +16,7 @@ describe('test/unit/stub.test.js', function() {
       paths: 'app/web',
       entries: [ 'notfound.jsx' ],
     });
-    await porter.ready;
+    await porter.ready();
   });
 
   after(async function() {

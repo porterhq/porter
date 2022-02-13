@@ -11,7 +11,7 @@ describe('porter.compileEntry()', function() {
 
   before(async function() {
     porter = new Porter({ root, preload: 'preload' });
-    await porter.ready;
+    await porter.ready();
   });
 
   after(async function() {

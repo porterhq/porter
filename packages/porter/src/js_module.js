@@ -107,7 +107,6 @@ module.exports = class JsModule extends Module {
       for (const dep of this.deps) {
         if (!deps.includes(dep)) await this.parseDep(dep);
       }
-      if (!this.packet) console.log(deps, this.deps);
       code = result.code;
       map = result.map;
     }

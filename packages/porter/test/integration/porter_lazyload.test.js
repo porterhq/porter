@@ -19,7 +19,7 @@ app.use(porter.async());
 describe('Porter_readFile()', function() {
   before(async function() {
     await fs.rm(porter.cache.path, { recursive: true, force: true });
-    await porter.ready;
+    await porter.ready();
   });
 
   after(async function() {

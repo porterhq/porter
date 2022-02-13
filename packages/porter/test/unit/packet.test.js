@@ -4,10 +4,8 @@ const assert = require('assert').strict;
 const path = require('path');
 const expect = require('expect.js');
 const fs = require('fs/promises');
-const semver = require('semver');
 const util = require('util');
 
-const { access, readFile } = fs;
 const glob = util.promisify(require('glob'));
 
 const Porter = require('../..');
@@ -28,7 +26,7 @@ describe('Packet', function() {
       },
     });
     await fs.rm(porter.cache.path, { recursive: true, force: true });
-    await porter.ready;
+    await porter.ready();
   });
 
   after(async function() {
@@ -122,7 +120,7 @@ describe('Packet', function() {
       const porter2 = new Porter({
         root: path.join(__dirname, '../fixtures/demo-package-babel'),
       });
-      await porter2.ready;
+      await porter2.ready();
       assert.equal(porter2.packet.transpiler, 'babel');
       assert.deepEqual(porter.packet.transpilerOpts.presets, [ '@babel/preset-env' ]);
     });
@@ -137,7 +135,7 @@ describe('Packet', function() {
         root: path.join(__dirname, '../fixtures/demo-package-babel-config-js'),
         paths: ['components'],
       });
-      await porter3.ready;
+      await porter3.ready();
       assert.equal(porter3.packet.transpiler, 'babel');
       assert.deepEqual(porter3.packet.transpilerOpts.presets, [ '@babel/preset-env' ]);
       assert.deepEqual(porter3.packet.transpilerOpts.plugins, [
@@ -158,7 +156,7 @@ describe('Packet', function() {
           include: [ 'yen' ],
         },
       });
-      await porter2.ready;
+      await porter2.ready();
       const packet = porter2.packet.find({ name: 'yen' });
       assert.equal(packet.transpiler, 'babel');
     });
@@ -186,26 +184,6 @@ describe('Packet', function() {
     });
   });
 
-  describe('packet.lock', function() {
-    it('should flatten dependencies', function () {
-      const pkg = require(path.join(root, 'package.json'));
-      const { lock } = porter.packet;
-      expect(lock).to.be.an(Object);
-      const deps = lock[pkg.name][pkg.version].dependencies;
-      for (const name in deps) {
-        expect(semver.satisfies(deps[name], pkg[name]));
-      }
-    });
-
-    it('should contain @babel/runtime manifest', async function() {
-      const { lock } = porter.packet;
-      assert.ok(lock['@babel/runtime']);
-      // { manifest: { 'index.js': 'index.fc8964e4.js' } }
-      const meta = Object.values(lock['@babel/runtime']).shift();
-      assert.equal(Object.keys(meta.manifest).length, 1);
-    });
-  });
-
   describe('packet.compile()', function () {
     it('should reuse existing bundle', async function() {
       const packet = porter.packet.find({ name: 'react' });
@@ -229,7 +207,7 @@ describe('Packet', function() {
       const { main, } = pkg;
       const bundle = await pkg.compile(main);
       const fpath = path.join(root, 'public', `${bundle.outputPath}.map`);
-      const map = JSON.parse(await readFile(fpath, 'utf8'));
+      const map = JSON.parse(await fs.readFile(fpath, 'utf8'));
       expect(map.sources).to.contain('node_modules/react/index.js');
     });
 
@@ -269,8 +247,22 @@ describe('Packet', function() {
       await packet.compile('lazyload.js', { manifest, loader: false, package: false });
       assert.ok(manifest['lazyload.js']);
       await assert.doesNotReject(async function() {
-        await access(path.join(root, `public/${manifest['lazyload.js']}`));
+        await fs.access(path.join(root, `public/${manifest['lazyload.js']}`));
       });
+    });
+
+    it('should skip generating source map if bundle exists', async function() {
+      const manifest = {};
+      await porter.packet.compile('home.js', { manifest });
+      const fpath = path.join(porter.output.path, manifest['home.js']);
+      await assert.doesNotReject(async function() {
+        await fs.access(fpath);
+      });
+      const stats = await fs.stat(fpath);
+      await new Promise(resolve => setTimeout(resolve, 100));
+      await porter.packet.compile('home.js', { manifest });
+      const stats2 = await fs.stat(fpath);
+      assert.equal(stats.mtime.getTime(), stats2.mtime.getTime());
     });
   });
 

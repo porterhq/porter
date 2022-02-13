@@ -25,7 +25,7 @@ describe('test/unit/less_module.test.js', function() {
       },
       lessOptions: { javascriptEnabled: true },
     });
-    await porter.ready;
+    await porter.ready();
   });
 
   after(async function() {

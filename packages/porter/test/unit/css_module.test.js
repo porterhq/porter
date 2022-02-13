@@ -24,7 +24,7 @@ describe('CssModule', function() {
       ],
     });
     await fs.rm(porter.cache.path, { recursive: true, force: true });
-    await porter.ready;
+    await porter.ready();
   });
 
   after(async function() {

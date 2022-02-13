@@ -63,24 +63,39 @@ module.exports = class Module {
 
   get lock() {
     const lock = {};
-    const packets = [];
+    const entries = [ this ];
+    const { app, fake } = this;
+    const packets = new Set();
 
-    for (const mod of this.family) {
-      const { packet } = mod;
-      if (packets.includes(packet)) continue;
-      packets.push(packet);
-      const { name, version } = packet;
-      const copies = lock[name] || (lock[name] = {});
-      copies[version] = Object.assign(copies[version] || {}, packet.copy);
+    if (!fake && this.packet === app.packet) {
+      for (const file of [ ...app.preload, ...app.lazyload ]) {
+        entries.push(this.packet.files[file]);
+      }
     }
 
-    const { packet: rootPacket } = this;
-    const { name, version } = rootPacket;
-    const copy = lock[name][version];
-    copy.dependencies = Object.keys(copy.dependencies).reduce((obj, prop) => {
-      if (prop in lock) obj[prop] = copy.dependencies[prop];
-      return obj;
-    }, {});
+    for (const entry of entries) {
+      for (const mod of entry.family) {
+        if (mod.packet === app.packet) {
+          packets.add(mod.packet);
+        } else {
+          for (const packet of mod.packet.all) packets.add(packet);
+        }
+      }
+    }
+
+    const sortedPackets = [ ...packets ].sort(function(a, b) {
+      if (a.name > b.name) return 1;
+      if (a.name < b.name) return -1;
+      if (a.version > b.version) return 1;
+      if (a.version < b.version) return -1;
+      return 0;
+    });
+
+    for (const packet of sortedPackets) {
+      const { name, version, copy } = packet;
+      const copies = lock[name] || (lock[name] = {});
+      copies[version] = { ...copies[version], ...copy };
+    }
 
     return lock;
   }

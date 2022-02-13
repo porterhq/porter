@@ -129,6 +129,15 @@ module.exports = class Packet {
     return bundles[main] || null;
   }
 
+  /**
+   * check if packet should be bundled and were not bundled yet
+   * @returns {boolean}
+   */
+  get bundleable() {
+    const { app, bundles, isolated } = this;
+    return (app.preload.length === 0 || isolated) && Object.keys(bundles).length === 0;
+  }
+
   get all() {
     const iterable = { done: new WeakMap() };
     iterable[Symbol.iterator] = function * () {
@@ -243,8 +252,11 @@ module.exports = class Packet {
 
     if (this.transpiler === 'babel') {
       const { plugins = [] } = this.transpilerOpts;
-      plugins.push(path.join(__dirname, 'babel_plugin.js'));
-      this.transpilerOpts.plugins = plugins;
+      const pluginPath = path.join(__dirname, 'babel_plugin.js');
+      if (!plugins.includes(pluginPath)) {
+        plugins.push(pluginPath);
+        this.transpilerOpts.plugins = plugins;
+      }
     }
   }
 
@@ -381,6 +393,7 @@ module.exports = class Packet {
     const { app, dir, entries, files } = this;
     const mod = await this.parseModule(entry);
 
+    // if neglected in alias
     if (mod === false) return mod;
     if (!mod) throw new Error(`unknown entry ${entry} (${dir})`);
 
@@ -470,29 +483,35 @@ module.exports = class Packet {
   }
 
   get copy() {
-    const copy = { manifest: {} };
+    const copy = {};
+    const manifest = {};
     const { dependencies, main, bundles, parent, entries } = this;
 
     for (const file in bundles) {
       if (file.endsWith('.css')) continue;
       if (!parent && entries[file] && !entries[file].isPreload) continue;
-      copy.manifest[file] = bundles[file].output;
+      manifest[file] = bundles[file].output;
     }
 
+    if (Object.keys(manifest).length > 0) copy.manifest = manifest;
     if (!/^(?:\.\/)?index(?:.js)?$/.test(main)) copy.main = main;
 
     for (const name of ['folder', 'browser']) {
       const obj = this[name];
+      const sorted = Object.keys(obj).sort().reduce((result, key) => {
+        result[key] = obj[key];
+        return result;
+      }, {});
       if (Object.keys(obj).length > 0)  {
-        copy[name] = { ...copy[name], ...obj };
+        copy[name] = { ...copy[name], ...sorted };
       }
     }
 
     if (dependencies && Object.keys(dependencies).length > 0) {
-      if (!copy.dependencies) copy.dependencies = {};
-      for (const dep of Object.values(dependencies)) {
-        copy.dependencies[dep.name] = dep.version;
-      }
+      copy.dependencies = Object.keys(dependencies).sort().reduce((result, key) => {
+        result[key] = dependencies[key].version;
+        return result;
+      }, {});
     }
 
     return copy;
@@ -530,7 +549,7 @@ module.exports = class Packet {
     });
   }
 
-  async pack() {
+  async pack({ minify = false } = {}) {
     const entries = [];
     const { app, isolated, lazyloaded, main, bundles, files } = this;
 
@@ -557,7 +576,9 @@ module.exports = class Packet {
         packet: this,
         entries: entry === main ? null : [ entry ],
       });
-      if (bundle.entries.length > 0) await bundle.obtain();
+      if (bundle.entries.length > 0) {
+        await (minify ? bundle.minify() : bundle.obtain());
+      }
     }
   }
 
@@ -607,24 +628,26 @@ module.exports = class Packet {
       this.bundles[entries[0]] = null;
     }
 
-    const { app, dir } = this;
+    const { app } = this;
     const bundle = Bundle.create({ ...opts, packet: this, entries });
-    const specifier = this.parent ? path.relative(app.root, dir) : bundle.entry;
 
-    debug(`compile ${specifier} start %s`, entries);
-    const result = await bundle.minify();
-    const { code, map } = this.setSourceMap({ output: bundle.output, ...result });
-
-    if (!this.parent) {
-      manifest[bundle.entry] = bundle.output;
+    if (await bundle.exists()) {
+      const { entryPath, outputPath } = bundle;
+      if (!this.parent) manifest[bundle.entry] = bundle.output;
+      debug('bundle exists %s -> %s', entryPath, outputPath, bundle.entries);
+      return bundle;
     }
 
+    const result = await bundle.minify();
     const mod = this.files[entries[0]];
+
     if (mod && mod.fake) {
       delete this.files[mod.file];
       delete this.entries[mod.file];
     }
 
+    if (!this.parent) manifest[bundle.entry] = bundle.output;
+    const { code, map } = this.setSourceMap({ output: bundle.output, ...result });
     if (!opts.writeFile) return { code, map };
 
     const fpath = path.join(app.output.path, bundle.outputPath);
@@ -633,9 +656,9 @@ module.exports = class Packet {
       writeFile(fpath, code),
       writeFile(`${fpath}.map`, JSON.stringify(map, (k, v) => {
         if (k !== 'sourcesContent') return v;
-      }))
+      })),
     ]);
-    debug(`compile ${specifier} -> ${bundle.outputPath} end`);
+
     return bundle;
   }
 

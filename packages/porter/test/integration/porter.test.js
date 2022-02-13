@@ -65,7 +65,7 @@ describe('Porter', function() {
       }
     });
     await fs.rm(porter.cache.path, { recursive: true, force: true });
-    await porter.ready;
+    await porter.ready();
 
     app = new Koa();
     app.use(porter.async());
@@ -138,7 +138,7 @@ describe('Porter', function() {
     it('should handle packet manifest', async function() {
       const yen = porter.packet.find({ name: 'yen' });
       const { name, version, main } = yen;
-      const { manifest } = porter.packet.lock[name][version];
+      const { manifest } = yen.copy;
       await requestPath(`/${name}/${version}/${manifest[main]}`);
     });
 

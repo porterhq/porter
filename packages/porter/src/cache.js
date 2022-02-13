@@ -65,7 +65,7 @@ module.exports = class Cache {
     const saltPath = path.join(this.path, 'salt.cache');
     const salt = await fs.readFile(saltPath, 'utf8').catch(() => '');
     if (salt !== this.salt) {
-      debug('cache salt changed from %j to %j', salt, this.salt);
+      if (salt) debug('cache salt changed from %j to %j', salt, this.salt);
       await fs.mkdir(path.dirname(saltPath), { recursive: true });
       await fs.writeFile(saltPath, this.salt);
     }
