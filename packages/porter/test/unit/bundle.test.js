@@ -17,7 +17,7 @@ describe('Bundle without preload', function() {
       entries: ['home.js', 'test/suite.js', 'stylesheets/app.css'],
     });
     await fs.rm(porter.cache.path, { recursive: true, force: true });
-    await porter.ready;
+    await porter.ready();
   });
 
   after(async function() {
@@ -29,6 +29,7 @@ describe('Bundle without preload', function() {
       assert.deepEqual(Object.keys(porter.packet.bundles).sort(), [
         'home.js',
         'lazyload.js',
+        'lazyload_dep.js',
         'stylesheets/app.css',
         'test/suite.js',
       ]);
@@ -107,7 +108,7 @@ describe('Bundle with preload', function() {
         exclude: ['react', 'react-dom', 'chart.js'],
       },
     });
-    await porter.ready;
+    await porter.ready();
   });
 
   after(async function() {
@@ -189,6 +190,16 @@ describe('Bundle with preload', function() {
       ]);
     });
   });
+
+  describe('bundle.fuzzyObtain()', function() {
+    it('should return the same code as from bundle.obtain()', async function() {
+      const bundle = porter.packet.bundles['home.js'];
+      const result = await bundle.fuzzyObtain();
+      const result2 = await bundle.obtain();
+      assert.equal(result.code, result2.code);
+      assert.ok(result2.map);
+    });
+  });
 });
 
 describe('Bundle with TypeScript', function() {
@@ -201,7 +212,7 @@ describe('Bundle with TypeScript', function() {
       entries: ['app.tsx', 'app.css'],
     });
     await fs.rm(porter.cache.path, { recursive: true, force: true });
-    await porter.ready;
+    await porter.ready();
   });
 
   after(async function() {
@@ -241,7 +252,7 @@ describe('Bundle with CSS in JS', function() {
       },
     });
     await fs.rm(porter.cache.path, { recursive: true, force: true });
-    await porter.ready;
+    await porter.ready();
   });
 
   after(async function() {

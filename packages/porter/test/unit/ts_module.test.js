@@ -15,7 +15,7 @@ describe('TsModule', function() {
       root,
       entries: [ 'app.tsx' ],
     });
-    await porter.ready;
+    await porter.ready();
   });
 
   after(async function() {

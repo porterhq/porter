@@ -24,7 +24,7 @@ module.exports = class Bundle {
   #entries = null;
   #code = null;
   #map = null;
-  #etag = null;
+  #cacheKey = null;
   #contenthash = null;
   #reloading = null;
   #loaderCache = {};
@@ -129,7 +129,7 @@ module.exports = class Bundle {
       if (format === '.js') yield* iterate(entry, preload);
     }
 
-    for (const name of entries) {
+    for (const name of entries.sort()) {
       const entry = packet.files[name];
       if (!entry) throw new Error(`unparsed entry ${name} (${packet.dir})`);
       // might be a mocked module from FakePacket
@@ -247,16 +247,40 @@ module.exports = class Bundle {
     await fs.unlink(path.join(app.cache.path, outputPath)).catch(() => {});
     this.#code = null;
     this.#map = null;
-    this.#etag = null;
+    this.#cacheKey = null;
     this.#contenthash = null;
     this.#obtainCache = {};
     await this.obtain();
+  }
+
+  async getEntryModule({ minify = false } = {}) {
+    const { packet, format, entries } = this;
+    const mod = packet.files[entries[0]];
+
+    if (!mod && format === '.js') {
+      const { name, version } = packet;
+      throw new Error(`unable to find ${entries[0]} in packet ${name} v${version}`);
+    }
+
+    if (mod.isRootEntry) {
+      // dependencies generated at the transpile phase might not be packed yet
+      for (const dep of packet.all) {
+        if (dep !== packet && dep.bundleable) await dep.pack({ minify });
+      }
+    }
+
+    return mod;
   }
 
   async obtain(options = {}) {
     const { entries } = this;
     const { loader } = options;
     const cacheKey  = JSON.stringify({ entries, loader });
+
+    if (this.#cacheKey === cacheKey) {
+      return { code: this.#code, map: this.#map };
+    }
+
     const task = this.#obtainCache[cacheKey];
     return task || (this.#obtainCache[cacheKey] = this._obtain(options));
   }
@@ -269,45 +293,23 @@ module.exports = class Bundle {
    * @param {Object} opts.loaderConfig overrides {@link Packet#loaderConfig}
    */
   async _obtain({ loader, minify = false } = {}) {
-    const { app, entries, packet, format, scope } = this;
+    const { app, entries, packet, format } = this;
     const cacheKey = JSON.stringify({ entries, loader });
-
-    if (this.#etag === cacheKey) {
-      return { code: this.#code, map: this.#map };
-    }
 
     this.updatedAt = new Date();
     const node = new SourceNode();
     const loaderConfig = Object.assign(packet.loaderConfig, this.loaderConfig);
-    const preloaded = app.preload.length > 0;
-
-    // bundling at module scope is trivial, hence ignored
-    if (scope !== 'module') {
-      debug('bundle start', this.entryPath, format, entries);
-    }
 
     for (const mod of this) {
       const { code, map } = minify ? await mod.minify() : await mod.obtain();
       const source = path.relative(app.root, mod.fpath);
       node.add(await this.createSourceNode({ source, code, map }));
     }
-    const mod = packet.files[entries[0]];
 
-    if (!mod && format === '.js') {
-      const { name, version } = packet;
-      throw new Error(`unable to find ${entries[0]} in packet ${name} v${version}`);
-    }
-
-    if (mod.isRootEntry) {
-      // make sure packet dependencies are all packed
-      for (const dep of packet.all) {
-        if (dep !== packet) await dep.pack();
-      }
-    }
+    const mod = await this.getEntryModule({ minify });
 
     if (mod.isRootEntry && !mod.isPreload && format === '.js') {
-      const lock = preloaded && mod.fake ? mod.lock : packet.lock;
-      node.prepend(`Object.assign(porter.lock, ${JSON.stringify(lock)})`);
+      node.prepend(`Object.assign(porter.lock, ${JSON.stringify(mod.lock)})`);
     }
 
     if (mod.isRootEntry && loader !== false && format === '.js') {
@@ -323,15 +325,64 @@ module.exports = class Bundle {
     const result = node.join('\n').toStringWithSourceMap({ sourceRoot: '/' });
     this.#code = result.code;
     this.#map = result.map;
-    this.#etag = cacheKey;
+    this.#cacheKey = cacheKey;
     this.#contenthash = null;
     this.#obtainCache[cacheKey] = null;
-    if (scope !== 'module') debug('bundle complete', this.outputPath);
+
+    const { entryPath, outputPath } = this;
+    debug('bundle complete %s -> %s', entryPath, outputPath, entries);
     return result;
   }
 
-  async minify(opts) {
-    return await this.obtain({ ...opts, minify: true });
+  /**
+   * Fuzzy obtain code without source map
+   * @param {Object}  options
+   * @param {boolean} options.loader
+   * @param {boolean} options.minify
+   */
+  async fuzzyObtain({ loader, minify = false } = {}) {
+    const { packet, format } = this;
+    const loaderConfig = Object.assign(packet.loaderConfig, this.loaderConfig);
+    const chunks = [];
+
+    for (const mod of this) {
+      const { code } = minify ? await mod.minify() : await mod.obtain();
+      chunks.push(code);
+    }
+
+    const mod = await this.getEntryModule({ minify });
+
+    if (mod.isRootEntry && !mod.isPreload && format === '.js') {
+      chunks.unshift(`Object.assign(porter.lock, ${JSON.stringify(mod.lock)})`);
+    }
+
+    if (mod.isRootEntry && loader !== false && format === '.js') {
+      // bundle with loader unless turned off specifically
+      const { code } = minify
+        ? await this.minifyLoader(loaderConfig)
+        : await this.obtainLoader(loaderConfig);
+      chunks.unshift(code);
+      chunks.push(`porter["import"](${JSON.stringify(mod.id)})`);
+    }
+
+    const code = (this.#code = chunks.join('\n'));
+    return { code };
+  }
+
+  async exists({ loader, minify = true } = {}) {
+    await this.fuzzyObtain({ loader, minify });
+    const { app, outputPath } = this;
+    if (typeof app.bundle.exists === 'function') {
+      return await app.bundle.exists(this);
+    }
+    // prevent the fuzzy obtained code from interfering future obtaining
+    // this.#cacheKey = null;
+    const fpath = path.join(app.output.path, outputPath);
+    return await fs.access(fpath).then(() => true).catch(() => false);
+  }
+
+  async minify({ loader } = {}) {
+    return await this.obtain({ loader, minify: true });
   }
 
   // async minify(opts) {

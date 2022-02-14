@@ -38,7 +38,7 @@ function waitFor(mod) {
 }
 
 class Porter {
-  #ready = null;
+  #readyCache = new Map();
 
   constructor(opts) {
     const root = opts.root || process.cwd();
@@ -104,8 +104,11 @@ class Porter {
     this.uglifyOptions = opts.uglifyOptions;
   }
 
-  get ready() {
-    return this.#ready || (this.#ready = this.prepare());
+  ready(options = { minify: false }) {
+    const readyCache = this.#readyCache;
+    const cacheKey = JSON.stringify(options);
+    if (!readyCache.has(cacheKey)) readyCache.set(cacheKey, this.prepare(options));
+    return readyCache.get(cacheKey);
   }
 
   readFilePath(fpath) {
@@ -126,7 +129,7 @@ class Porter {
     return result;
   }
 
-  async pack() {
+  async pack({ minify = false } = {}) {
     const { packet, entries, preload } = this;
     const files = preload.concat(entries);
 
@@ -137,12 +140,14 @@ class Porter {
     }
 
     for (const dep of packet.all) {
-      if (dep !== packet) await dep.pack();
+      if (dep !== packet) await dep.pack({ minify });
     }
 
     for (const file of files) {
       const bundles = Bundle.wrap({ packet, entries: [ file ] });
-      await Promise.all(bundles.map(bundle => bundle.obtain()));
+      await Promise.all(
+        bundles.map(bundle => minify ? bundle.minify() : bundle.obtain())
+      );
     }
   }
 
@@ -155,7 +160,14 @@ class Porter {
     });
   }
 
-  async prepare() {
+  get lazyloads() {
+    return this.lazyload.reduce((result, file) => {
+      for (const mod of this.packet.files[file].family) result.add(mod);
+      return result;
+    }, new Set());
+  }
+
+  async prepare({ minify = false } = {}) {
     const { packet } = this;
     const { entries, lazyload, preload, cache } = this;
 
@@ -165,6 +177,7 @@ class Porter {
     await packet.prepare();
     await cache.prepare({ packet });
 
+    debug('parse preload, entries, and lazyload');
     await Promise.all([
       ...this.prepareFiles(preload),
       ...this.prepareFiles(entries, true),
@@ -177,18 +190,17 @@ class Porter {
       for (const mod of entry.family) mod.preloaded = !mod.packet.isolated;
     }
 
-    for (const file of lazyload) {
-      const bundle = Bundle.create({ packet, entries: [ file ], package: false });
-      packet.bundles[file] = bundle;
-      await bundle.obtain();
-
-      const mod = packet.files[file];
-      for (const child of mod.family) {
-        if (child.packet && child.packet !== packet) child.packet.lazyloaded = true;
+    for (const mod of this.lazyloads) {
+      if (mod.packet === packet) {
+        const bundle = Bundle.create({ packet, entries: [ mod.file ], package: false });
+        packet.bundles[mod.file] = bundle;
+        await (minify ? bundle.minify() : bundle.obtain());
+      } else if (mod.packet) {
+        mod.packet.lazyloaded = true;
       }
     }
 
-    await this.pack();
+    await this.pack({ minify });
   }
 
   async compilePackets(opts) {
@@ -214,22 +226,14 @@ class Porter {
     }
   }
 
-  async compileAll({ entries, sourceRoot }) {
-    debug('init');
-    await this.ready;
+  async compileAll({ entries = [] }) {
+    await this.ready({ minify: true });
 
-    debug('parse');
-    if (entries) {
+    debug('parse additional entries');
+    if (entries.filter(file => !this.packet.entries[file])) {
       await Promise.all(entries.map(entry => this.packet.parseEntry(entry)));
-    } else {
-      entries = Object.keys(this.packet.entries);
     }
-
-    debug('minify');
-    await Promise.all(Array.from(this.packet.all).reduce((tasks, packet) => {
-      tasks.push(...Object.values(packet.files).map(mod => mod.minify()));
-      return tasks;
-    }, []));
+    entries = Object.keys(this.packet.entries);
 
     debug('compile packets');
     if (this.preload.length > 0) {
@@ -245,9 +249,8 @@ class Porter {
     }
 
     debug('compile lazyload');
-    for (const file of this.lazyload) {
-      for (const mod of this.packet.files[file].family) {
-        if (mod.packet.parent) continue;
+    for (const mod of this.lazyloads) {
+      if (mod.packet === this.packet) {
         await mod.packet.compile(mod.file, { package: false, manifest });
       }
     }
@@ -264,7 +267,7 @@ class Porter {
   }
 
   async compileEntry(entry, opts) {
-    await this.ready;
+    await this.ready({ minify: true });
     return this.packet.compile(entry, opts);
   }
 
@@ -316,9 +319,10 @@ class Porter {
     if (!packet) throw new Error(`unknown dependency ${id}`);
 
     const ext = path.extname(file);
-    let mod;
+    // lazyloads should not go through `packet.parseEntry(file)`
+    let mod = packet.files[file];
     // in case root entry is not parsed yet
-    if (packet === this.packet) {
+    if (packet === this.packet && !(mod && packet.bundles[mod.file])) {
       debug('parseEntry', file);
       mod = await packet.parseEntry(file.replace(rExt, '')).catch(() => null);
       if (ext === '.css') mod = await packet.parseEntry(file).catch(() => null);
@@ -388,7 +392,7 @@ class Porter {
   }
 
   async readFile(file, query) {
-    await this.ready;
+    await this.ready({ minify: process.env.NODE_ENV === 'production' });
 
     const { packet } = this;
     const ext = path.extname(file);
@@ -399,10 +403,6 @@ class Porter {
     }
     else if (file === 'loaderConfig.json') {
       const { loaderConfig, lock } = packet;
-      for (const name in packet.dependencies) {
-        const dep = packet.dependencies[name];
-        if (dep.lazyloaded) lock[dep.name][dep.version] = dep.copy;
-      }
       result = [
         JSON.stringify({ ...loaderConfig, lock }),
         { 'Last-Modified': (new Date()).toGMTString() }

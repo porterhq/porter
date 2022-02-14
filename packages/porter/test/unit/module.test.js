@@ -14,7 +14,7 @@ describe('Module', function() {
       paths: ['components', 'browser_modules'],
       entries: ['home.js', 'test/suite.js']
     });
-    await porter.ready;
+    await porter.ready();
   });
 
   after(async function() {
@@ -35,7 +35,7 @@ describe('Module', function() {
   });
 
   it('should generate compact lock', function() {
-    assert('react-color' in porter.packet.lock);
+    assert('react-color' in porter.packet.dependencies);
     assert(!('react-color' in porter.packet.entries['home.js'].lock));
   });
 
