@@ -45,43 +45,49 @@ function getImports(names) {
   return imports;
 }
 
-function formatImports(declarations, options) {
+function formatImports(declarations, options = {}) {
+  if (options.camel2DashComponentName === false && options.componentCase == null) {
+    options.componentCase = 'camel';
+  }
+
   const {
     libraryName,
     libraryDirectory = 'lib',
     style = true,
+    componentCase = 'kebab'
   } = options;
   const scripts = [];
   const styles = [];
 
   for (const declaration of declarations) {
     const { name, alias } = declaration;
-    const chunk = [ libraryName ];
+    const chunk = [libraryName];
     if (libraryDirectory) chunk.push(libraryDirectory);
-    chunk.push(dasherize(name));
-    scripts.push(`import ${alias || name} from '${chunk.join('/')}';`);
+    const transformedChunkName = decamelize(name, componentCase);
+    chunk.push(transformedChunkName);
+    scripts.push(`import ${alias || name} from ${JSON.stringify(chunk.join('/'))};`);
     if (style) {
       const file = typeof style === 'string' ? path.join('style', style) : 'style';
-      styles.push(`import '${chunk.join('/')}/${file}';`);
+      styles.push(`import ${JSON.stringify(chunk.concat(file).join('/'))};`);
     }
   }
 
   return scripts.concat(styles).join('');
 }
 
-/**
- * Convert strings connected with hyphen or underscore into camel case. e.g.
- * @example
- * camelCase('FooBar')   // => 'fooBar'
- * camelCase('foo-bar')  // => 'fooBar'
- * camelCase('foo_bar')  // => 'fooBar'
- * @param {string} str
- * @returns {string}
- */
-function dasherize(str) {
-  return str
-    .replace(/^([A-Z])/, (m, chr) => chr.toLowerCase())
-    .replace(/([A-Z])/g, (m, chr) => `-${chr.toLowerCase()}`);
+function decamelize(_str, componentCase) {
+  const str = _str[0].toLowerCase() + _str.substr(1);
+
+  switch (componentCase) {
+    case 'kebab':
+      return str.replace(/([A-Z])/g, $1 => `-${$1.toLowerCase()}`);
+    case 'snake':
+      return str.replace(/([A-Z])/g, $1 => `_${$1.toLowerCase()}`);
+    case 'camel':
+      return str;
+    default:
+      return _str;
+  }
 }
 
 exports.replaceAll = function replaceAll(content, options = {}) {
