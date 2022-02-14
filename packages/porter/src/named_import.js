@@ -45,13 +45,16 @@ function getImports(names) {
   return imports;
 }
 
-function formatImports(declarations, options) {
+function formatImports(declarations, options = {}) {
+  if (options.camel2DashComponentName === false && options.componentCase == null) {
+    options.componentCase = 'camel';
+  }
+
   const {
     libraryName,
     libraryDirectory = 'lib',
     style = true,
-    camel2DashComponentName = true,
-    componentCase
+    componentCase = 'kebab'
   } = options;
   const scripts = [];
   const styles = [];
@@ -60,36 +63,31 @@ function formatImports(declarations, options) {
     const { name, alias } = declaration;
     const chunk = [libraryName];
     if (libraryDirectory) chunk.push(libraryDirectory);
-    const transformedChunkName = decamelize(name, camel2DashComponentName, componentCase)
+    const transformedChunkName = decamelize(name, componentCase);
     chunk.push(transformedChunkName);
-    scripts.push(`import ${alias || name} from '${chunk.join('/')}';`);
+    scripts.push(`import ${alias || name} from ${JSON.stringify(chunk.join('/'))};`);
     if (style) {
       const file = typeof style === 'string' ? path.join('style', style) : 'style';
-      styles.push(`import '${chunk.join('/')}/${file}';`);
+      styles.push(`import ${JSON.stringify(chunk.concat(file).join('/'))};`);
     }
   }
 
   return scripts.concat(styles).join('');
 }
 
-function decamelize(_str, camel2DashComponentName, componentCase) {
+function decamelize(_str, componentCase) {
   const str = _str[0].toLowerCase() + _str.substr(1);
-  if (componentCase) {
-    switch (componentCase) {
-      case 'kebab':
-        return str.replace(/([A-Z])/g, $1 => `-${$1.toLowerCase()}`);
-      case 'snake':
-        return str.replace(/([A-Z])/g, $1 => `_${$1.toLowerCase()}`);
-      case 'camel':
-        return str
-      default:
-        return _str
-    }
+
+  switch (componentCase) {
+    case 'kebab':
+      return str.replace(/([A-Z])/g, $1 => `-${$1.toLowerCase()}`);
+    case 'snake':
+      return str.replace(/([A-Z])/g, $1 => `_${$1.toLowerCase()}`);
+    case 'camel':
+      return str;
+    default:
+      return _str;
   }
-  if (camel2DashComponentName) {
-    return str.replace(/([A-Z])/g, $1 => `-${$1.toLowerCase()}`)
-  }
-  return _str;
 }
 
 exports.replaceAll = function replaceAll(content, options = {}) {
