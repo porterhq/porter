@@ -50,15 +50,18 @@ function formatImports(declarations, options) {
     libraryName,
     libraryDirectory = 'lib',
     style = true,
+    camel2DashComponentName = true,
+    componentCase
   } = options;
   const scripts = [];
   const styles = [];
 
   for (const declaration of declarations) {
     const { name, alias } = declaration;
-    const chunk = [ libraryName ];
+    const chunk = [libraryName];
     if (libraryDirectory) chunk.push(libraryDirectory);
-    chunk.push(dasherize(name));
+    const transformedChunkName = decamelize(name, camel2DashComponentName, componentCase)
+    chunk.push(transformedChunkName);
     scripts.push(`import ${alias || name} from '${chunk.join('/')}';`);
     if (style) {
       const file = typeof style === 'string' ? path.join('style', style) : 'style';
@@ -69,19 +72,24 @@ function formatImports(declarations, options) {
   return scripts.concat(styles).join('');
 }
 
-/**
- * Convert strings connected with hyphen or underscore into camel case. e.g.
- * @example
- * camelCase('FooBar')   // => 'fooBar'
- * camelCase('foo-bar')  // => 'fooBar'
- * camelCase('foo_bar')  // => 'fooBar'
- * @param {string} str
- * @returns {string}
- */
-function dasherize(str) {
-  return str
-    .replace(/^([A-Z])/, (m, chr) => chr.toLowerCase())
-    .replace(/([A-Z])/g, (m, chr) => `-${chr.toLowerCase()}`);
+function decamelize(_str, camel2DashComponentName, componentCase) {
+  const str = _str[0].toLowerCase() + _str.substr(1);
+  if (componentCase) {
+    switch (componentCase) {
+      case 'kebab':
+        return str.replace(/([A-Z])/g, $1 => `-${$1.toLowerCase()}`);
+      case 'snake':
+        return str.replace(/([A-Z])/g, $1 => `_${$1.toLowerCase()}`);
+      case 'camel':
+        return str
+      default:
+        return _str
+    }
+  }
+  if (camel2DashComponentName) {
+    return str.replace(/([A-Z])/g, $1 => `-${$1.toLowerCase()}`)
+  }
+  return _str;
 }
 
 exports.replaceAll = function replaceAll(content, options = {}) {
