@@ -18,6 +18,10 @@ module.exports = class FakePacket extends Packet {
     Object.assign(this, { name, version });
   }
 
+  get fake() {
+    return true;
+  }
+
   /**
    * The real packet lock should be used
    */
@@ -50,12 +54,12 @@ module.exports = class FakePacket extends Packet {
         version,
         file: entry || lock[name][version].main || 'index.js'
       };
-    } else {
-      return {
-        name: this.name,
-        version: this.version,
-        file: entry
-      };
     }
+
+    return {
+      name: this.name,
+      version: this.version,
+      file: entry
+    };
   }
 };

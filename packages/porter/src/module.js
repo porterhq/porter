@@ -62,6 +62,7 @@ module.exports = class Module {
   }
 
   get lock() {
+    if (this.packet.fake) return this.packet.lock;
     const lock = {};
     const entries = [ this ];
     const { app, fake } = this;
