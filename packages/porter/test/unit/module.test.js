@@ -22,9 +22,9 @@ describe('Module', function() {
   });
 
   it('should be iteratable with module.family', async function() {
-    const pkg = porter.packet.find({ name: 'lodash' });
+    const packet = porter.packet.find({ name: 'lodash' });
 
-    for (const entry of Object.values(pkg.entries)) {
+    for (const entry of Object.values(packet.entries)) {
       const files = {};
       // family members (descendents) should only be iterated once.
       for (const mod of entry.family) {
@@ -58,5 +58,14 @@ describe('Module', function() {
     await mod.minify();
     assert.ok(mod.cache.minified);
     assert.notEqual(devCache.code, mod.cache.code);
+  });
+
+  it('should neglect node.js core modules such as fs', async function() {
+    const packet = porter.packet.find({ name: 'fontkit' });
+    const mod = packet.files['index.js'];
+    const result = await mod.obtain();
+    // should be optimized away by brfs
+    assert.ok(!result.code.includes('/use.trie'));
+    assert.equal(packet.browser.fs, false);
   });
 });

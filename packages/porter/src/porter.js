@@ -37,6 +37,13 @@ function waitFor(mod) {
   });
 }
 
+/**
+ * - https://webpack.js.org/configuration/resolve/#resolvefallback
+ */
+const fallback = {
+  fs: false,
+};
+
 class Porter {
   #readyCache = new Map();
 
@@ -57,6 +64,7 @@ class Porter {
       extensions: [ '*', '.js', '.jsx', '.ts', '.tsx', '.d.ts', '.json', '.css' ],
       alias: {},
       ...opts.resolve,
+      fallback: { ...fallback, ...(opts.resolve && opts.resolve.fallback) },
     };
     resolve.suffixes = resolve.extensions.reduce((result, ext) => {
       if (ext === '*') return result.concat('');

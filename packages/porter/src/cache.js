@@ -68,6 +68,8 @@ module.exports = class Cache {
       if (salt) debug('cache salt changed from %j to %j', salt, this.salt);
       await fs.mkdir(path.dirname(saltPath), { recursive: true });
       await fs.writeFile(saltPath, this.salt);
+      // mark cache.reloaded to monitor performance regressions
+      this.reloaded = true;
     }
   }
 };
