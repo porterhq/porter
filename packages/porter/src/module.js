@@ -148,7 +148,7 @@ module.exports = class Module {
       }
     }
 
-    const { packet } = this;
+    const { packet, app } = this;
     if (dep == 'stream') packet.browser.stream = 'readable-stream';
     const specifier = packet.browser[dep] || packet.browser[`${dep}.js`] || dep;
     const mod = dep.startsWith('.')
@@ -157,6 +157,14 @@ module.exports = class Module {
 
     // module is neglected in browser field
     if (mod === false) return mod;
+
+    if (mod == null && app.resolve.fallback.hasOwnProperty(specifier)) {
+      const result = app.resolve.fallback[specifier];
+      // fallback: { fs: false }
+      if (result === false) return (packet.browser[specifier] = result);
+      // fallback: { path: 'path-browserify' }
+      // if (typeof result === 'string') return await app.packet.parseDep(result);
+    }
 
     if (!mod) {
       console.error(new Error(`unmet dependency ${dep} (${this.fpath})`).stack);

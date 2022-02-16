@@ -92,3 +92,10 @@ describe('worker from dependency', function() {
     expect(result).to.equal('pong');
   });
 });
+
+describe('neglect node.js core modules', function() {
+  it('should neglect node.js core modules by default', function() {
+    const fontkit = require('fontkit');
+    expect(fontkit.create).to.be.a(Function);
+  });
+});
