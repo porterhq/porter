@@ -12,13 +12,16 @@ describe('FakePacket', function() {
   before(async function() {
     target = new Porter({
       root: path.join(__dirname, '../../../demo-app'),
+      entries: [ 'home.js' ],
     });
     await target.ready();
-    const { loaderConfig } = target.packet;
+    const { loaderConfig, lock } = target.packet;
     porter = new Porter({
       root: path.join(__dirname, '../../../demo-proxy'),
       ...loaderConfig,
+      lock,
     });
+    await porter.ready();
   });
 
   after(async function() {
@@ -32,5 +35,11 @@ describe('FakePacket', function() {
     assert.ok(mod);
     assert.equal(mod.name, '@cara/demo-app');
     assert.equal(mod.file, 'shelter.js');
+  });
+
+  it('should prefer packet.lock', async function() {
+    const mod = await porter.packet.parseEntry('shelter.js');
+    assert.deepEqual(Object.keys(mod.lock[target.packet.name]), [ target.packet.version ]);
+    assert.ok(mod.lock.react);
   });
 });
