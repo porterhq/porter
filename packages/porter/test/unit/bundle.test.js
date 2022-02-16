@@ -326,3 +326,33 @@ describe('Bundle with CSS in JS', function() {
     });
   });
 });
+
+describe('Bundle with WebAssembly', function() {
+  const root = path.resolve(__dirname, '../../../demo-wasm');
+  let porter;
+
+  before(async function() {
+    porter = new Porter({
+      root,
+      entries: [ 'home.js', 'test/suite.js' ],
+    });
+    await fs.rm(porter.cache.path, { recursive: true, force: true });
+    await porter.ready();
+  });
+
+  after(async function() {
+    await porter.destroy();
+  });
+
+  describe('bundle.format', async function() {
+    it('should be .wasm', async function() {
+      const packet = porter.packet.find({ name: '@cara/hello-wasm' });
+      assert.ok(packet);
+      await packet.compileAll();
+      const bundle = packet.bundles['pkg/bundler/index_bg.wasm'];
+      assert.ok(bundle);
+      assert.equal(bundle.format, '.wasm');
+      assert.equal(bundle.entry, 'pkg/bundler/index_bg.wasm');
+    });
+  });
+});

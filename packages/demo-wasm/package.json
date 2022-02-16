@@ -4,7 +4,7 @@
   "version": "4.0.0-beta.9",
   "private": true,
   "dependencies": {
-    "@cara/hello-wasm": "file:../hello-wasm/pkg",
+    "@cara/hello-wasm": "^4.0.0-beta.9",
     "regenerator-runtime": "^0.13.5"
   },
   "license": "MIT",

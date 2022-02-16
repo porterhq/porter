@@ -272,3 +272,35 @@ describe('Packet', function() {
     });
   });
 });
+
+describe('Packet with WebAssembly', function() {
+  const root = path.resolve(__dirname, '../../../demo-wasm');
+  let porter;
+
+  before(async function() {
+    porter = new Porter({
+      root,
+      entries: [ 'home.js', 'test/suite.js' ],
+    });
+    await fs.rm(porter.cache.path, { recursive: true, force: true });
+    await porter.ready();
+  });
+
+  after(async function() {
+    await porter.destroy();
+  });
+
+  describe('packet.compileAll()', function() {
+    it('should compile wasm as well', async function() {
+      const packet = porter.packet.find({ name: '@cara/hello-wasm' });
+      await packet.compileAll();
+      const bundle = packet.bundles['pkg/bundler/index_bg.wasm'];
+      const fpath = path.join(porter.output.path, bundle.outputPath);
+      await assert.doesNotReject(async function() {
+        await fs.access(fpath);
+      });
+      const { copy } = packet;
+      assert.equal(copy.manifest['pkg/bundler/index_bg.wasm'], bundle.output);
+    });
+  });
+});

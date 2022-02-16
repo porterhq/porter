@@ -195,7 +195,8 @@ exports.findAll = function findAll(content) {
       findImport();
     }
     else if (part == 'export') {
-      findExportFrom();
+      const nextPart = parts[i + 1];
+      if (nextPart === '{' || nextPart === '*') findExportFrom();
     }
     next();
   }

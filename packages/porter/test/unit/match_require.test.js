@@ -202,4 +202,13 @@ describe('matchRequire', function() {
     `);
     expect(deps).to.eql(['./bar']);
   });
+
+  it('should match worker-loader!./parserWorker', async function() {
+    const deps = matchRequire.findAll(`
+      export function parse(svg, progress, error, callback) {
+        require('worker-loader!./parserWorker.js');
+      }
+    `);
+    expect(deps).to.contain('worker-loader!./parserWorker.js');
+  });
 });

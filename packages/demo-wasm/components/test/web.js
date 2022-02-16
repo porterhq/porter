@@ -1,11 +1,11 @@
 import expect from 'expect.js';
-import { greet } from '@cara/hello-wasm';
+import init, { greet } from '@cara/hello-wasm/web';
 import 'regenerator-runtime';
-import './web';
 
-describe('demo-wasm', function() {
+describe('demo-wasm (web)', function() {
   it('greet', async function() {
     const called = [];
+    await init();
     global.alert = function alert(text) {
       called.push(text);
     };
