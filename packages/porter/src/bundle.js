@@ -61,17 +61,25 @@ module.exports = class Bundle {
 
   static create(options = {}) {
     const { packet, entries } = options;
-    if (!options.format) {
-      options.format = (entries && path.extname(entries[0] || '') === '.css' ? '.css' : '.js');
+    const ext = entries && path.extname(entries[0] || '');
+
+    let { format } = options;
+    if (!format && ext) {
+      for (const [ key, extensions ] of Object.entries(extMap)) {
+        if (extensions.includes(ext)) format = key;
+      }
     }
+
     const { bundles } = packet;
     const entry = getEntry(packet, entries);
-    const key = options.format === '.css' ? entry.replace(rExt, '.css') : entry;
+    const key = format === '.css' ? entry.replace(rExt, '.css') : entry;
+
     let bundle = bundles[key];
     if (!bundle) {
-      bundle = new Bundle(options);
+      bundle = new Bundle({ ...options, format });
       bundles[key] = bundle;
     }
+
     return bundle;
   }
 
@@ -296,7 +304,10 @@ module.exports = class Bundle {
     const { app, entries, packet, format } = this;
     const cacheKey = JSON.stringify({ entries, loader });
 
-    this.updatedAt = new Date();
+    if (format === '.wasm') {
+      for (const mod of this) return await mod.obtain();
+    }
+
     const node = new SourceNode();
     const loaderConfig = Object.assign(packet.loaderConfig, this.loaderConfig);
 
@@ -328,6 +339,7 @@ module.exports = class Bundle {
     this.#cacheKey = cacheKey;
     this.#contenthash = null;
     this.#obtainCache[cacheKey] = null;
+    this.updatedAt = new Date();
 
     const { entryPath, outputPath } = this;
     debug('bundle complete %s -> %s', entryPath, outputPath, entries);

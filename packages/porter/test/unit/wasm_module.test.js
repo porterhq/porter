@@ -26,7 +26,7 @@ describe('WasmModule', function() {
   it('should be able to parse wasm module', async function() {
     const packet = porter.packet.find({ name: '@cara/hello-wasm' });
     // the parsing process is deferred
-    const mod = await packet.parseFile('hello_wasm_bg.wasm');
+    const mod = await packet.parseFile('pkg/bundler/index_bg.wasm');
     assert.equal(mod.status, MODULE_LOADED);
   });
 });

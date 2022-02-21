@@ -45,7 +45,6 @@
   var pkg = system.package;
   var alias = system.alias;
 
-
   function onload(el, callback) {
     if ('onload' in el) {
       el.onload = function() {
@@ -66,11 +65,11 @@
     }
   }
 
-  var request;
+  var requestScript;
 
   if (typeof importScripts == 'function') {
     /* eslint-env worker */
-    request = function loadScript(url, callback) {
+    requestScript = function loadScript(url, callback) {
       try {
         importScripts(url);
       } catch (err) {
@@ -84,7 +83,7 @@
     var head = doc.head || doc.getElementsByTagName('head')[0] || doc.documentElement;
     var baseElement = head.getElementsByTagName('base')[0] || null;
 
-    request = function loadScript(url, callback) {
+    requestScript = function loadScript(url, callback) {
       var el = doc.createElement('script');
 
       onload(el, function(err) {
@@ -101,14 +100,73 @@
     };
   }
 
+  function loadWasm(module, imports) {
+    if (typeof WebAssembly.instantiateStreaming === 'function') {
+      try {
+        return WebAssembly.instantiateStreaming(module, imports);
+      } catch (e) {
+        if (module.headers.get('Content-Type') != 'application/wasm') {
+          console.warn('`WebAssembly.instantiateStreaming` failed because your server does not serve wasm with `application/wasm` MIME type. Falling back to `WebAssembly.instantiate` which is slower. Original error:\n', e);
+        } else {
+          throw e;
+        }
+      }
+
+      return module.arrayBuffer().then(function instantiate(bytes) {
+        return WebAssembly.instantiate(bytes, imports);
+      });
+    }
+
+    return WebAssembly.instantiate(module, imports).then(function onInstantiate(instance) {
+      if (instance instanceof WebAssembly.Instance) return { instance, module };
+      return instance;
+    });
+  }
+
+  var rWasm = /\.wasm$/;
+
+  function requestWasm(uri, callback) {
+    var id = uri.replace(basePath, '');
+    var mod = registry[id];
+    var contextId = id.replace(rWasm, '.js');
+    var context = registry[contextId];
+    if (!context) throw new Error('context module of ' + uri + ' not found');
+    // execute context module factory for the first time to grab the imports
+    context.execute();
+
+    // prepare the imports of wasm module
+    var imports = {};
+    imports['./' + contextId.split('/').pop()] = context.exports;
+
+    // loader.js might be required to run in legacy browser hence async/await not used
+    fetch(uri)
+      .then(function onResponse(module) {
+        return loadWasm(module, imports);
+      })
+      .then(function onLoad(result) {
+        var instance = result.instance;
+        // exports of wasm module are finally ready
+        Object.assign(mod.exports, instance.exports);
+        // ignite the wasm module to execute context module for the second time
+        callback();
+      });
+  }
+
+  function request(uri, callback) {
+    if (rWasm.test(uri)) {
+      requestWasm(uri, callback);
+    } else {
+      requestScript(uri, callback);
+    }
+  }
 
   /*
    * resolve paths
    */
-  var RE_DIRNAME = /([^?#]*)\//;
+  var rDirname = /([^?#]*)\//;
 
   function dirname(fpath) {
-    var m = fpath.match(RE_DIRNAME);
+    var m = fpath.match(rDirname);
     return m ? m[1] : '.';
   }
 
@@ -143,11 +201,8 @@
 
 
   function suffix(id) {
-    if (id.slice(-1) == '/') {
-      return id + 'index.js';
-    } else {
-      return /\.(?:css|js)$/.test(id) ? id : id + '.js';
-    }
+    if (id.slice(-1) == '/') return id + 'index.js';
+    return /\.(?:css|js|wasm)$/.test(id) ? id : id + '.js';
   }
 
 
@@ -202,11 +257,13 @@
       return basePath + (meta.manifest && meta.manifest[id] || id);
     }
 
+    if (rWasm.test(obj.file)) return basePath + resolve(name, version, obj.file);
+
     // lock is empty if loader.js is loaded separately, e.g.
     // `<script src="/loader.js" data-main="app.js"></script>`
     if (name in lock) {
       var meta = lock[name][version];
-      var file = isRootEntry ? obj.file : meta.main || 'index.js';
+      var file = isRootEntry ? obj.file : (meta.main || 'index.js');
       if (meta.manifest && meta.manifest[file]) {
         return basePath + resolve(name, version, meta.manifest[file]);
       }
@@ -216,7 +273,6 @@
     if (isRootEntry) url += '?entry';
     return url;
   }
-
 
   var MODULE_INIT = 0;
   var MODULE_FETCHING = 1;
@@ -240,7 +296,7 @@
     this.deps = opts.deps;
     this.children = [];
     this.factory = opts.factory;
-    this.exports = {};
+    this.exports = rWasm.test(id) ? { __esModule: true } : {};
     this.status = MODULE_INIT;
     this.meta = { url: baseUrl + id };
     registry[id] = this;
@@ -362,6 +418,9 @@
       if (!id) return {};
       var dep = registry[id];
 
+      // wasm module has no factory
+      if (rWasm.test(id)) return dep.exports;
+
       if (dep.status < MODULE_FETCHED) {
         throw new Error('Module ' + specifier + ' (' + mod.id + ') is not ready');
       }
@@ -454,8 +513,9 @@
 
     file = suffix(file);
     // root entry might still in id format when loading web worker from dependencies
-    var id = resolve(name, version, file);
-    return name === pkg.name && !registry[id] ? file : id;
+    return name !== pkg.name || location.pathname.includes([ name, version ].join('/'))
+      ? resolve(name, version, file)
+      : file;
   };
 
 

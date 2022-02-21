@@ -590,12 +590,13 @@ module.exports = class Packet {
    * @param {Object|SourceMapGenerator} opts.map
    */
   setSourceMap({ output, code, map }) {
+    if (!map) return { code, map };
+    if (map instanceof SourceMapGenerator) map = map.toJSON();
+    if (typeof map == 'string') map = JSON.parse(map);
+
     code = output.endsWith('.js')
       ? `${code}\n//# sourceMappingURL=${path.basename(output)}.map`
       : `${code}\n/*# sourceMappingURL=${path.basename(output)}.map */`;
-
-    if (map instanceof SourceMapGenerator) map = map.toJSON();
-    if (typeof map == 'string') map = JSON.parse(map);
 
     map.sources = map.sources.map(source => source.replace(/^\//, ''));
     map.sourceRoot = this.app.source.root;
@@ -604,11 +605,17 @@ module.exports = class Packet {
   }
 
   async compileAll(opts) {
-    const { entries, bundles, main } = this;
+    const { entries, files, bundles, main } = this;
 
     for (const entry in entries) {
       if (entry.endsWith('.js') && entries[entry].isRootEntry) {
         bundles[entry] = await this.compile(entry, opts);
+      }
+    }
+
+    for (const file in files) {
+      if (file.endsWith('.wasm')) {
+        bundles[file] = await this.compile(file, opts);
       }
     }
 
@@ -624,7 +631,7 @@ module.exports = class Packet {
     if (typeof entries[0] === 'object') {
       await this.parseFakeEntry(entries[0]);
       entries[0] = entries[0].entry;
-      // clear bundle cache, fake entries should always start from stratch
+      // clear bundle cache, fake entries should always start from scratch
       this.bundles[entries[0]] = null;
     }
 
@@ -654,9 +661,9 @@ module.exports = class Packet {
     await fs.mkdir(path.dirname(fpath), { recursive: true });
     await Promise.all([
       writeFile(fpath, code),
-      writeFile(`${fpath}.map`, JSON.stringify(map, (k, v) => {
+      map && writeFile(`${fpath}.map`, JSON.stringify(map, (k, v) => {
         if (k !== 'sourcesContent') return v;
-      })),
+      })) || Promise.resolve(),
     ]);
 
     return bundle;
