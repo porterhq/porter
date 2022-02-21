@@ -45,6 +45,17 @@ function getImports(names) {
   return imports;
 }
 
+function formatImport({ name, specifier, cjs = false } = {}) {
+  if (typeof name === 'string') {
+    return cjs
+      ? `const ${name} = require(${JSON.stringify(specifier)});`
+      : `import ${name} from ${JSON.stringify(specifier)};`;
+  }
+  return cjs
+    ? `require(${JSON.stringify(specifier)});`
+    : `import ${JSON.stringify(specifier)};`;
+}
+
 function formatImports(declarations, options = {}) {
   if (options.camel2DashComponentName === false && options.componentCase == null) {
     options.componentCase = 'camel';
@@ -54,7 +65,8 @@ function formatImports(declarations, options = {}) {
     libraryName,
     libraryDirectory = 'lib',
     style = true,
-    componentCase = 'kebab'
+    componentCase = 'kebab',
+    cjs = false,
   } = options;
   const scripts = [];
   const styles = [];
@@ -65,14 +77,18 @@ function formatImports(declarations, options = {}) {
     if (libraryDirectory) chunk.push(libraryDirectory);
     const transformedChunkName = decamelize(name, componentCase);
     chunk.push(transformedChunkName);
-    scripts.push(`import ${alias || name} from ${JSON.stringify(chunk.join('/'))};`);
+    scripts.push(formatImport({ name: alias || name, specifier: chunk.join('/'), cjs }));
     if (style) {
       const file = typeof style === 'string' ? path.join('style', style) : 'style';
-      styles.push(`import ${JSON.stringify(chunk.concat(file).join('/'))};`);
+      styles.push(formatImport({ specifier: chunk.concat(file).join('/'), cjs }));
     }
   }
 
   return scripts.concat(styles).join('');
+}
+
+function formatRequires(declarations, options = {}) {
+  return formatImports(declarations, { ...options, cjs: true });
 }
 
 function decamelize(_str, componentCase) {
@@ -90,11 +106,52 @@ function decamelize(_str, componentCase) {
   }
 }
 
+function getRequires(names) {
+  const tokens = names.match(jsTokens);
+  const requires = [];
+  const rSpace = /\s/;
+  let i = 0;
+  let token = tokens[i];
+
+  function next() {
+    token = tokens[++i];
+  }
+
+  function space() {
+    while (rSpace.test(token)) next();
+  }
+
+  function getRequire() {
+    const name = token;
+    next();
+    let alias;
+    space();
+    if (token === ',') next();
+    return { name, alias };
+  }
+
+  space();
+
+  while (i < tokens.length) {
+    space();
+    requires.push(getRequire());
+    if (token === ',') next();
+    space();
+  }
+
+  return requires;
+}
+
 exports.replaceAll = function replaceAll(content, options = {}) {
   const { libraryName = 'antd' } = options;
   const pattern = new RegExp(`import\\s*\\{([^{}]+?)\\}\\s*from\\s*(['"])${libraryName}\\2;?`, 'g');
+  const cjsPattern = new RegExp(`const\\s*\\{([^{}]+?)\\}\\s*=\\s*require\\((['"])${libraryName}\\2\\);`, 'g')
+
   return content.replace(pattern, function replace(m, names) {
     const imports = getImports(names);
     return formatImports(imports, options) + '\n'.repeat(m.split('\n').length - 1);;
+  }).replace(cjsPattern, function replace(m, names) {
+    const requries = getRequires(names);
+    return formatRequires(requries, options) + '\n'.repeat(m.split('\n').length - 1);
   });
 };

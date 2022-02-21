@@ -153,4 +153,23 @@ import "antd/lib/modal/style/css";`.trim());
     });
     assert.deepEqual(result, 'import differenceBy from "lodash/difference-by";');
   });
+
+  it('should handle cjs require as well', function () {
+    const code = `
+const React = require("react");
+const { Select, Button, Toggle } = require("antd");`;
+  const result = replaceAll(code, {
+    libraryName: 'antd',
+    style: 'css',
+  });
+  assert.deepEqual(result.replace(/;(const|require)/g, ';\n$1').trim(), `
+const React = require("react");
+const Select = require("antd/lib/select");
+const Button = require("antd/lib/button");
+const Toggle = require("antd/lib/toggle");
+require("antd/lib/select/style/css");
+require("antd/lib/button/style/css");
+require("antd/lib/toggle/style/css");
+`.trim());
+  });
 });
