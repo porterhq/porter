@@ -48,7 +48,7 @@ function getImports(names) {
 function formatImport({ name, specifier, cjs = false } = {}) {
   if (typeof name === 'string') {
     return cjs
-      ? `const ${name} = require(${JSON.stringify(specifier)});`
+      ? `const ${name} = require(${JSON.stringify(specifier)}).default;`
       : `import ${name} from ${JSON.stringify(specifier)};`;
   }
   return cjs
@@ -145,7 +145,7 @@ function getRequires(names) {
 exports.replaceAll = function replaceAll(content, options = {}) {
   const { libraryName = 'antd' } = options;
   const pattern = new RegExp(`import\\s*\\{([^{}]+?)\\}\\s*from\\s*(['"])${libraryName}\\2;?`, 'g');
-  const cjsPattern = new RegExp(`const\\s*\\{([^{}]+?)\\}\\s*=\\s*require\\((['"])${libraryName}\\2\\);`, 'g')
+  const cjsPattern = new RegExp(`const\\s*\\{([^{}]+?)\\}\\s*=\\s*require\\((['"])${libraryName}\\2\\);`, 'g');
 
   return content.replace(pattern, function replace(m, names) {
     const imports = getImports(names);

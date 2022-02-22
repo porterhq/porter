@@ -164,9 +164,9 @@ const { Select, Button, Toggle } = require("antd");`;
   });
   assert.deepEqual(result.replace(/;(const|require)/g, ';\n$1').trim(), `
 const React = require("react");
-const Select = require("antd/lib/select");
-const Button = require("antd/lib/button");
-const Toggle = require("antd/lib/toggle");
+const Select = require("antd/lib/select").default;
+const Button = require("antd/lib/button").default;
+const Toggle = require("antd/lib/toggle").default;
 require("antd/lib/select/style/css");
 require("antd/lib/button/style/css");
 require("antd/lib/toggle/style/css");
