@@ -247,7 +247,8 @@
 
     if (rUri.test(id)) return id;
 
-    var isRootEntry = registry[id].parent.id in system.entries;
+    var mod = registry[id];
+    var isRootEntry = !mod.parent || (mod.parent.id in system.entries);
     var obj = parseId(id);
     var name = obj.name;
     var version = obj.version;
@@ -524,10 +525,9 @@
     }
     id = suffix(id);
     var mod = registry[id] || new Module(id);
-
     mod.deps = deps;
     mod.factory = factory;
-    mod.status = MODULE_FETCHED;
+    if (mod.status < MODULE_FETCHED) mod.status = MODULE_FETCHED;
     mod.resolve();
   }
 
@@ -552,7 +552,7 @@
 
   function workerFactory(context) {
     return function(id) {
-      var url = basePath + resolve(context, suffix(id));
+      var url = parseUri(resolve(context, suffix(id)));
       return function createWorker() {
         return new Worker([url, 'main'].join(url.indexOf('?') > 0 ? '&' : '?'));
       };
