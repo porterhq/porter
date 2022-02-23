@@ -305,7 +305,13 @@ module.exports = class Bundle {
     const cacheKey = JSON.stringify({ entries, loader });
 
     if (format === '.wasm') {
-      for (const mod of this) return await mod.obtain();
+      for (const mod of this) {
+        const result = await mod.obtain();
+        this.#code = result.code;
+        this.#cacheKey = cacheKey;
+        this.updatedAt = new Date();
+        return result;
+      }
     }
 
     const node = new SourceNode();
@@ -382,15 +388,10 @@ module.exports = class Bundle {
   }
 
   async exists({ loader, minify = true } = {}) {
+    const { app } = this;
+    if (typeof app.bundle.exists !== 'function') return false;
     await this.fuzzyObtain({ loader, minify });
-    const { app, outputPath } = this;
-    if (typeof app.bundle.exists === 'function') {
-      return await app.bundle.exists(this);
-    }
-    // prevent the fuzzy obtained code from interfering future obtaining
-    // this.#cacheKey = null;
-    const fpath = path.join(app.output.path, outputPath);
-    return await fs.access(fpath).then(() => true).catch(() => false);
+    return await app.bundle.exists(this);
   }
 
   async minify({ loader } = {}) {
