@@ -380,7 +380,8 @@ class Porter {
     return [ map, { 'Last-Modified': bundle.updatedAt.toGMTString() } ];
   }
 
-  async readWasm(id) {
+  async readWasm(outputPath) {
+    const id = outputPath.replace(/\.[a-f0-9]{8}\.wasm$/, '.wasm');
     let [, name, version, file] = id.match(rModuleId);
     let packet;
 
