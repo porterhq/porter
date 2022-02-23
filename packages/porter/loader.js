@@ -126,7 +126,7 @@
   var rWasm = /\.wasm$/;
 
   function requestWasm(uri, callback) {
-    var id = uri.replace(basePath, '');
+    var id = uri.replace(basePath, '').replace(/\.[0-9a-f]{8}(\.\w+)$/, '$1');
     var mod = registry[id];
     var contextId = id.replace(rWasm, '.js');
     var context = registry[contextId];
@@ -257,13 +257,11 @@
       return basePath + (meta.manifest && meta.manifest[id] || id);
     }
 
-    if (rWasm.test(obj.file)) return basePath + resolve(name, version, obj.file);
-
     // lock is empty if loader.js is loaded separately, e.g.
     // `<script src="/loader.js" data-main="app.js"></script>`
     if (name in lock) {
       var meta = lock[name][version];
-      var file = isRootEntry ? obj.file : (meta.main || 'index.js');
+      var file = isRootEntry || rWasm.test(obj.file) ? obj.file : (meta.main || 'index.js');
       if (meta.manifest && meta.manifest[file]) {
         return basePath + resolve(name, version, meta.manifest[file]);
       }
