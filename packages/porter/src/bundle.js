@@ -160,8 +160,9 @@ module.exports = class Bundle {
     if (this.#entries) return this.#entries;
 
     const { entries } = this.packet;
+    const extensions = extMap[this.format];
     return Object.keys(entries).filter(file => {
-      return file.endsWith('.js') && !entries[file].isRootEntry;
+      return extensions.includes(path.extname(file)) && !entries[file].isRootEntry;
     });
   }
 

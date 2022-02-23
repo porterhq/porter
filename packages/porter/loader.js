@@ -527,6 +527,7 @@
     var mod = registry[id] || new Module(id);
     mod.deps = deps;
     mod.factory = factory;
+    // in case the script is accidentally loaded multiple times
     if (mod.status < MODULE_FETCHED) mod.status = MODULE_FETCHED;
     mod.resolve();
   }
