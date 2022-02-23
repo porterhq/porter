@@ -24,6 +24,13 @@ describe('Packet', function() {
           '@/': '',
         },
       },
+      bundle: {
+        async exists(bundle) {
+          const { app } = bundle;
+          const fpath = path.join(app.output.path, bundle.outputPath);
+          return await fs.access(fpath).then(() => true).catch(() => false);
+        }
+      }
     });
     await fs.rm(porter.cache.path, { recursive: true, force: true });
     await porter.ready();
