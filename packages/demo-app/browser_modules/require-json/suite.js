@@ -9,4 +9,9 @@ describe('require json', function() {
       bar: true
     });
   });
+
+  it('require("yen/package.json")', function() {
+    const { name } = require('yen/package.json');
+    expect(name).to.equal('yen');
+  });
 });

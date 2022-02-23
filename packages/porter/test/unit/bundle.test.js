@@ -66,6 +66,22 @@ describe('Bundle without preload', function() {
         'components/stylesheets/app.css',
       ]);
     });
+
+    it('should bundle json modules', async function() {
+      const bundle = porter.packet.bundles['test/suite.js'];
+      const files = Array.from(bundle, mod => mod.file);
+      assert.deepEqual(files.filter(file => file.startsWith('require-json')), [
+        'require-json/foo.json',
+        'require-json/suite.js',
+      ]);
+    });
+
+    it('should bundle json modules as dependency entries', async function() {
+      const packet = porter.packet.find({ name: 'yen' });
+      const bundle = packet.bundles['index.js'];
+      const files = Array.from(bundle, mod => mod.file);
+      assert.deepEqual(files.filter(file => file.endsWith('.json')), [ 'package.json' ]);
+    });
   });
 
   describe('bundle.contenthash', function() {
