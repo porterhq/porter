@@ -564,8 +564,8 @@ module.exports = class Packet {
       })();
     });
 
-    for (const mod of Object.values(this.entries)) {
-      if (mod.isRootEntry) entries.push(mod.file);
+    for (const mod of Object.values(this.files)) {
+      if (mod.isRootEntry || mod.file.endsWith('.wasm')) entries.push(mod.file);
     }
 
     // if packet won't be bundled with root entries, compile as main bundle.
@@ -607,15 +607,15 @@ module.exports = class Packet {
   async compileAll(opts) {
     const { entries, files, bundles, main } = this;
 
-    for (const entry in entries) {
-      if (entry.endsWith('.js') && entries[entry].isRootEntry) {
-        bundles[entry] = await this.compile(entry, opts);
-      }
-    }
-
     for (const file in files) {
       if (file.endsWith('.wasm')) {
         bundles[file] = await this.compile(file, opts);
+      }
+    }
+
+    for (const entry in entries) {
+      if (entry.endsWith('.js') && entries[entry].isRootEntry) {
+        bundles[entry] = await this.compile(entry, opts);
       }
     }
 
