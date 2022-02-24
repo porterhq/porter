@@ -1,10 +1,10 @@
 {
   "name": "@cara/demo-postcss",
   "description": "a demo of custom postcss plugins",
-  "version": "4.0.0-beta.17",
+  "version": "4.0.0-beta.18",
   "private": true,
   "dependencies": {
-    "@cara/porter": "^4.0.0-beta.17",
+    "@cara/porter": "^4.0.0-beta.18",
     "koa": "^2.6.2",
     "koa-static": "^5.0.0"
   },
