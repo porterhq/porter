@@ -371,4 +371,47 @@ describe('Bundle with WebAssembly', function() {
       assert.equal(bundle.entry, 'pkg/bundler/index_bg.wasm');
     });
   });
+
+  describe('[Symbol.iterator]', function() {
+    it('should contain only wasm', async function() {
+      const packet = porter.packet.find({ name: '@cara/hello-wasm' });
+      const bundle = packet.bundles['pkg/bundler/index_bg.wasm'];
+      const files = Array.from(bundle, mod => mod.file);
+      assert.deepEqual(files, [ 'pkg/bundler/index_bg.wasm' ]);
+    });
+  });
+});
+
+describe('Bundle with Web Worker', function() {
+  const root = path.resolve(__dirname, '../../../demo-worker');
+  let porter;
+
+  before(async function() {
+    porter = new Porter({
+      root,
+      entries: [ 'home.js', 'test/suite.js' ],
+    });
+    await fs.rm(porter.cache.path, { recursive: true, force: true });
+    await porter.ready();
+  });
+
+  after(async function() {
+    await porter.destroy();
+  });
+
+  describe('[Symbol.iterator]', function() {
+    it('should skip worker entries if not bundle worker itself', async function() {
+      const packet = porter.packet.find({ name: '@cara/hello-worker' });
+      const bundle = packet.bundles['index.js'];
+      const files = Array.from(bundle, mod => mod.file);
+      assert.deepEqual(files, [ 'index_dep.js', 'index.js' ]);
+    });
+
+    it('should bundle worker entry correctly', async function() {
+      const packet = porter.packet.find({ name: '@cara/hello-worker' });
+      const bundle = packet.bundles['worker.js'];
+      const files = Array.from(bundle, mod => mod.file);
+      assert.deepEqual(files, [ 'worker_dep.js', 'worker.js' ]);
+    });
+  });
 });

@@ -223,9 +223,9 @@ class Porter {
     const { bundle, packet } = this;
     const exclusives = new Set(bundle.exclude);
 
-    // lazyloaded packets still need to be compiled because preload might not take place
-    for (const name in packet.dependencies) {
-      if (packet.dependencies[name].lazyloaded) exclusives.add(name);
+    // dependencies that have bundles as well (worker, wasm, etc.)
+    for (const dep of packet.all) {
+      if (dep !== packet && Object.keys(dep.bundles).length > 0) exclusives.add(dep.name);
     }
 
     for (const name of exclusives) {
@@ -238,8 +238,13 @@ class Porter {
     await this.ready({ minify: true });
 
     debug('parse additional entries');
-    if (entries.filter(file => !this.packet.entries[file])) {
+    entries = entries.filter(file => !this.packet.entries[file]);
+    if (entries.length > 0) {
       await Promise.all(entries.map(entry => this.packet.parseEntry(entry)));
+      // new entries might introduce new dependencies that need packing
+      for (const dep of this.packet.all) {
+        if (dep !== this.packet) await dep.pack({ minify: true });
+      }
     }
     entries = Object.keys(this.packet.entries);
 

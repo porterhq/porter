@@ -41,7 +41,7 @@
   var registry = system.registry;
   var preload = system.preload;
   var basePath = system.baseUrl.replace(/([^\/])$/, '$1/');
-  var baseUrl = new URL(basePath, global.location.origin).toString();
+  var baseUrl = new URL(basePath, location.origin).toString();
   var pkg = system.package;
   var alias = system.alias;
 
@@ -71,7 +71,7 @@
     /* eslint-env worker */
     requestScript = function loadScript(url, callback) {
       try {
-        importScripts(new URL(url, location.origin).toString());
+        importScripts(url);
       } catch (err) {
         return callback(err);
       }
@@ -126,7 +126,7 @@
   var rWasm = /\.wasm$/;
 
   function requestWasm(uri, callback) {
-    var id = uri.replace(basePath, '').replace(/\.[0-9a-f]{8}(\.\w+)$/, '$1');
+    var id = uri.replace(baseUrl, '').replace(/\.[0-9a-f]{8}(\.\w+)$/, '$1');
     var mod = registry[id];
     var contextId = id.replace(rWasm, '.js');
     var context = registry[contextId];
@@ -240,22 +240,22 @@
    * - //example.com/baz.js
    * - /qux/quux.js
    */
-  var rUri = /^(?:https?:)?\//;
+  var rUri = /^(?:https?:)?\/\//;
 
   function parseUri(id) {
     var id = parseMap(id);
-
+    // https://example.com/foo.js
     if (rUri.test(id)) return id;
 
     var mod = registry[id];
-    var isRootEntry = !mod.parent || (mod.parent.id in system.entries);
+    var isRootEntry = !mod || !mod.parent || (mod.parent.id in system.entries);
     var obj = parseId(id);
     var name = obj.name;
     var version = obj.version;
 
     if (!version && pkg.name in lock) {
       var meta = lock[pkg.name][pkg.version];
-      return basePath + (meta.manifest && meta.manifest[id] || id);
+      return baseUrl + (meta.manifest && meta.manifest[id] || id);
     }
 
     // lock is empty if loader.js is loaded separately, e.g.
@@ -264,11 +264,11 @@
       var meta = lock[name][version];
       var file = isRootEntry || rWasm.test(obj.file) ? obj.file : (meta.main || 'index.js');
       if (meta.manifest && meta.manifest[file]) {
-        return basePath + resolve(name, version, meta.manifest[file]);
+        return baseUrl + resolve(name, version, meta.manifest[file]);
       }
     }
 
-    var url = basePath + id;
+    var url = baseUrl + id;
     if (isRootEntry) url += '?entry';
     return url;
   }
@@ -553,13 +553,13 @@
 
   function workerFactory(context) {
     return function(id) {
-      var url = new URL(parseUri(resolve(context, suffix(id))), location.origin);
+      var url = new URL(parseUri(resolve(context, suffix(id))));
       return function createWorker() {
         url.searchParams.set('main', '');
         var blob = new Blob([ 'importScripts("' + url.toString() + '")' ], {
           type: 'application/javascript',
         });
-        return new Worker(URL.createObjectURL(blob));
+        return new Worker(URL.createObjectURL(blob), { credentials: 'same-origin' });
       };
     };
   }
