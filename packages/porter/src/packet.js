@@ -565,7 +565,9 @@ module.exports = class Packet {
     });
 
     for (const mod of Object.values(this.files)) {
-      if (mod.isRootEntry || mod.file.endsWith('.wasm')) entries.push(mod.file);
+      if (mod.isRootEntry) entries.push(mod.file);
+      // .wasm needs to be bundled before other entries to generate correct manifest
+      if (mod.file.endsWith('.wasm')) entries.unshift(mod.file);
     }
 
     // if packet won't be bundled with root entries, compile as main bundle.
