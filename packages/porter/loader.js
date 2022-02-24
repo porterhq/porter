@@ -71,7 +71,7 @@
     /* eslint-env worker */
     requestScript = function loadScript(url, callback) {
       try {
-        importScripts(url);
+        importScripts(new URL(url, location.origin).toString());
       } catch (err) {
         return callback(err);
       }
@@ -139,7 +139,7 @@
     imports['./' + contextId.split('/').pop()] = context.exports;
 
     // loader.js might be required to run in legacy browser hence async/await not used
-    fetch(uri)
+    fetch(new URL(uri, location.origin))
       .then(function onResponse(module) {
         return loadWasm(module, imports);
       })
@@ -459,13 +459,14 @@
     if (!lock[pkg.name]) return suffix(specifier);
 
     var parent = parseId(context);
-    if (!parent.version) Object.assign(parent, pkg, { file: context });
-    var parentMap = lock[parent.name][parent.version];
+    var parentMap = parent.version
+      ? lock[parent.name][parent.version]
+      : lock[pkg.name][pkg.version];
 
-    if (parent.name === pkg.name) {
+    if (!parent.version) {
       for (const key in alias) {
-        if (specifier.startsWith(key)) {
-          specifier = resolve(parent.name, parent.version, alias[key] + specifier.slice(key.length));
+        if (specifier.indexOf(key) === 0) {
+          specifier = alias[key] + specifier.slice(key.length);
           break;
         }
       }
@@ -477,30 +478,31 @@
       if (mapped) specifier = mapped;
     }
 
-    var mod = specifier.charAt(0) == '.'
-      ? parseId(resolve(parent.name, parent.version, dirname(parent.file), specifier))
-      : parseId(specifier);
-
-    if (!(mod.name in lock)) {
-      mod = { name: pkg.name, version: pkg.version, file: specifier };
-    }
+    var id = specifier.charAt(0) == '.'
+      ? resolve(dirname(context), specifier)
+      : specifier;
+    var mod = parseId(id);
     var name = mod.name;
     var version = mod.version;
-    var map;
+    var file = mod.file;
 
-    if (version) {
-      map = lock[name][version];
-    }
     if (!version) {
       if (parentMap && parentMap.dependencies && (name in parentMap.dependencies)) {
+        // import dependency
         version = parentMap.dependencies[name];
-      }
-      else if (name == pkg.name) {
+      } else if (name === pkg.name) {
+        // import itself as dependency, see demo-components/test/suite.js
         version = pkg.version;
+      } else {
+        // import itself by file
+        name = pkg.name;
+        version = pkg.version;
+        file = id;
       }
     }
-    map = lock[name][version];
-    var file = mod.file || map.main || 'index.js';
+
+    var map = lock[name][version];
+    file = file ||  map.main || 'index.js';
 
     if (map.browser) {
       let result = map.browser['./' + file];
@@ -512,9 +514,7 @@
 
     file = suffix(file);
     // root entry might still in id format when loading web worker from dependencies
-    return name !== pkg.name || location.pathname.includes([ name, version ].join('/'))
-      ? resolve(name, version, file)
-      : file;
+    return name !== pkg.name || mod.version ? resolve(name, version, file) : file;
   };
 
 
@@ -553,9 +553,13 @@
 
   function workerFactory(context) {
     return function(id) {
-      var url = parseUri(resolve(context, suffix(id)));
+      var url = new URL(parseUri(resolve(context, suffix(id))), location.origin);
       return function createWorker() {
-        return new Worker([url, 'main'].join(url.indexOf('?') > 0 ? '&' : '?'));
+        url.searchParams.set('main', '');
+        var blob = new Blob([ 'importScripts("' + url.toString() + '")' ], {
+          type: 'application/javascript',
+        });
+        return new Worker(URL.createObjectURL(blob));
       };
     };
   }
@@ -565,8 +569,7 @@
   Object.assign(system, {
     'import': function Porter_import(specifiers, fn) {
       specifiers = preload.concat(specifiers).map(function(specifier) {
-        var mod = parseId(specifier);
-        return suffix(mod.version && !registry[specifier] ? mod.file : specifier);
+        return suffix(specifier);
       });
       rootImport(specifiers, function() {
         if (fn) fn.apply(null, arrayFn.slice.call(arguments, preload.length));
