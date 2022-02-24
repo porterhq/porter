@@ -10,12 +10,13 @@
   "devDependencies": {
     "@babel/core": "^7.16.0",
     "@babel/preset-env": "^7.10.3",
+    "@cara/hello-worker": "^4.0.0-beta.14",
     "@cara/porter-cli": "^4.0.0-beta.14",
     "expect.js": "^0.3.1",
     "mocha": "^9.1.1"
   },
   "scripts": {
-    "start": "rm -rf public && DEBUG=porter,$DEBUG porter serve",
-    "test": "rm -rf public && DEBUG=porter,$DEBUG porter serve --headless"
+    "start": "rm -rf public && DEBUG=porter,$DEBUG porter serve --include @cara/hello-worker",
+    "test": "rm -rf public && DEBUG=porter,$DEBUG porter serve --include @cara/hello-worker --headless"
   }
 }
