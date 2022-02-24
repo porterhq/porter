@@ -123,7 +123,7 @@ module.exports = class Bundle {
           if (mod.preloaded && !preload && !packet.isolated) continue;
           if (mod.packet !== packet && mod.packet.isolated) continue;
         }
-        // might be WasmModule
+        // might be WasmModule or web worker
         if (mod.isolated || (format === '.js' && mod.isRootEntry)) continue;
         yield* iterateEntry(mod, preload);
       }
