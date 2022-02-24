@@ -124,7 +124,7 @@ module.exports = class Bundle {
           if (mod.packet !== packet && mod.packet.isolated) continue;
         }
         // might be WasmModule
-        if (mod.isolated) continue;
+        if (mod.isolated || (format === '.js' && mod.isRootEntry)) continue;
         yield* iterateEntry(mod, preload);
       }
     }
@@ -307,10 +307,11 @@ module.exports = class Bundle {
 
     if (format === '.wasm') {
       for (const mod of this) {
-        const result = await mod.obtain();
+        const result = minify ? await mod.minify() : await mod.obtain();
         this.#code = result.code;
-        this.#cacheKey = cacheKey;
         this.updatedAt = new Date();
+        const { entryPath, outputPath } = this;
+        debug('bundle complete %s -> %s', entryPath, outputPath, entries);
         return result;
       }
     }
