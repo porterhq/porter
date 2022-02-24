@@ -240,7 +240,7 @@
    * - //example.com/baz.js
    * - /qux/quux.js
    */
-  var rUri = /^(?:https?:)?\/\//;
+  var rUri = /^(?:https?:)?\//;
 
   function parseUri(id) {
     var id = parseMap(id);
