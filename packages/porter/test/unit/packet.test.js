@@ -297,6 +297,17 @@ describe('Packet with WebAssembly', function() {
     await porter.destroy();
   });
 
+  describe('packet.pack()', function() {
+    it('should pack .wasm first', async function() {
+      const packet = porter.packet.find({ name: '@cara/hello-wasm' });
+      await packet.pack();
+      assert.deepEqual(Object.keys(packet.bundles), [
+        'pkg/bundler/index_bg.wasm',
+        'index.js',
+      ]);
+    });
+  });
+
   describe('packet.compileAll()', function() {
     it('should compile wasm as well', async function() {
       const packet = porter.packet.find({ name: '@cara/hello-wasm' });
