@@ -464,7 +464,7 @@
       : lock[pkg.name][pkg.version];
 
     if (!parent.version) {
-      for (const key in alias) {
+      for (var key in alias) {
         if (specifier.indexOf(key) === 0) {
           specifier = alias[key] + specifier.slice(key.length);
           break;
