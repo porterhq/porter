@@ -149,7 +149,6 @@ module.exports = class Module {
     }
 
     const { packet, app } = this;
-    if (dep == 'stream') packet.browser.stream = 'readable-stream';
     const specifier = packet.browser[dep] || packet.browser[`${dep}.js`] || dep;
     const mod = dep.startsWith('.')
       ? await this.parseRelative(specifier)
@@ -160,10 +159,11 @@ module.exports = class Module {
 
     if (mod == null && app.resolve.fallback.hasOwnProperty(specifier)) {
       const result = app.resolve.fallback[specifier];
+      if (result != null) packet.browser[specifier] = result;
       // fallback: { fs: false }
-      if (result === false) return (packet.browser[specifier] = result);
+      if (result === false) return result;
       // fallback: { path: 'path-browserify' }
-      // if (typeof result === 'string') return await app.packet.parseDep(result);
+      if (typeof result === 'string') return await this.parseDep(result);
     }
 
     if (!mod) {

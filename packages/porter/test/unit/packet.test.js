@@ -120,6 +120,11 @@ describe('Packet', function() {
       const iconv = porter.packet.find({ name: 'iconv-lite' });
       expect(Object.keys(iconv.dependencies)).to.not.contain('stream');
     });
+
+    it('should fallback stream to readable-stream', function() {
+      const restructure = porter.packet.find({ name: 'restructure' });
+      assert.deepEqual(restructure.browser, { stream: 'readable-stream' });
+    });
   });
 
   describe('packet.prepare()', function() {
