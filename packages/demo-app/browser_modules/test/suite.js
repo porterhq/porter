@@ -99,3 +99,12 @@ describe('neglect node.js core modules', function() {
     expect(fontkit.create).to.be.a(Function);
   });
 });
+
+describe('dynamic import', function() {
+  it('should recognize require.async', function(done) {
+    require.async('react', function(exports) {
+      expect(exports.Component).to.be.a(Function);
+      done();
+    });
+  });
+});

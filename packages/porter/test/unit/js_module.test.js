@@ -53,7 +53,18 @@ describe('JsModule', function() {
     const pkg = porter.packet.find({ name: 'mobx' });
     const mod = pkg.files['dist/index.js'];
     await mod.obtain();
-    assert.deepEqual(mod.deps, [ './mobx.cjs.development.js' ]);
+    assert.deepEqual(mod.imports, [ './mobx.cjs.development.js' ]);
+  });
+
+  it('should recognize dynamic imports', async function() {
+    const mod = await porter.packet.parseEntry('dynamic_imports.js');
+    assert.ok(mod);
+    // static imports is empty
+    assert.deepEqual(mod.imports, []);
+    assert.deepEqual(mod.dynamicImports, [ 'react' ]);
+    await porter.pack();
+    const react = porter.packet.find({ name: 'react' });
+    assert.deepEqual(Object.keys(mod.lock.react), [ react.version ]);
   });
 });
 

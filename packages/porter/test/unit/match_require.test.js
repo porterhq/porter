@@ -3,23 +3,24 @@
 const expect = require('expect.js');
 const path = require('path');
 const { readFile } = require('fs/promises');
+const assert = require('assert').strict;
 
 const matchRequire = require('../../src/match_require');
 
 const root = path.join(__dirname, '../../../demo-app');
 
-describe('matchRequire', function() {
+describe('matchRequire.findAll()', function() {
   it('match require call statement', async function () {
     const code = await readFile(path.join(root, 'components/home.js'), 'utf8');
-    const deps = matchRequire.findAll(code);
+    const { imports } = matchRequire.findAll(code);
 
-    expect(deps).to.contain('yen');
+    expect(imports).to.contain('yen');
     // do not look into strings or comments
-    expect(deps).to.not.contain('cropper/dist/cropper.css');
+    expect(imports).to.not.contain('cropper/dist/cropper.css');
   });
 
   it('match import declaration', function () {
-    const deps = matchRequire.findAll(`
+    const { imports } = matchRequire.findAll(`
       import * as yen from 'yen'
       import traverse from 'babel-traverse'
       import { existsSync as exists } from 'fs'
@@ -33,22 +34,22 @@ describe('matchRequire', function() {
 
       export { resolve } from 'path'
     `);
-    expect(deps).to.eql(['yen', 'babel-traverse', 'fs', 'path']);
+    expect(imports).to.eql(['yen', 'babel-traverse', 'fs', 'path']);
   });
 
   it('match conditional require call statements', async function() {
-    const deps = matchRequire.findAll(`
+    const { imports } = matchRequire.findAll(`
       if ("development" == "development") {
         require("jquery")
       } else {
         require('yen')
       }
     `);
-    expect(deps).to.eql(['jquery']);
+    expect(imports).to.eql(['jquery']);
   });
 
   it('match conditional require in react-dom', async function() {
-    const deps = matchRequire.findAll(`
+    const { imports } = matchRequire.findAll(`
       function checkDCE() {
         if ("production" !== 'production') {
           // This branch is unreachable because this function is only called
@@ -70,82 +71,82 @@ describe('matchRequire', function() {
         module.exports = require('./cjs/react-dom.development.js');
       }
     `);
-    expect(deps).to.eql(['./cjs/react-dom.production.min.js']);
+    expect(imports).to.eql(['./cjs/react-dom.production.min.js']);
   });
 
   it('match else branch in conditional require if condition yields false', async function() {
-    const deps = matchRequire.findAll(`
+    const { imports } = matchRequire.findAll(`
       if ('development' === 'production') {
         require('jquery')
       } else {
         require('yen')
       }
     `);
-    expect(deps).to.eql(['yen']);
+    expect(imports).to.eql(['yen']);
   });
 
   it('should not hang while parsing following code', async function() {
-    const deps = matchRequire.findAll(`
+    const { imports } = matchRequire.findAll(`
       if ('production' !== 'production') {
         Object.freeze(emptyObject);
       }
     `);
-    expect(deps).to.eql([]);
+    expect(imports).to.eql([]);
   });
 
   it('should match boolean condition', async function() {
-    const deps = matchRequire.findAll(`
+    const { imports } = matchRequire.findAll(`
       if (true) {
         require('jquery')
       } else {
         require('yen')
       }
     `);
-    expect(deps).to.eql(['jquery']);
+    expect(imports).to.eql(['jquery']);
   });
 
   it('should match else branch of the boolean condition if the condition is false', async function() {
-    const deps = matchRequire.findAll(`
+    const { imports } = matchRequire.findAll(`
       if (false) {
         require('jquery')
       } else {
         require('yen')
       }
     `);
-    expect(deps).to.eql(['yen']);
+    expect(imports).to.eql(['yen']);
   });
 
   it('should match detailed boolean condition', async function() {
-    const deps = matchRequire.findAll(`
+    const { imports } = matchRequire.findAll(`
       if (true == true) {
         require('jquery')
       } else {
         require('yen')
       }
     `);
-    expect(deps).to.eql(['jquery']);
+    expect(imports).to.eql(['jquery']);
   });
 
   it('shoud match both if condition is not always true or false', async function() {
-    const deps = matchRequire.findAll(`
+    const { imports } = matchRequire.findAll(`
       if (a) {
         require('jquery')
       } else {
         require('yen')
       }
     `);
-    expect(deps).to.eql(['jquery', 'yen']);
+    expect(imports).to.eql(['jquery', 'yen']);
   });
 
   it('should not match module.require()', async function() {
-    const deps = matchRequire.findAll(`
+    const { imports } = matchRequire.findAll(`
       var types = freeModule && freeModule.require && freeModule.require('util').types;
     `);
-    expect(deps).to.eql([]);
+    expect(imports).to.eql([]);
   });
 
   it('should skip multiple statements if negative', async function() {
-    const deps = matchRequire.findAll(`
+    const { imports } = matchRequire.findAll(`
       var $
       var Canvas = window.Canvas
 
@@ -156,11 +157,11 @@ describe('matchRequire', function() {
         Canvas = require('canvas')
       }
     `);
-    expect(deps).to.eql(['jquery']);
+    expect(imports).to.eql(['jquery']);
   });
 
   it('should match multiple statements if positive', async function() {
-    const deps = matchRequire.findAll(`
+    const { imports } = matchRequire.findAll(`
       var $
       var Canvas = window.Canvas
 
@@ -171,44 +172,67 @@ describe('matchRequire', function() {
         Canvas = require('canvas')
       }
     `);
-    expect(deps).to.eql(['cheerio', 'canvas']);
+    expect(imports).to.eql(['cheerio', 'canvas']);
   });
 
   it('should match one liners with asi', async function() {
-    const deps = matchRequire.findAll(`
+    const { imports } = matchRequire.findAll(`
       if (true) ColorExtactor = require('color-extractor/lib/color-extractor-canvas')
       else ColorExtactor = require('color-extractor/lib/color-extractor-im')
     `);
-    expect(deps).to.eql(['color-extractor/lib/color-extractor-canvas']);
+    expect(imports).to.eql(['color-extractor/lib/color-extractor-canvas']);
   });
 
   it('should match one liners with semicolon', async function() {
-    const deps = matchRequire.findAll(`
+    const { imports } = matchRequire.findAll(`
       if (true) ColorExtactor = require('color-extractor/lib/color-extractor-canvas');else ColorExtactor = require('color-extractor/lib/color-extractor-im');
     `);
-    expect(deps).to.eql(['color-extractor/lib/color-extractor-canvas']);
+    expect(imports).to.eql(['color-extractor/lib/color-extractor-canvas']);
   });
 
   it ('should match one liners with ternary operator', async function() {
-    const deps = matchRequire.findAll(`
+    const { imports } = matchRequire.findAll(`
       const foo = (true ? require('./foo') : require('./bar')) || 'foo'
     `);
-    expect(deps).to.eql(['./foo']);
+    expect(imports).to.eql(['./foo']);
   });
 
   it('should match negative ternary one liner', async function() {
-    const deps = matchRequire.findAll(`
+    const { imports } = matchRequire.findAll(`
       const foo = false ? require('./foo') : require('./bar')
     `);
-    expect(deps).to.eql(['./bar']);
+    expect(imports).to.eql(['./bar']);
   });
 
   it('should match worker-loader!./parserWorker', async function() {
-    const deps = matchRequire.findAll(`
+    const { imports } = matchRequire.findAll(`
       export function parse(svg, progress, error, callback) {
         require('worker-loader!./parserWorker.js');
       }
     `);
-    expect(deps).to.contain('worker-loader!./parserWorker.js');
+    expect(imports).to.contain('worker-loader!./parserWorker.js');
+  });
+
+  it('should match require.async()', async function() {
+    const { imports, dynamicImports } = matchRequire.findAll(`
+      require('foo');
+      require.async('some-big-package', function(exports) {
+        exports.default();
+      });
+    `);
+    assert.deepEqual(imports, [ 'foo' ]);
+    assert.deepEqual(dynamicImports, [ 'some-big-package' ]);
+  });
+
+  it('should match import()', async function() {
+    const { imports, dynamicImports } = matchRequire.findAll(`
+      import 'foo';
+      import bar from 'bar';
+      import('some-big-package').then(function(exports) {
+        exports.default();
+      });
+    `);
+    assert.deepEqual(imports, [ 'foo', 'bar' ]);
+    assert.deepEqual(dynamicImports, [ 'some-big-package' ]);
   });
 });
