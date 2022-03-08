@@ -107,17 +107,13 @@
       } catch (e) {
         if (module.headers.get('Content-Type') != 'application/wasm') {
           console.warn('`WebAssembly.instantiateStreaming` failed because your server does not serve wasm with `application/wasm` MIME type. Falling back to `WebAssembly.instantiate` which is slower. Original error:\n', e);
-        } else {
-          throw e;
         }
       }
-
-      return module.arrayBuffer().then(function instantiate(bytes) {
-        return WebAssembly.instantiate(bytes, imports);
-      });
     }
 
-    return WebAssembly.instantiate(module, imports).then(function onInstantiate(instance) {
+    return module.arrayBuffer().then(function instantiate(bytes) {
+      return WebAssembly.instantiate(bytes, imports);
+    }).then(function onInstantiate(instance) {
       if (instance instanceof WebAssembly.Instance) return { instance, module };
       return instance;
     });
