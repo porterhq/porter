@@ -244,15 +244,31 @@ module.exports = class Bundle {
     });
   }
 
-  async reload() {
-    if (this.#reloading) clearTimeout(this.#reloading);
-    this.#reloading = setTimeout(() => this._reload(), 100);
+  /**
+   * check if bundle cache is stale
+   * @returns {boolean}
+   */
+  revalidate() {
+    if (!this.#cacheKey) return true;
+    const { entries: cacheEntries } = JSON.parse(this.#cacheKey);
+    const { entries } = this;
+    if (cacheEntries.length !== entries.length) return true;
+    for (let i = 0; i < entries.length; i++) {
+      if (cacheEntries[i] !== entries[i]) return true;
+    }
+    return false;
   }
 
-  async _reload() {
-    const { app, entry, packet, outputPath } = this;
+  async reload(options) {
+    if (this.#reloading) clearTimeout(this.#reloading);
+    this.#reloading = setTimeout(() => this._reload(options), 100);
+  }
+
+  async _reload({ cause } = {}) {
+    const { app, entryPath, outputPath } = this;
     if (!outputPath) return;
-    debug(`reloading ${entry} -> ${outputPath} (${packet.dir})`);
+    const reason = cause ? `(${cause.entryPath})` : '';
+    debug(`reloading ${entryPath} -> ${outputPath}`, reason);
     await fs.unlink(path.join(app.cache.path, outputPath)).catch(() => {});
     this.#code = null;
     this.#map = null;
@@ -283,7 +299,7 @@ module.exports = class Bundle {
 
   async obtain(options = {}) {
     const { entries } = this;
-    const { loader } = options;
+    const { loader = false } = options;
     const cacheKey  = JSON.stringify({ entries, loader });
 
     if (this.#cacheKey === cacheKey) {
