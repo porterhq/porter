@@ -120,9 +120,10 @@
   }
 
   var rWasm = /\.wasm$/;
+  var rDigest = /\.[0-9a-f]{8}(\.\w+)$/;
 
   function requestWasm(uri, callback) {
-    var id = uri.replace(baseUrl, '').replace(/\.[0-9a-f]{8}(\.\w+)$/, '$1');
+    var id = uri.replace(baseUrl, '').replace(rDigest, '$1');
     var mod = registry[id];
     var contextId = id.replace(rWasm, '.js');
     var context = registry[contextId];
@@ -413,7 +414,8 @@
       if (!id) return {};
       var dep = registry[id];
 
-      if (!dep && typeof Promise === 'function') {
+      // foo.e7b6121c.js
+      if (!dep && rDigest.test(parseUri(id)) && typeof Promise === 'function') {
         // eslint-disable-next-line no-shadow
         return Object.assign(new Promise(function(resolve, reject) {
           require.async(specifier, resolve);
@@ -422,6 +424,9 @@
           }, system.timeout);
         }), { __esModule: true });
       }
+
+      // should ignore if still unknown
+      if (!dep) return {};
 
       // wasm module has no factory
       if (rWasm.test(id)) return dep.exports;
