@@ -272,7 +272,7 @@ class Porter {
     entries = Object.keys(this.packet.entries);
 
     debug('packing necessary bundles');
-    await this.pack({ minify: true });
+    await this._pack({ minify: true });
 
     debug('compile packets');
     if (this.preload.length > 0) {

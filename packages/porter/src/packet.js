@@ -582,7 +582,7 @@ module.exports = class Packet {
         packet: this,
         entries: entry === main ? null : [ entry ],
       });
-      if (bundle.entries.length > 0) {
+      if (bundle.entries.length > 0 && !(minify && await bundle.exists())) {
         await (minify ? bundle.minify() : bundle.obtain());
       }
     }

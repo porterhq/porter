@@ -121,4 +121,11 @@ describe('dynamic import', function() {
       done();
     });
   });
+
+  it('should not initiate request when import(unknown)', function(done) {
+    import('./missing.js').then(function(exports) {
+      expect(exports).to.eql({ default: {} });
+      done();
+    });
+  });
 });
