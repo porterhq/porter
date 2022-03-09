@@ -104,7 +104,7 @@ module.exports = class JsModule extends Module {
 
     // if fpath is ignored, @babel/core returns nothing
     if (result) {
-      await this.checkImports({ code: result.code });
+      await this.checkImports({ code: result.code, intermediate: true });
       code = result.code;
       map = result.map;
     }

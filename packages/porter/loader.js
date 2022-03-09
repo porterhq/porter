@@ -413,6 +413,16 @@
       if (!id) return {};
       var dep = registry[id];
 
+      if (!dep && typeof Promise === 'function') {
+        // eslint-disable-next-line no-shadow
+        return Object.assign(new Promise(function(resolve, reject) {
+          require.async(specifier, resolve);
+          setTimeout(function() {
+            reject(new Error('import(' + JSON.stringify(specifier) + ') timeout'));
+          }, system.timeout);
+        }), { __esModule: true });
+      }
+
       // wasm module has no factory
       if (rWasm.test(id)) return dep.exports;
 

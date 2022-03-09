@@ -101,9 +101,23 @@ describe('neglect node.js core modules', function() {
 });
 
 describe('dynamic import', function() {
-  it('should recognize require.async', function(done) {
+  it('should recognize require.async(specifier)', function(done) {
     require.async('react', function(exports) {
       expect(exports.Component).to.be.a(Function);
+      done();
+    });
+  });
+
+  it('should work when import(existing)', function(done) {
+    import('react').then(function(exports) {
+      expect(exports.Component).to.be.a(Function);
+      done();
+    });
+  });
+
+  it('should fetch script when import(dynamic)', function(done) {
+    import('chart.js').then(function(exports) {
+      expect(exports).to.be.a(Function);
       done();
     });
   });
