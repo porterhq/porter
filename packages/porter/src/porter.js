@@ -137,7 +137,7 @@ class Porter {
     return result;
   }
 
-  async pack({ minify = false } = {}) {
+  async _pack({ minify = false } = {}) {
     const { packet, entries, preload } = this;
     const files = preload.concat(entries);
 
@@ -150,6 +150,31 @@ class Porter {
     for (const dep of packet.all) {
       if (dep !== packet) await dep.pack({ minify });
     }
+  }
+
+  async reload() {
+    for (const entry of Object.values(this.packet.entries)) {
+      const bundle = this.packet.bundles[entry.file];
+      if (!bundle) continue;
+      const done = new WeakSet();
+      outer: for (const mod of entry.family) {
+        if (mod.packet === this.packet || done.has(mod.packet)) continue;
+        done.add(mod.packet);
+        for (const depBundle of Object.values(mod.packet.bundles)) {
+          if (bundle.format === depBundle.format && depBundle.revalidate()) {
+            bundle.reload();
+            break outer;;
+          }
+        }
+      }
+    }
+    await this._pack();
+  }
+
+  async pack({ minify = false } = {}) {
+    await this._pack();
+    const { packet, entries, preload } = this;
+    const files = preload.concat(entries);
 
     for (const file of files) {
       const bundles = Bundle.wrap({ packet, entries: [ file ] });
@@ -208,7 +233,8 @@ class Porter {
       }
     }
 
-    await this.pack({ minify });
+    // compileAll(entries) needs to defer packing, otherwise pack when ready
+    if (!minify) await this.pack({ minify });
   }
 
   async compilePackets(opts) {
@@ -241,12 +267,11 @@ class Porter {
     entries = entries.filter(file => !this.packet.entries[file]);
     if (entries.length > 0) {
       await Promise.all(entries.map(entry => this.packet.parseEntry(entry)));
-      // new entries might introduce new dependencies that need packing
-      for (const dep of this.packet.all) {
-        if (dep !== this.packet) await dep.pack({ minify: true });
-      }
     }
     entries = Object.keys(this.packet.entries);
+
+    debug('packing necessary bundles');
+    await this.pack({ minify: true });
 
     debug('compile packets');
     if (this.preload.length > 0) {
@@ -334,16 +359,20 @@ class Porter {
     const ext = path.extname(file);
     // lazyloads should not go through `packet.parseEntry(file)`
     let mod = packet.files[file];
+    let bundle = packet.bundles[mod ? mod.file : file];
+
     // in case root entry is not parsed yet
-    if (packet === this.packet && !(mod && packet.bundles[mod.file])) {
+    if (packet === this.packet && !bundle) {
       debug('parseEntry', file);
       mod = await packet.parseEntry(file.replace(rExt, '')).catch(() => null);
-      if (ext === '.css') mod = await packet.parseEntry(file).catch(() => null);
-      await this.pack();
+      if (ext === '.css') mod = await packet.parseEntry(file).catch(() => mod);
+      await this.reload();
+      const bundles = mod ? Bundle.wrap({ packet, entries: [ mod.file ]}) : [];
+      bundle = bundles.find(entry => entry.format === ext);
     }
 
     // prefer the real file extension
-    return packet.bundles[mod ? mod.file : file];
+    return bundle;
   }
 
   async readCss(outputPath, query) {
