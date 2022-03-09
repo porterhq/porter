@@ -14,7 +14,8 @@ const rString = /^(['"'])([^\1]+)\1$/;
  */
 exports.findAll = function findAll(content) {
   const parts = content.match(jsTokens);
-  const deps = [];
+  const imports = [];
+  const dynamicImports = [];
   let i = 0;
   let part;
 
@@ -38,9 +39,20 @@ exports.findAll = function findAll(content) {
       const m = part.match(rString);
       space();
       if (m && part == ')') {
-        deps.push(m[2]);
+        imports.push(m[2]);
       }
+    } else if (part === '.' && parts[i] === 'async' && parts[i + 1] === '(') {
+      i += 2;
+      next();
+      const m = part.match(rString);
+      if (m) dynamicImports.push(m[2]);
     }
+  }
+
+  function findDynamicImport() {
+    next();
+    const m = part.match(rString);
+    if (m) dynamicImports.push(m[2]);
   }
 
   // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/import
@@ -49,7 +61,9 @@ exports.findAll = function findAll(content) {
     // import "foo"
     const m = part.match(rString);
     if (m) {
-      deps.push(m[2]);
+      imports.push(m[2]);
+    } else if (part === '(') {
+      findDynamicImport();
     } else {
       findImportFrom();
     }
@@ -60,7 +74,7 @@ exports.findAll = function findAll(content) {
     if (part == 'from') {
       space();
       const m = part.match(rString);
-      if (m) deps.push(m[2]);
+      if (m) imports.push(m[2]);
     }
   }
 
@@ -69,7 +83,7 @@ exports.findAll = function findAll(content) {
     if (part == 'from') {
       space();
       const m = part.match(rString);
-      if (m) deps.push(m[2]);
+      if (m) imports.push(m[2]);
     }
   }
 
@@ -201,5 +215,5 @@ exports.findAll = function findAll(content) {
     next();
   }
 
-  return deps;
+  return { imports, dynamicImports };
 };

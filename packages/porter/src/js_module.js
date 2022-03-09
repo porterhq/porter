@@ -14,11 +14,14 @@ const { MODULE_LOADING, MODULE_LOADED } = require('./constants');
 module.exports = class JsModule extends Module {
   matchImport(code) {
     const { packet } = this;
-
-    return matchRequire.findAll(code).filter(dep => {
-      return packet.browser[dep] !== false && dep !== 'heredoc';
-    });
+    const { imports, dynamicImports } = matchRequire.findAll(code);
+    function ignoreImport(specifier) {
+      return packet.browser[specifier] !== false && specifier !== 'heredoc';
+    }
+    this.imports = imports.filter(ignoreImport);
+    this.dynamicImports = dynamicImports.filter(ignoreImport);
   }
+
 
   /**
    * (partially) handle browserify.transform in package.json
@@ -67,11 +70,11 @@ module.exports = class JsModule extends Module {
 
     const { app } = this;
     const { code } = await this.load();
-    const deps = this.deps || this.matchImport(code);
-
+    if (!this.imports) this.matchImport(code);
     this.cache = await app.cache.get(this.id, code);
 
-    const result = await Promise.all(deps.map(this.parseDep, this));
+    const imports = this.imports.concat(this.dynamicImports || []);
+    const result = await Promise.all(imports.map(this.parseImport, this));
     this.children = result.filter(mod => !!mod);
     this.status = MODULE_LOADED;
   }
@@ -101,20 +104,15 @@ module.exports = class JsModule extends Module {
 
     // if fpath is ignored, @babel/core returns nothing
     if (result) {
-      const { deps } = this;
-      // @babel/runtime
-      this.deps = this.matchImport(result.code);
-      for (const dep of this.deps) {
-        if (!deps.includes(dep)) await this.parseDep(dep);
-      }
+      await this.checkImports({ code: result.code });
       code = result.code;
       map = result.map;
     }
 
-    const { id, deps } = this;
+    const { id, imports } = this;
     return {
       code: [
-        `define(${JSON.stringify(id)}, ${JSON.stringify(deps)}, function(require, exports, module, __module) {${code}`,
+        `define(${JSON.stringify(id)}, ${JSON.stringify(imports)}, function(require, exports, module, __module) {${code}`,
         '})'
       ].join('\n'),
       map
@@ -125,7 +123,7 @@ module.exports = class JsModule extends Module {
     if (this.cache && this.cache.minified) return this.cache;
 
     const { code, map } = await this.load();
-    this.deps = this.deps || this.matchImport(code);
+    if (!this.imports) this.matchImport(code);
     this.setCache(code, {
       ...this.uglify(await this.transpile({ code, map })),
       minified: true

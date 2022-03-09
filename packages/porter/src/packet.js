@@ -418,19 +418,20 @@ module.exports = class Packet {
 
   /**
    * Parse an entry that has code or deps (or both) specified already.
-   * @param {Object} opts
-   * @param {string} opts.entry
-   * @param {string[]} opts.deps
-   * @param {string} opts.code
+   * @param {Object} options
+   * @param {string} options.entry
+   * @param {string[]} options.imports
+   * @param {string} options.code
    */
-  async parseFakeEntry({ entry, deps, code }) {
+  async parseFakeEntry(options = {}) {
+    const { entry, imports = options.deps, code } = options;
     const { entries, files, paths } = this;
     const { moduleCache } = this.app;
     const fpath = path.join(paths[0], entry);
     delete moduleCache[fpath];
     const mod = Module.create({ file: entry, fpath, packet: this });
 
-    Object.assign(mod, { deps, code, fake: true });
+    Object.assign(mod, { imports, code, fake: true });
     entries[mod.file] = files[mod.file] = mod;
     await mod.parse();
     return mod;

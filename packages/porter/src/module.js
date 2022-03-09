@@ -130,9 +130,10 @@ module.exports = class Module {
     return mod;
   }
 
-  async parseDep(dep) {
+  async parseImport(dep) {
     // require('https://example.com/foo.js')
-    if (/^(?:https?:)?\/\//.test(dep)) return;
+    // require('/path/to/remote.js')
+    if (/^(?:https?:)?\//.test(dep)) return;
 
     const loaders = {};
 
@@ -149,7 +150,6 @@ module.exports = class Module {
     }
 
     const { packet, app } = this;
-    if (dep == 'stream') packet.browser.stream = 'readable-stream';
     const specifier = packet.browser[dep] || packet.browser[`${dep}.js`] || dep;
     const mod = dep.startsWith('.')
       ? await this.parseRelative(specifier)
@@ -160,10 +160,11 @@ module.exports = class Module {
 
     if (mod == null && app.resolve.fallback.hasOwnProperty(specifier)) {
       const result = app.resolve.fallback[specifier];
+      if (result != null) packet.browser[specifier] = result;
       // fallback: { fs: false }
-      if (result === false) return (packet.browser[specifier] = result);
+      if (result === false) return result;
       // fallback: { path: 'path-browserify' }
-      // if (typeof result === 'string') return await app.packet.parseDep(result);
+      if (typeof result === 'string') return await this.parseImport(result);
     }
 
     if (!mod) {
@@ -206,17 +207,13 @@ module.exports = class Module {
    * @param {string} opts.code
    * @returns {Array}
    */
-  async checkDeps({ code }) {
-    const deps = this.matchImport(code);
+  async checkImports({ code }) {
+    const { imports } = this;
+    this.matchImport(code);
 
-    if (!this.packet.parent && this.deps) {
-      for (const dep of deps) {
-        if (this.deps.includes(dep)) continue;
-        await this.parseDep(dep);
-      }
+    for (const dep of this.imports) {
+      if (!imports.includes(dep)) await this.parseImport(dep);
     }
-
-    return deps;
   }
 
   /**
@@ -225,7 +222,7 @@ module.exports = class Module {
   async obtain() {
     if (!this.cache) {
       const { code, map } = await this.load();
-      this.deps = this.matchImport(code);
+      this.matchImport(code);
       this.setCache(code, await this.transpile({ code, map }));
     }
     return this.cache;
@@ -234,7 +231,7 @@ module.exports = class Module {
   async reload() {
     debug(`reloading ${this.file} (${this.packet.dir})`);
     const { code, map } = await this.load();
-    this.deps = await this.checkDeps({ code });
+    await this.checkImports({ code });
     this.setCache(code, await this.transpile({ code, map }));
   }
 

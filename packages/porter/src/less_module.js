@@ -17,16 +17,16 @@ function getLessPlugin(packet) {
 module.exports = class LessModule extends CssModule {
   matchImport(code) {
     // leave imports to less compiler
-    return [];
+    this.imports = [];
   }
 
-  // async parseDep(dep) {
-  //   if (dep.startsWith('~')) return await super.parseDep(dep.slice(1));
+  // async parseImport(dep) {
+  //   if (dep.startsWith('~')) return await super.parseImport(dep.slice(1));
 
   //   const mod = await this.parseRelative(dep);
   //   if (mod) return mod;
 
-  //   return await super.parseDep(dep);
+  //   return await super.parseImport(dep);
   // }
 
   async transpile({ code, map }) {

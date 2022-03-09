@@ -53,6 +53,23 @@ describe('porter.compileEntry()', function() {
       // fake modules should be removed afterwards
       expect(Object.keys(porter.packet.files)).to.not.contain('fake/entry.js');
     });
+
+    it('can compile component with specified deps and code', async function() {
+      const { code } = await porter.compileEntry({
+        entry: 'fake/entry.js',
+        imports: ['yen', 'jquery'],
+        code: `
+          'use strict'
+          var $ = require('yen')
+          $('body').addClass('hidden')
+        `
+      }, { all: true, writeFile: false, loaderConfig: { preload: undefined } });
+
+      const { name, version, main } = porter.packet.find({ name: 'jquery' });
+      expect(code).to.contain(`${name}/${version}/${main}`);
+      // fake modules should be removed afterwards
+      expect(Object.keys(porter.packet.files)).to.not.contain('fake/entry.js');
+    });
   });
 
   describe('.compileEntry({ entry, code }, { loaderConfig })', function() {

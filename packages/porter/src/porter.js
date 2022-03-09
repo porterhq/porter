@@ -42,6 +42,7 @@ function waitFor(mod) {
  */
 const fallback = {
   fs: false,
+  stream: 'readable-stream',
 };
 
 class Porter {

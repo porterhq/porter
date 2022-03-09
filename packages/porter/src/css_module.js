@@ -10,15 +10,15 @@ const rAtImport = /(?:^|\n)\s*@import\s+(['"])([^'"]+)\1;/g;
 
 module.exports = class CssModule extends Module {
   matchImport(code) {
-    const deps = [];
+    const imports = [];
     let m;
 
     rAtImport.lastIndex = 0;
     while ((m = rAtImport.exec(code))) {
-      deps.push(m[2]);
+      imports.push(m[2]);
     }
 
-    return deps;
+    this.imports = imports;
   }
 
   /**
@@ -30,10 +30,10 @@ module.exports = class CssModule extends Module {
 
     const { fpath } = this;
     const code = this.code || (await fs.readFile(fpath, 'utf8'));
-    const deps = this.deps || this.matchImport(code);
+    if (!this.imports) this.matchImport(code);
 
     // ordering matters in css modules
-    const result = await Promise.all(deps.map(this.parseDep, this));
+    const result = await Promise.all(this.imports.map(this.parseImport, this));
     this.children = result.filter(mod => mod != null);
     this.status = MODULE_LOADED;
   }
