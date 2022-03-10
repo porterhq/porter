@@ -208,7 +208,7 @@ module.exports = class Module {
    * @returns {Array}
    */
   async checkImports({ code, intermediate = false }) {
-    const { imports, dynamicImports } = this;
+    const { imports, dynamicImports = [] } = this;
     this.matchImport(code);
 
     for (const dep of this.imports) {
