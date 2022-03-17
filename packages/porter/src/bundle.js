@@ -9,7 +9,7 @@ const debug = require('debug')('porter');
 const Module = require('./module');
 
 const extMap = {
-  '.js': [ '.js', '.jsx', '.ts', '.tsx', '.json' ],
+  '.js': [ '.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs', '.json' ],
   '.wasm': [ '.wasm' ],
   '.css': [ '.css', '.less' ],
 };
@@ -90,7 +90,7 @@ module.exports = class Bundle {
     this.app = app;
     this.packet = packet;
     this.loaderConfig = loaderConfig;
-    this.#entries = Array.isArray(entries) && entries.length > 0 ? entries : null;
+    this.#entries = entries && entries.length > 0 ? [].concat(entries) : null;
     this.#loaderCache = {};
 
     let scope = 'packet';

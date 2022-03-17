@@ -92,7 +92,8 @@ describe('Packet', function() {
 
     it('recognize css @import', function() {
       const cssFiles = Object.keys(porter.packet.files).filter(file => file.endsWith('.css'));
-      expect(cssFiles).to.eql([
+      expect(cssFiles.sort()).to.eql([
+        'home_dep.css',
         'stylesheets/app.css',
         'stylesheets/common/base.css',
         'stylesheets/common/reset.css'

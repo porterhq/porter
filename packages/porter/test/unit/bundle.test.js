@@ -4,6 +4,7 @@ const { strict: assert } = require('assert');
 const fs = require('fs/promises');
 const path = require('path');
 const Porter = require('../..');
+const Bundle = require('../../src/bundle');
 
 describe('Bundle without preload', function() {
   const root = path.resolve(__dirname, '../../../demo-app');
@@ -24,9 +25,22 @@ describe('Bundle without preload', function() {
     await porter.destroy();
   });
 
+  describe('constructor()', async function() {
+    it('should not tamper with passed entries', async function() {
+      const { packet } = porter;
+      await packet.parseEntry('home.js');
+      Bundle.wrap({ packet, entries: [ 'home.js' ]});
+      await packet.parseEntry('home.css');
+      Bundle.wrap({ packet, entries: [ 'home.css' ]});
+      // bundle of home.js should not include home.css
+      assert.deepEqual(packet.bundles['home.js'].entries, [ 'home.js' ]);
+    });
+  });
+
   describe('[Symbol.iterator]', function() {
     it('should iterate over all modules that belong to bundle', async function() {
       assert.deepEqual(Object.keys(porter.packet.bundles).sort(), [
+        'home.css',
         'home.js',
         'lazyload.js',
         'lazyload_dep.js',
@@ -283,6 +297,7 @@ describe('Bundle with CSS in JS', function() {
         'app/web/home_dep.js',
         'app/web/i18n/index.js',
         'app/web/utils/index.js',
+        'app/web/components/button.jsx',
         'app/web/home.jsx',
       ]);
     });
