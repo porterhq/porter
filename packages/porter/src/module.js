@@ -207,22 +207,13 @@ module.exports = class Module {
    * @param {string} opts.code
    * @returns {Array}
    */
-  async checkImports({ code, intermediate = false }) {
-    const { imports, dynamicImports = [] } = this;
+  async checkImports({ code }) {
+    const { imports } = this;
     this.matchImport(code);
-
-    for (const dep of this.imports) {
-      if (!imports.includes(dep)) await this.parseImport(dep);
-    }
-
-    // when checking imports introduced by intermediate code, dynamic imports need reset
-    // import(specifier) -> Promise.resolve(require(specifier))
-    if (intermediate) {
-      for (let i = this.imports.length; i >= 0; i--) {
-        const specifier = this.imports[i];
-        if (dynamicImports.includes(specifier)) this.imports.splice(i, 1);
+    if (this.imports) {
+      for (const dep of this.imports) {
+        if (!imports.includes(dep)) await this.parseImport(dep);
       }
-      this.dynamicImports = dynamicImports;
     }
   }
 

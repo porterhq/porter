@@ -38,6 +38,8 @@ Module.create = function(opts) {
       return new TsModule(opts);
     case '.js':
     case '.jsx':
+    case '.mjs':
+    case '.cjs':
       return new JsModule(opts);
     case '.less':
       return new LessModule(opts);

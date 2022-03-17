@@ -29,4 +29,12 @@ describe('WasmModule', function() {
     const mod = await packet.parseFile('pkg/bundler/index_bg.wasm');
     assert.equal(mod.status, MODULE_LOADED);
   });
+
+  it('should reload without error', async function() {
+    const packet = porter.packet.find({ name: '@cara/hello-wasm' });
+    const mod = await packet.parseFile('pkg/bundler/index_bg.wasm');
+    await assert.doesNotReject(async function() {
+      await mod.reload();
+    });
+  });
 });

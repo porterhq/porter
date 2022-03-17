@@ -41,6 +41,7 @@ describe('test/unit/less_module.test.js', function() {
       'app/web/utils/index.js',
       'node_modules/cropper/dist/cropper.css',
       'app/web/stylesheets/app.less',
+      'app/web/components/button.jsx',
     ]);
   });
 
