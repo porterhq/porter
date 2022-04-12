@@ -98,6 +98,16 @@ module.exports = class Module {
       copies[version] = { ...copies[version], ...copy };
     }
 
+    const copy = lock[this.packet.name][this.packet.version];
+    const bundle = this.packet.bundles[this.file];
+    if (bundle && bundle.children?.length > 0) {
+      const { manifest = {} } = copy;
+      for (const depBundle of bundle.children) {
+        manifest[depBundle.entry.replace(/\.\w+$/, '.js')] = depBundle.output;
+      }
+      copy.manifest = manifest;
+    }
+
     return lock;
   }
 
@@ -168,7 +178,7 @@ module.exports = class Module {
     }
 
     if (!mod) {
-      console.error(new Error(`unmet dependency ${dep} (${this.fpath})`).stack);
+      console.error(`unmet dependency ${dep} (${this.fpath})`);
       return;
     }
 

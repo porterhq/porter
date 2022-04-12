@@ -116,4 +116,8 @@ describe('porter.compileAll()', function() {
     assert.ok(content.includes('font-family:'));
     assert.ok(content.includes(`/*# sourceMappingURL=${path.basename(fpath)}.map */`));
   });
+
+  it('should compile dynamic imports', async function() {
+    assert(entries.includes(`public/${manifest['dynamic-import/sum.js']}`));
+  });
 });

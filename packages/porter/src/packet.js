@@ -491,9 +491,11 @@ module.exports = class Packet {
     const { dependencies, main, bundles, parent, entries } = this;
 
     for (const file in bundles) {
+      const bundle = bundles[file];
       if (file.endsWith('.css')) continue;
       if (!parent && entries[file] && !entries[file].isPreload) continue;
-      manifest[file] = bundles[file].output;
+      if (!parent && bundle.parent) continue;
+      manifest[file] = bundle.output;
     }
 
     if (Object.keys(manifest).length > 0) copy.manifest = manifest;
@@ -644,37 +646,43 @@ module.exports = class Packet {
     }
 
     const { app } = this;
-    const bundle = Bundle.create({ ...opts, packet: this, entries });
+    const bundles = Bundle.wrap({ ...opts, packet: this, entries });
 
-    if (await bundle.exists()) {
-      const { entryPath, outputPath } = bundle;
-      if (!this.parent) manifest[bundle.entry] = bundle.output;
-      debug('bundle exists %s -> %s', entryPath, outputPath, bundle.entries);
-      return bundle;
+    for (let i = bundles.length - 1; i >= 0; i--) {
+      const bundle = bundles[i];
+
+      if (await bundle.exists()) {
+        const { entryPath, outputPath } = bundle;
+        if (!this.parent) manifest[bundle.outkey] = bundle.output;
+        debug('bundle exists %s -> %s', entryPath, outputPath, bundle.entries);
+        continue;
+      }
+
+      const result = await bundle.minify();
+      const mod = this.files[entries[0]];
+
+      if (mod && mod.fake) {
+        delete this.files[mod.file];
+        delete this.entries[mod.file];
+      }
+
+      if (!this.parent) manifest[bundle.outkey] = bundle.output;
+      const { code, map } = this.setSourceMap({ output: bundle.output, ...result });
+      if (!opts.writeFile) return { code, map };
+
+      const { outputPath } = bundle;
+      if (!outputPath) throw new Error('bundle empty', bundle.entryPath, bundle.entries);
+      const fpath = path.join(app.output.path, outputPath);
+      await fs.mkdir(path.dirname(fpath), { recursive: true });
+      await Promise.all([
+        writeFile(fpath, code),
+        map && writeFile(`${fpath}.map`, JSON.stringify(map, (k, v) => {
+          if (k !== 'sourcesContent') return v;
+        })) || Promise.resolve(),
+      ]);
     }
 
-    const result = await bundle.minify();
-    const mod = this.files[entries[0]];
-
-    if (mod && mod.fake) {
-      delete this.files[mod.file];
-      delete this.entries[mod.file];
-    }
-
-    if (!this.parent) manifest[bundle.entry] = bundle.output;
-    const { code, map } = this.setSourceMap({ output: bundle.output, ...result });
-    if (!opts.writeFile) return { code, map };
-
-    const fpath = path.join(app.output.path, bundle.outputPath);
-    await fs.mkdir(path.dirname(fpath), { recursive: true });
-    await Promise.all([
-      writeFile(fpath, code),
-      map && writeFile(`${fpath}.map`, JSON.stringify(map, (k, v) => {
-        if (k !== 'sourcesContent') return v;
-      })) || Promise.resolve(),
-    ]);
-
-    return bundle;
+    return bundles[0];
   }
 
   async destroy() {
