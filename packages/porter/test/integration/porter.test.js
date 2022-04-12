@@ -145,6 +145,11 @@ describe('Porter', function() {
     it('should hand request over to next middleware', async function() {
       await requestPath('/arbitrary-path');
     });
+
+    it('should handle import("./foo.css")', async function() {
+      const res = await requestPath('/about.css');
+      assert(res.text.includes('font-size: 16px'));
+    });
   });
 
   describe('.func()', function() {
