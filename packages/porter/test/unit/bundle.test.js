@@ -40,10 +40,12 @@ describe('Bundle without preload', function() {
   describe('[Symbol.iterator]', function() {
     it('should iterate over all modules that belong to bundle', async function() {
       assert.deepEqual(Object.keys(porter.packet.bundles).sort(), [
+        'dynamic-import/sum.js',
         'home.css',
         'home.js',
         'lazyload.js',
         'lazyload_dep.js',
+        'mad-import/foo.js',
         'stylesheets/app.css',
         'test/suite.js',
       ]);
@@ -95,6 +97,18 @@ describe('Bundle without preload', function() {
       const bundle = packet.bundles['index.js'];
       const files = Array.from(bundle, mod => mod.file);
       assert.deepEqual(files.filter(file => file.endsWith('.json')), [ 'package.json' ]);
+    });
+
+    it('should exclude dynamic imports', async function() {
+      const bundle = porter.packet.bundles['test/suite.js'];
+      const files = Array.from(bundle, mod => mod.file);
+      // should not include dynamic-import/sum.js
+      assert.deepEqual(files.filter(file => file === 'dynamic-import/sum.js'), []);
+    });
+
+    it('should create dynamic bundles', async function() {
+      const bundle = porter.packet.bundles['dynamic-import/sum.js'];
+      assert.ok(bundle);
     });
   });
 

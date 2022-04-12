@@ -35,19 +35,31 @@ module.exports = class Bundle {
     // the default bundle
     const bundle = Bundle.create(options);
     const results = [ bundle ];
-
-    // see if a css bundle is needed
     const entry = packet.files[entries[0]];
+
+    // wrapping css bundles, no need to look forward for css dependencies
+    if (bundle.format === '.css') return results;
+    if (!entry) return results;
+
     const cssExtensions = extMap['.css'];
-    let found = false;
+    let cssImports = false;
     for (const mod of entry.family) {
-      if (cssExtensions.includes(path.extname(mod.file))) {
-        found = true;
-        break;
+      // import './foo.css';
+      if (cssExtensions.includes(path.extname(mod.file))) cssImports = true;
+      // dynamic import(specifier);
+      for (const child of mod.dynamicChildren || []) {
+        const depBundle = Bundle.create({
+          packet: child.packet,
+          entries: [ child.file ],
+          loader: false,
+        });
+        depBundle.parent = bundle;
+        bundle.children.push(depBundle);
+        results.push(depBundle);
       }
     }
 
-    if (found) {
+    if (cssImports) {
       const cssBundle = Bundle.create({ packet, entries, format: '.css' });
       // existing css bundle might not contain all of the css dependencies
       for (const file of entries) {
@@ -87,6 +99,8 @@ module.exports = class Bundle {
     const { packet, entries, loaderConfig, format = '.js' } = options;
     const { app } = packet;
 
+    this.parent = null;
+    this.children = [];
     this.app = app;
     this.packet = packet;
     this.loaderConfig = loaderConfig;
@@ -117,6 +131,7 @@ module.exports = class Bundle {
     function* iterate(entry, preload) {
       for (const mod of entry.children) {
         if (done[mod.id]) continue;
+        if (entry.dynamicChildren?.includes(mod)) continue;
         if (format === '.js') {
           // exclude external modules if module packet is isolated
           if (mod.packet !== packet && scope !== 'all') continue;
@@ -179,6 +194,11 @@ module.exports = class Bundle {
     const { entry, packet } = this;
     const { name, version } = packet;
     return packet.parent ? path.join(name, version, entry) : entry;
+  }
+
+  get outkey() {
+    const { entry, format } = this;
+    return format === '.css' ? entry.replace(rExt, format) : entry;
   }
 
   get output() {
@@ -318,7 +338,7 @@ module.exports = class Bundle {
    * @param {Object} opts.loaderConfig overrides {@link Packet#loaderConfig}
    */
   async _obtain({ loader, minify = false } = {}) {
-    const { app, entries, packet, format } = this;
+    const { app, entries, children, packet, format } = this;
     const cacheKey = JSON.stringify({ entries, loader });
 
     if (format === '.wasm') {
@@ -344,6 +364,7 @@ module.exports = class Bundle {
     const mod = await this.getEntryModule({ minify });
 
     if (mod.isRootEntry && !mod.isPreload && format === '.js') {
+      await Promise.all(children.map(child => child.obtain({ minify })));
       node.prepend(`Object.assign(porter.lock, ${JSON.stringify(mod.lock)})`);
     }
 
@@ -377,7 +398,7 @@ module.exports = class Bundle {
    * @param {boolean} options.minify
    */
   async fuzzyObtain({ loader, minify = false } = {}) {
-    const { packet, format } = this;
+    const { children, packet, format } = this;
     const loaderConfig = Object.assign(packet.loaderConfig, this.loaderConfig);
     const chunks = [];
 
@@ -389,6 +410,7 @@ module.exports = class Bundle {
     const mod = await this.getEntryModule({ minify });
 
     if (mod.isRootEntry && !mod.isPreload && format === '.js') {
+      await Promise.all(children.map(child => child.fuzzyObtain({ minify })));
       chunks.unshift(`Object.assign(porter.lock, ${JSON.stringify(mod.lock)})`);
     }
 

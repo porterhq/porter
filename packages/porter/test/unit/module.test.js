@@ -41,6 +41,13 @@ describe('Module', function() {
       assert('react-color' in porter.packet.dependencies);
       assert(!('react-color' in porter.packet.entries['home.js'].lock));
     });
+
+    it('should generate dynamic imports lock', function() {
+      const { lock } = porter.packet.entries['test/suite.js'];
+      const { manifest } = lock[porter.packet.name][porter.packet.version];
+      const { output } = porter.packet.bundles['dynamic-import/sum.js'];
+      assert.equal(manifest['dynamic-import/sum.js'], output);
+    });
   });
 
   describe('module.matchImport(code)', function() {
@@ -55,7 +62,7 @@ describe('Module', function() {
 
   describe('module.checkImports({ code, intermediate })', function() {
     it('should filter dynamic imports', async function() {
-      const mod = porter.packet.files['test/suite.js'];
+      const mod = porter.packet.files['dynamic-import/suite.js'];
       const { code, map } = await mod.load();
       mod.matchImport(code);
       await mod.transpile({ code, map });

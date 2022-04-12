@@ -178,10 +178,8 @@ class Porter {
     const files = preload.concat(entries);
 
     for (const file of files) {
-      const bundles = Bundle.wrap({ packet, entries: [ file ] });
-      await Promise.all(
-        bundles.map(bundle => minify ? bundle.minify() : bundle.obtain())
-      );
+      const [ bundle ] = Bundle.wrap({ packet, entries: [ file ] });
+      await (minify ? bundle.minify() : bundle.obtain());
     }
   }
 
@@ -368,8 +366,7 @@ class Porter {
       mod = await packet.parseEntry(file.replace(rExt, '')).catch(() => null);
       if (ext === '.css') mod = await packet.parseEntry(file).catch(() => mod);
       await this.reload();
-      const bundles = mod ? Bundle.wrap({ packet, entries: [ mod.file ]}) : [];
-      bundle = bundles.find(entry => entry.format === ext);
+      [ bundle ] = mod ? Bundle.wrap({ packet, entries: [ mod.file ]}) : [];
     }
 
     // prefer the real file extension

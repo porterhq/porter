@@ -66,6 +66,13 @@ describe('JsModule', function() {
     const react = porter.packet.find({ name: 'react' });
     assert.deepEqual(Object.keys(mod.lock.react), [ react.version ]);
   });
+
+  it('should distinguish dynamic imports', async function() {
+    const mod = porter.packet.files['dynamic-import/suite.js'];
+    assert.ok(mod);
+    assert.ok(mod.dynamicChildren.length > 0);
+    assert.ok(mod.dynamicChildren.find(child => child.file === 'dynamic-import/sum.js'));
+  });
 });
 
 describe('JsModule import CSS', function() {
