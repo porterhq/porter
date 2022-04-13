@@ -15,7 +15,7 @@ describe('Bundle without preload', function() {
       root,
       paths: ['components', 'browser_modules'],
       lazyload: ['lazyload.js'],
-      entries: ['home.js', 'test/suite.js', 'stylesheets/app.css'],
+      entries: ['home.css', 'home.js', 'test/suite.js', 'stylesheets/app.css'],
     });
     await fs.rm(porter.cache.path, { recursive: true, force: true });
     await porter.ready();
@@ -25,15 +25,22 @@ describe('Bundle without preload', function() {
     await porter.destroy();
   });
 
-  describe('constructor()', async function() {
+  describe('constructor()', function() {
     it('should not tamper with passed entries', async function() {
       const { packet } = porter;
-      await packet.parseEntry('home.js');
       Bundle.wrap({ packet, entries: [ 'home.js' ]});
-      await packet.parseEntry('home.css');
-      Bundle.wrap({ packet, entries: [ 'home.css' ]});
+      Bundle.wrap({ packet, entries: [ 'home.js' ], format: '.css' });
       // bundle of home.js should not include home.css
       assert.deepEqual(packet.bundles['home.js'].entries, [ 'home.js' ]);
+      assert.deepEqual(packet.bundles['home.css'].entries.sort(), [ 'home.css', 'home.js' ]);
+    });
+  });
+
+  describe('Bundle.wrap', function() {
+    it('should recognize css bundle with multiple entries', async function() {
+      const { packet } = porter;
+      const [ bundle ] = Bundle.wrap({ packet, entries: [ 'home.js' ], format: '.css' });
+      assert.deepEqual(bundle.entries.sort(), [ 'home.css', 'home.js' ]);
     });
   });
 
