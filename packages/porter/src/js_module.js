@@ -70,8 +70,12 @@ module.exports = class JsModule extends Module {
 
     const { app } = this;
     const { code } = await this.load();
-    if (!this.imports) this.matchImport(code);
     this.cache = await app.cache.get(this.id, code);
+    if (!this.imports && this.cache) {
+      this.imports = this.cache.imports;
+      this.dynamicImports = this.cache.dynamicImports;
+    }
+    if (!this.imports) this.matchImport(code);
 
     const [ children, dynamicChildren ] = await Promise.all([
       Promise.all(this.imports.map(this.parseImport, this)),
@@ -136,6 +140,15 @@ module.exports = class JsModule extends Module {
       for (const dep of this.imports) {
         if (!imports.includes(dep) && !dynamicImports.includes(dep)) {
           await this.parseImport(dep);
+        }
+      }
+      // import './foo.d.ts';
+      for (const dep of imports) {
+        if (!this.imports.includes(dep)) {
+          const mod = await this.parseImport(dep);
+          for (let i = this.children.length - 1; i >= 0; i--) {
+            if (this.children[i] === mod) this.children.splice(i, 1);
+          }
         }
       }
     }

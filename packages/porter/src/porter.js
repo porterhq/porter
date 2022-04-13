@@ -366,7 +366,7 @@ class Porter {
       mod = await packet.parseEntry(file.replace(rExt, '')).catch(() => null);
       if (ext === '.css') mod = await packet.parseEntry(file).catch(() => mod);
       await this.reload();
-      [ bundle ] = mod ? Bundle.wrap({ packet, entries: [ mod.file ]}) : [];
+      [ bundle ] = mod ? Bundle.wrap({ packet, entries: [ mod.file ], format: ext }) : [];
     }
 
     // prefer the real file extension

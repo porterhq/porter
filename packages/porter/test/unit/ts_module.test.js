@@ -36,6 +36,7 @@ describe('TsModule', function() {
       'node_modules/react-dom/index.js',
       'node_modules/prismjs/prism.js',
       'components/home.tsx',
+      'components/utils/math.js',
     ]);
   });
 
@@ -45,5 +46,20 @@ describe('TsModule', function() {
     assert.equal(typeof code, 'string');
     assert.equal(typeof map, 'object');
     assert.equal(map.file, path.relative(root, mod.fpath));
+  });
+
+  it('should prefer cache code when match imports', async function() {
+    let mod = porter.packet.files['app.tsx'];
+    // generate cache
+    await mod.obtain();
+    assert(mod.cache);
+    // reload module
+    delete porter.moduleCache[mod.fpath];
+    delete porter.packet.files['app.tsx'];
+    mod = await porter.packet.parseEntry('app.tsx');
+    assert(mod.cache);
+    await mod.obtain();
+    // should not contain './store.ts', './types/index.d.ts', or './utils/math.js'
+    assert.deepEqual(mod.imports, [ 'react', 'react-dom', 'prismjs', './home' ]);
   });
 });

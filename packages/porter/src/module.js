@@ -112,10 +112,11 @@ module.exports = class Module {
   }
 
   setCache(source, result) {
-    const { app } = this;
+    const { app, imports, dynamicImports } = this;
     if (typeof result.map === 'string') result.map = JSON.parse(result.map);
-    app.cache.set(this.id, source, result).catch(err => console.error(err.stack));
-    this.cache = result;
+    const cache = { ...result, imports, dynamicImports };
+    app.cache.set(this.id, source, cache).catch(err => console.error(err));
+    this.cache = cache;
   }
 
   async parseRelative(dep) {

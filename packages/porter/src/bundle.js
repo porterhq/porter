@@ -16,6 +16,9 @@ const extMap = {
 
 const rExt = /(\.\w+)?$/;
 
+const DEPTH_FIRST = 0;
+const BREATH_FIRST = 1;
+
 function getEntry(packet, entries) {
   return entries && (entries.length === 1 || !packet.parent) ? entries[0] : packet.main;
 }
@@ -124,12 +127,18 @@ module.exports = class Bundle {
    * - module is one of the bundle exceptions
    */
   * [Symbol.iterator]() {
+    return yield* this.iterate({ mode: DEPTH_FIRST });
+  }
+
+  * iterate({ mode = DEPTH_FIRST } = {}) {
     const { entries, packet, scope, format } = this;
     const extensions = extMap[format];
     const done = {};
 
     function* iterate(entry, preload) {
-      for (const mod of entry.children) {
+      const children = [ ...entry.children ];
+      if (mode === BREATH_FIRST) children.reverse();
+      for (const mod of children) {
         if (done[mod.id]) continue;
         if (entry.dynamicChildren?.includes(mod)) continue;
         if (format === '.js') {
@@ -146,10 +155,9 @@ module.exports = class Bundle {
 
     function* iterateEntry(entry, preload = false) {
       done[entry.id] = true;
-      yield* iterate(entry, preload);
+      if (mode === DEPTH_FIRST) yield* iterate(entry, preload);
       if (extensions.includes(path.extname(entry.file))) yield entry;
-      // iterate again in case new dependencies such as @babel/runtime were found
-      if (format === '.js') yield* iterate(entry, preload);
+      if (mode === BREATH_FIRST) yield* iterate(entry, preload);
     }
 
     for (const name of entries.sort()) {
@@ -355,10 +363,10 @@ module.exports = class Bundle {
     const node = new SourceNode();
     const loaderConfig = Object.assign(packet.loaderConfig, this.loaderConfig);
 
-    for (const mod of this) {
+    for (const mod of this.iterate({ mode: BREATH_FIRST })) {
       const { code, map } = minify ? await mod.minify() : await mod.obtain();
       const source = path.relative(app.root, mod.fpath);
-      node.add(await this.createSourceNode({ source, code, map }));
+      node.prepend(await this.createSourceNode({ source, code, map }));
     }
 
     const mod = await this.getEntryModule({ minify });
@@ -402,9 +410,9 @@ module.exports = class Bundle {
     const loaderConfig = Object.assign(packet.loaderConfig, this.loaderConfig);
     const chunks = [];
 
-    for (const mod of this) {
+    for (const mod of this.iterate({ mode: BREATH_FIRST })) {
       const { code } = minify ? await mod.minify() : await mod.obtain();
-      chunks.push(code);
+      chunks.unshift(code);
     }
 
     const mod = await this.getEntryModule({ minify });

@@ -269,6 +269,15 @@ describe('Bundle with TypeScript', function() {
       assert.equal(bundle.entry, 'app.tsx');
       assert.equal(path.extname(bundle.output), '.js');
     });
+
+    it('should ignore typings', async function() {
+      const bundle = porter.packet.bundles['app.tsx'];
+      const files = Array.from(bundle, mod => mod.file);
+      assert(!files.includes('types/index.d.ts'));
+      assert(!files.includes('store.ts'));
+      const { code } = await bundle.obtain();
+      assert(!code.includes('store.js'));
+    });
   });
 });
 

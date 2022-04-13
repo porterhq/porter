@@ -93,8 +93,9 @@ describe('Module', function() {
       const mod = packet.files['index.js'];
       const result = await mod.obtain();
       // should be optimized away by brfs
-      assert.ok(!result.code.includes('/use.trie'));
-      assert.equal(packet.browser.fs, false);
+      assert(!result.code.includes('/use.trie'));
+      // should be neglected by the default options.resolve.fallback
+      assert(!mod.imports.includes('fs'));
     });
   });
 });
