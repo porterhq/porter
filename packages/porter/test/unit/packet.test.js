@@ -18,7 +18,7 @@ describe('Packet', function() {
     porter = new Porter({
       root,
       paths: ['components', 'browser_modules'],
-      entries: ['home.js', 'test/suite.js', 'stylesheets/app.css'],
+      entries: ['home.css', 'home.js', 'test/suite.js', 'stylesheets/app.css'],
       resolve: {
         alias: {
           '@/': '',
@@ -93,6 +93,7 @@ describe('Packet', function() {
     it('recognize css @import', function() {
       const cssFiles = Object.keys(porter.packet.files).filter(file => file.endsWith('.css'));
       expect(cssFiles.sort()).to.eql([
+        'home.css',
         'home_dep.css',
         'stylesheets/app.css',
         'stylesheets/common/base.css',

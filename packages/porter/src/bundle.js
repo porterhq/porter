@@ -40,9 +40,19 @@ module.exports = class Bundle {
     const results = [ bundle ];
     const entry = packet.files[entries[0]];
 
-    // wrapping css bundles, no need to look forward for css dependencies
-    if (bundle.format === '.css') return results;
     if (!entry) return results;
+    if (bundle.format === '.css') {
+      for (const mod of Object.values(packet.entries)) {
+        if (mod.file !== entry.file && mod.file.replace(rExt, '.css') === entry.file) {
+          entries.push(mod.file);
+          break;
+        }
+      }
+      for (const file of entries) {
+        if (!bundle.entries.includes(file)) bundle.entries.push(file);
+      }
+      return results;
+    }
 
     const cssExtensions = extMap['.css'];
     let cssImports = false;
@@ -87,12 +97,12 @@ module.exports = class Bundle {
 
     const { bundles } = packet;
     const entry = getEntry(packet, entries);
-    const key = format === '.css' ? entry.replace(rExt, '.css') : entry;
+    const outkey = format === '.css' ? entry.replace(rExt, '.css') : entry;
 
-    let bundle = bundles[key];
+    let bundle = bundles[outkey];
     if (!bundle) {
       bundle = new Bundle({ ...options, format });
-      bundles[key] = bundle;
+      bundles[outkey] = bundle;
     }
 
     return bundle;
