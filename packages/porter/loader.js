@@ -100,23 +100,27 @@
     };
   }
 
-  function loadWasm(module, imports) {
-    if (typeof WebAssembly.instantiateStreaming === 'function') {
-      try {
-        return WebAssembly.instantiateStreaming(module, imports);
-      } catch (e) {
-        if (module.headers.get('Content-Type') != 'application/wasm') {
-          console.warn('`WebAssembly.instantiateStreaming` failed because your server does not serve wasm with `application/wasm` MIME type. Falling back to `WebAssembly.instantiate` which is slower. Original error:\n', e);
-        }
-      }
-    }
-
+  function _loadWasm(module, imports) {
     return module.arrayBuffer().then(function instantiate(bytes) {
       return WebAssembly.instantiate(bytes, imports);
     }).then(function onInstantiate(instance) {
       if (instance instanceof WebAssembly.Instance) return { instance, module };
       return instance;
     });
+  }
+
+  function loadWasm(module, imports) {
+    if (typeof WebAssembly.instantiateStreaming === 'function') {
+      return WebAssembly.instantiateStreaming(module, imports).catch(function onError(err) {
+        if (module.headers.get('Content-Type') != 'application/wasm') {
+          console.warn('`WebAssembly.instantiateStreaming` failed because your server does not serve wasm with `application/wasm` MIME type. Falling back to `WebAssembly.instantiate` which is slower. Original error:\n', err);
+        } else {
+          // some script might override window.Response which fails instantiateStreaming
+          return _loadWasm(module, imports);
+        }
+      });
+    }
+    return _loadWasm(module, imports);
   }
 
   var rWasm = /\.wasm$/;
