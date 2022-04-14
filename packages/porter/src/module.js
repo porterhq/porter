@@ -106,6 +106,9 @@ module.exports = class Module {
         manifest[depBundle.entry.replace(/\.\w+$/, '.js')] = depBundle.output;
       }
       copy.manifest = manifest;
+    } else if (this.fake) {
+      // fake modules are self contained
+      copy.manifest = undefined;
     }
 
     return lock;
