@@ -75,13 +75,7 @@ module.exports = class Module {
     }
 
     for (const entry of entries) {
-      for (const mod of entry.family) {
-        if (mod.packet === app.packet) {
-          packets.add(mod.packet);
-        } else {
-          for (const packet of mod.packet.all) packets.add(packet);
-        }
-      }
+      for (const mod of entry.family) packets.add(mod.packet);
     }
 
     const sortedPackets = [ ...packets ].sort(function(a, b) {
@@ -106,6 +100,9 @@ module.exports = class Module {
         manifest[depBundle.entry.replace(/\.\w+$/, '.js')] = depBundle.output;
       }
       copy.manifest = manifest;
+    } else if (this.fake) {
+      // fake modules are self contained
+      copy.manifest = undefined;
     }
 
     return lock;

@@ -44,12 +44,13 @@ describe('porter.compileEntry()', function() {
         code: `
           'use strict'
           var $ = require('yen')
-          $('body').addClass('hidden')
+          $('body').removeClass('hidden')
         `
       }, { all: true, writeFile: false, loaderConfig: { preload: undefined } });
 
       const { name, version, main } = porter.packet.find({ name: 'jquery' });
       expect(code).to.contain(`${name}/${version}/${main}`);
+      expect(code).to.contain('removeClass');
       // fake modules should be removed afterwards
       expect(Object.keys(porter.packet.files)).to.not.contain('fake/entry.js');
     });

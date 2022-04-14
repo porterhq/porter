@@ -664,6 +664,7 @@ module.exports = class Packet {
       if (mod && mod.fake) {
         delete this.files[mod.file];
         delete this.entries[mod.file];
+        delete app.moduleCache[mod.fpath];
       }
 
       if (!this.parent) manifest[bundle.outkey] = bundle.output;
