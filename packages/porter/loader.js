@@ -111,7 +111,7 @@
 
   function loadWasm(module, imports) {
     if (typeof WebAssembly.instantiateStreaming === 'function') {
-      return WebAssembly.instantiateStreaming(module, imports).catch(function onError(err) {
+      return WebAssembly.instantiateStreaming(module.clone(), imports).catch(function onError(err) {
         if (module.headers.get('Content-Type') != 'application/wasm') {
           console.warn('`WebAssembly.instantiateStreaming` failed because your server does not serve wasm with `application/wasm` MIME type. Falling back to `WebAssembly.instantiate` which is slower. Original error:\n', err);
         } else {
