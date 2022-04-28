@@ -1,7 +1,7 @@
 {
   "name": "@cara/demo-worker",
   "description": "A Web Worker demo",
-  "version": "4.0.9",
+  "version": "4.0.10",
   "private": true,
   "dependencies": {
     "regenerator-runtime": "^0.13.5"
@@ -11,7 +11,7 @@
     "@babel/core": "^7.16.0",
     "@babel/preset-env": "^7.10.3",
     "@cara/hello-worker": "^4.0.0-beta.16",
-    "@cara/porter-cli": "^4.0.9",
+    "@cara/porter-cli": "^4.0.10",
     "expect.js": "^0.3.1",
     "mocha": "^9.1.1"
   },
