@@ -360,8 +360,9 @@ class Porter {
     let mod = packet.files[file];
     let bundle = packet.bundles[mod ? mod.file : file];
 
-    // in case root entry is not parsed yet
-    if (packet === this.packet && !bundle) {
+    // - bundle is accessed for the first time and the entry is not prepared in advance
+    // - bundle is a css bundle generated from js entry
+    if (packet === this.packet && (!bundle || !mod)) {
       debug('parseEntry', file);
       mod = await packet.parseEntry(file.replace(rExt, '')).catch(() => null);
       if (ext === '.css') mod = await packet.parseEntry(file).catch(() => mod);
@@ -369,7 +370,7 @@ class Porter {
       [ bundle ] = mod ? Bundle.wrap({ packet, entries: [ mod.file ], format: ext }) : [];
     }
 
-    // prefer the real file extension
+    this.parseCache[id] = null;
     return bundle;
   }
 
