@@ -1,3 +1,119 @@
+4.0.10 / 2022-04-28
+===================
+
+  * fix: Response can only be consumed once in some lower version browsers (#146)
+
+4.0.9 / 2022-04-28
+==================
+
+  * fix: add error callback for loadWasm (#145)
+
+4.0.8 / 2022-04-18
+==================
+
+  * fix: fallback to response.arrayBuffer() to cope with baxia script (#144)
+
+4.0.7 / 2022-04-14
+==================
+
+  * fix: compile fake entries should not cut imports (#143)
+
+4.0.6 / 2022-04-13
+==================
+
+  * fix: compiling css bundle with same name js entry (#142)
+
+4.0.5 / 2022-04-13
+==================
+
+  * fix: iterate through bundle in breath first order (#141)
+  * chore(deps): bump nokogiri from 1.13.3 to 1.13.4 in /docs (#140)
+
+4.0.4 / 2022-04-12
+==================
+
+  * fix: import(arbitrary module) (#139)
+
+4.0.3 / 2022-03-17
+==================
+
+  * fix: js extensions such as { .jsx, .mjs, .cjs } (#138)
+  * chore: fix demo-app path in unit test of cache
+
+4.0.2 / 2022-03-10
+==================
+
+  * fix: fake modules might not have dynamicImports initialized (#137)
+
+4.0.1 / 2022-03-09
+==================
+
+  * fix: import(unknown) should not trigger bundle request (#136)
+  * fix: support import(specifier): Promise<exports> (#135)
+  * fix: require.async() & partial support of `import()` (#134)
+  * fix: should always fallback to WebAssembly.instantiate(arrayBuffer) (#132)
+  * refactor: minimal re-pack during development (#133)
+
+4.0.0 / 2022-02-28
+==================
+
+  * feat: support wasm-bindgen --target bundler (#117)
+  * feat: options.resolve.fallback (#116)
+  * feat: new Porter({ bundle: { async exists(bundle): boolean {} }); (#114)
+  * feat: enable uglifyOptions (#113)
+  * feat: support camel2DashComponentName and componentCase (#112)
+  * feat: support babel.config.js (#96)
+  * feat: experimental less support & refactored porter options (#90)
+  * feat: (partial) alias support & more radical browser field handling (#90)
+  * feat: support requiring css in js modules (#88)
+  * fix: const not allowed in strict mode Chrome 40 (#131)
+  * fix: should skip uri parsing if mapped result starts with '/' (#128)
+  * fix: import "dependency/foo.json" should be bundled as well (#125)
+  * fix: wasm/workercompilation minor issues (#124)
+  * fix: problems caused by .[contenthash].wasm (#122)
+  * fix: require('antd/lib/button').default (#121)
+  * fix: named imports in cjs modules (#118)
+  * fix: should still prefer custom loaderConfig in proxy mode (#115)
+  * fix: intermediate css source map should not have full sourceRoot (#111)
+  * fix: override inlineSourceMap option to force source map (#110)
+  * fix: 'Last-Modified' accepts ascii string only (#109)
+  * fix: traverse lazyloaded dependencies (108)
+  * fix: support arbitrary conditional require (#106)
+  * fix: lazyloaded dependencies should be manifested (#105)
+  * fix: compileEntry() should wait until instance is ready (#104)
+  * fix: reload bundles at both root and dependency level (#101)
+  * fix: packet reload should take the change up to the root bundles (#100)
+  * fix: bundle scope on lazyloaded modules & porter.parseId perf degeneration (#95)
+  * fix: should make sure folder specifiers are correctly marked (#94)
+  * fix: should drop the './' prefix when normalize file (#93)
+  * fix: excluded packets should be compiled when compileAll (#92)
+  * fix: ignore dts imports in module dependencies (#91)
+  * fix: possible TypeError in packet.compile() (#89)
+  * fix: css modules should not be bundled in js bundle (#87)
+  * fix: require('heredoc').strip (#85)
+  * fix: porter.pack() should ignore incomplete modules (#84)
+  * fix: isolated packages should have their dependencies bundled together (#83)
+  * fix: isolated packets will have their dependencies bundled together (#82)
+  * fix: all of the lazyloaded entries and dependencies should be compiled (#81)
+  * fix: source mapping url in bundle results & cache paths (#80)
+  * fix: manifest.json should map only the output (#79)
+  * fix: dynamicly added dependencies needs pre-obtain check (#77)
+  * fix: loading web worker from dependencies & @babel/runtime issue (#72)
+  * fix: reloading cyclic module should not cause dead loop (#69)
+  * refactor: reduce module check when packing packet (#129)
+  * refactor: worker entries should not be bundled with initiators (#127)
+  * refactor: simplify Module.resolve() in loader.js (#126)
+  * refactor: skip existence check if app.bundle.exists not specified (#123)
+  * refactor: throttle bundle.obtain() calls (#107)
+  * refactor: extract app.cache as isolated class and replace etag check (#102)
+  * refactor: package -> packet (#86)
+  * refactor: merge babel plugins & minor fixes about compilation (#78)
+  * refactor: entries, preload, and lazyload are served with bundles (#70)
+  * refactor: drop the ${name}/${version}/ prefix in application module ids (#68)
+  * docs: user guide link in the documentation (#97)
+  * chore(deps): bump nokogiri from 1.12.5 to 1.13.3 in /docs (#130)
+  * chore: print stub debug log (#103)
+
 3.3.3 / 2021-11-25
 ==================
 
