@@ -56,22 +56,13 @@ module.exports = class Bundle {
 
     const cssExtensions = extMap['.css'];
     let cssImports = false;
-    for (const mod of entry.family) {
+    for (const mod of entry.immediateFamily) {
       // import './foo.css';
-      if (cssExtensions.includes(path.extname(mod.file))) cssImports = true;
-      // dynamic import(specifier);
-      for (const child of mod.dynamicChildren || []) {
-        const depBundle = Bundle.create({
-          packet: child.packet,
-          entries: [ child.file ],
-          loader: false,
-        });
-        depBundle.parent = bundle;
-        bundle.children.push(depBundle);
-        results.push(depBundle);
+      if (cssExtensions.includes(path.extname(mod.file))) {
+        cssImports = true;
+        break;
       }
     }
-
     if (cssImports) {
       const cssBundle = Bundle.create({ packet, entries, format: '.css' });
       // existing css bundle might not contain all of the css dependencies
@@ -79,6 +70,20 @@ module.exports = class Bundle {
         if (!cssBundle.entries.includes(file)) cssBundle.entries.push(file);
       }
       results.push(cssBundle);
+    }
+
+    for (const mod of entry.dynamicFamily) {
+      // import(specifier);
+      const depBundles = Bundle.wrap({
+        packet: mod.packet,
+        entries: [ mod.file ],
+        loader: false,
+      });
+      for (const depBundle of depBundles) {
+        depBundle.parent = bundle;
+        bundle.children.push(depBundle);
+        results.push(depBundle);
+      }
     }
 
     return results;
@@ -226,14 +231,14 @@ module.exports = class Bundle {
   get output() {
     const { entries } = this;
     const code = this.#code;
-    if (entries.length === 0 || !code) return '';
+    if (entries.length === 0 || code == null) return '';
     const { entry, contenthash, format } = this;
     return entry.replace(rExt, `.${contenthash}${format}`);
   }
 
   get contenthash() {
     const code = this.#code;
-    if (!code) return '';
+    if (code == null) return '';
     if (!this.#contenthash) {
       this.#contenthash = crypto.createHash('md5').update(code).digest('hex').slice(0, 8);
     }

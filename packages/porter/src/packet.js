@@ -491,11 +491,10 @@ module.exports = class Packet {
     const { dependencies, main, bundles, parent, entries } = this;
 
     for (const file in bundles) {
-      const bundle = bundles[file];
-      if (file.endsWith('.css')) continue;
       if (!parent && entries[file] && !entries[file].isPreload) continue;
-      if (!parent && bundle.parent) continue;
-      manifest[file] = bundle.output;
+      const bundle = bundles[file];
+      // bundle dependencies will be handled in module.lock
+      if (!bundle.parent) manifest[file] = bundle.output;
     }
 
     if (Object.keys(manifest).length > 0) copy.manifest = manifest;
@@ -672,7 +671,9 @@ module.exports = class Packet {
       if (!opts.writeFile) return { code, map };
 
       const { outputPath } = bundle;
-      if (!outputPath) throw new Error('bundle empty', bundle.entryPath, bundle.entries);
+      if (!outputPath) {
+        throw new Error(util.format('bundle empty %s %j', bundle.entryPath, bundle.entries));
+      }
       const fpath = path.join(app.output.path, outputPath);
       await fs.mkdir(path.dirname(fpath), { recursive: true });
       await Promise.all([

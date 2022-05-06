@@ -48,15 +48,51 @@ module.exports = class Module {
     const iterable = { done: {} };
     iterable[Symbol.iterator] = function* () {
       const { done } = iterable;
-      if (!done[this.id]) {
-        done[this.id] = true;
-        for (const child of Object.values(this.children)) {
-          if (child instanceof Module && !done[child.id]) {
-            yield* Object.assign(child.family, { done });
-          }
+      const { id, children } = this;
+      if (done[id]) return;
+      done[id] = true;
+      for (const child of children) {
+        if (child instanceof Module) {
+          yield* Object.assign(child.family, { done });
         }
       }
       yield this;
+    }.bind(this);
+    return iterable;
+  }
+
+  get immediateFamily() {
+    const iterable = { done: {} };
+    iterable[Symbol.iterator] = function* () {
+      const { done } = iterable;
+      const { id, children, dynamicChildren = [] } = this;
+      if (done[id]) return;
+      done[id] = true;
+      for (const child of children) {
+        if (child instanceof Module && !dynamicChildren.includes(child)) {
+          yield* Object.assign(child.immediateFamily, { done });
+        }
+      }
+      yield this;
+    }.bind(this);
+    return iterable;
+  }
+
+  get dynamicFamily() {
+    const iterable = { done: {} };
+    iterable[Symbol.iterator] = function* () {
+      const { done } = iterable;
+      const { id, children, dynamicChildren = [] } = this;
+      if (done[id]) return;
+      done[id] = true;
+      for (const child of children) {
+        if (dynamicChildren.includes(child) && !done[child.id]) {
+          done[child.id] = true;
+          yield child;
+        } else if (child instanceof Module) {
+          yield* Object.assign(child.dynamicFamily, { done });
+        }
+      }
     }.bind(this);
     return iterable;
   }
@@ -98,16 +134,17 @@ module.exports = class Module {
       copies[version] = { ...copies[version], ...copy };
     }
 
-    const copy = lock[this.packet.name][this.packet.version];
     const bundle = this.packet.bundles[this.file];
     if (bundle && bundle.children?.length > 0) {
-      const { manifest = {} } = copy;
-      for (const depBundle of bundle.children) {
-        manifest[depBundle.entry.replace(/\.\w+$/, '.js')] = depBundle.output;
+      for (const child of bundle.children) {
+        const copy = lock[child.packet.name][child.packet.version];
+        const { manifest = {} } = copy;
+        copy.manifest = manifest;
+        manifest[child.outkey] = child.output;
       }
-      copy.manifest = manifest;
     } else if (this.fake) {
       // fake modules are self contained
+      const copy = lock[this.packet.name][this.packet.version];
       copy.manifest = undefined;
     }
 
