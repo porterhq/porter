@@ -41,7 +41,7 @@ module.exports = class Module {
 
   get isWorker() {
     const { loaders } = this;
-    return loaders && loaders['worker-loader'];
+    return loaders && loaders.hasOwnProperty('worker-loader');
   }
 
   get family() {

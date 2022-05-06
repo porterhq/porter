@@ -94,6 +94,7 @@ describe('Porter with preload', function() {
     it('should generate source map of entries', async function() {
       const fpath = path.join(dest, `${manifest['home.js']}.map`);
       const map = JSON.parse(await readFile(fpath, 'utf8'));
+      assert(map.sources.includes('loader.js'));
       assert(map.sources.includes('components/home.js'));
       assert(map.sources.includes('components/home_dep.js'));
     });
@@ -101,6 +102,7 @@ describe('Porter with preload', function() {
     it('should generate source map of components from other paths', async function() {
       const fpath = path.join(dest, `${manifest['test/suite.js']}.map`);
       const map = JSON.parse(await readFile(fpath, 'utf8'));
+      assert(map.sources.includes('loader.js'));
       assert(map.sources.includes('browser_modules/test/suite.js'));
       assert(map.sources.includes('browser_modules/require-directory/convert/index.js'));
     });
@@ -127,6 +129,9 @@ describe('Porter with preload', function() {
 
     it('should compile dynamic imports', async function() {
       assert(entries.includes(`public/${manifest['dynamic-import/sum.js']}`));
+      const fpath = path.join(dest, manifest['dynamic-import/sum.js']);
+      const map = JSON.parse(await readFile(`${fpath}.map`, 'utf8'));
+      assert(!map.sources.includes('loader.js'));
     });
   });
 });

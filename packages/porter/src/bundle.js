@@ -109,14 +109,13 @@ module.exports = class Bundle {
   }
 
   constructor(options = {}) {
-    const { packet, entries, loaderConfig, format = '.js' } = options;
+    const { packet, entries, format = '.js' } = options;
     const { app } = packet;
 
     this.parent = null;
     this.children = [];
     this.app = app;
     this.packet = packet;
-    this.loaderConfig = loaderConfig;
     this.#entries = entries && entries.length > 0 ? [].concat(entries) : null;
     this.#loaderCache = {};
 
@@ -128,6 +127,11 @@ module.exports = class Bundle {
     }
     this.scope = scope;
     this.format = format;
+
+    const mod = entries && entries.length > 0 ? packet.files[entries] : null;
+    const { loader, loaderConfig } = options;
+    this.loaderConfig = loaderConfig;
+    this.loader = loader == null && mod ? mod.isRootEntry : loader === true;
   }
 
   /**
@@ -337,8 +341,7 @@ module.exports = class Bundle {
 
   async obtain(options = {}) {
     const { entries } = this;
-    const { loader = false } = options;
-    const cacheKey  = JSON.stringify({ entries, loader });
+    const cacheKey  = JSON.stringify({ entries });
 
     if (this.#cacheKey === cacheKey) {
       return { code: this.#code, map: this.#map };
@@ -355,9 +358,9 @@ module.exports = class Bundle {
    * @param {boolean} opts.loader   include the loader when entry is root entry, set to false to explicitly exclude the loader
    * @param {Object} opts.loaderConfig overrides {@link Packet#loaderConfig}
    */
-  async _obtain({ loader, minify = false } = {}) {
-    const { app, entries, children, packet, format } = this;
-    const cacheKey = JSON.stringify({ entries, loader });
+  async _obtain({ minify = false } = {}) {
+    const { app, entries, children, packet, format, loader } = this;
+    const cacheKey = JSON.stringify({ entries });
 
     if (format === '.wasm') {
       for (const mod of this) {
@@ -405,7 +408,7 @@ module.exports = class Bundle {
     this.updatedAt = new Date();
 
     const { entryPath, outputPath } = this;
-    debug('bundle complete %s -> %s', entryPath, outputPath, entries);
+    debug('bundle complete %s -> %s', entryPath, outputPath, entries, { loader, minify });
     return result;
   }
 
@@ -445,15 +448,15 @@ module.exports = class Bundle {
     return { code };
   }
 
-  async exists({ loader, minify = true } = {}) {
+  async exists({ minify = true } = {}) {
     const { app } = this;
     if (typeof app.bundle.exists !== 'function') return false;
-    await this.fuzzyObtain({ loader, minify });
+    await this.fuzzyObtain({ minify });
     return await app.bundle.exists(this);
   }
 
-  async minify({ loader } = {}) {
-    return await this.obtain({ loader, minify: true });
+  async minify() {
+    return await this.obtain({ minify: true });
   }
 
   // async minify(opts) {

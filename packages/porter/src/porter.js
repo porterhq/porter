@@ -337,12 +337,12 @@ class Porter {
     }
   }
 
-  async parseId(id) {
+  async parseId(id, options) {
     const { parseCache } = this;
-    return parseCache[id] || (parseCache[id] = this._parseId(id));
+    return parseCache[id] || (parseCache[id] = this._parseId(id, options));
   }
 
-  async _parseId(id) {
+  async _parseId(id, { loader = false } = {}) {
     let [, name, version, file] = id.match(rModuleId);
 
     if (!version) {
@@ -367,7 +367,7 @@ class Porter {
       mod = await packet.parseEntry(file.replace(rExt, '')).catch(() => null);
       if (ext === '.css') mod = await packet.parseEntry(file).catch(() => mod);
       await this.reload();
-      [ bundle ] = mod ? Bundle.wrap({ packet, entries: [ mod.file ], format: ext }) : [];
+      if (mod) [ bundle ] = Bundle.wrap({ packet, entries: [ mod.file ], format: ext, loader });
     }
 
     this.parseCache[id] = null;
@@ -375,10 +375,9 @@ class Porter {
   }
 
   async readCss(outputPath, query) {
-    const isEntry = true;
     const id = outputPath.replace(/\.[a-f0-9]{8}\.css$/, '.css');
 
-    const bundle = await this.parseId(id, { isEntry });
+    const bundle = await this.parseId(id);
     if (!bundle) return;
 
     const result = await bundle.obtain();
@@ -387,14 +386,13 @@ class Porter {
   }
 
   async readJs(outputPath, query) {
-    const isMain = outputPath.endsWith('.js') && 'main' in query;
-    const isEntry = isMain || 'entry' in query;
+    const loader = outputPath.endsWith('.js') && 'main' in query;
     const id = outputPath.replace(/\.[a-f0-9]{8}\.js$/, '.js');
 
-    const bundle = await this.parseId(id, { isEntry });
+    const bundle = await this.parseId(id, { loader });
     if (!bundle) return;
 
-    const result = await bundle.obtain({ loader: isMain  });
+    const result = await bundle.obtain();
     const code = `${result.code}\n//# sourceMappingURL=${path.basename(bundle.output)}.map`;
     return [ code, { 'Last-Modified': bundle.updatedAt.toGMTString() } ];
   }

@@ -34,6 +34,11 @@ describe('Bundle without preload', function() {
       assert.deepEqual(packet.bundles['home.js'].entries, [ 'home.js' ]);
       assert.deepEqual(packet.bundles['home.css'].entries.sort(), [ 'home.css', 'home.js' ]);
     });
+
+    it('should include loader when bundling root entry', async function() {
+      const bundle = porter.packet.bundles['home.js'];
+      assert.equal(bundle.loader, true);
+    });
   });
 
   describe('Bundle.wrap', function() {
