@@ -81,6 +81,14 @@ describe('Porter', function() {
   });
 
   describe('Porter_readFile()', function() {
+    before(async function() {
+      await fs.unlink(path.join(root, 'components/about.css')).catch(() => {});
+    });
+
+    after(async function() {
+      await fs.unlink(path.join(root, 'components/about.css')).catch(() => {});
+    });
+
     it('should give correct result when packing concurrently', async function() {
       // when requesting css and js entries simutaneously, `porter.pack()` will be executed twice. If home.js takes time to parse its dependencies, it could be not ready when packing the first time.
       const results = await Promise.all([
@@ -149,6 +157,18 @@ describe('Porter', function() {
     it('should handle import("./foo.css")', async function() {
       const res = await requestPath('/about.css');
       assert(res.text.includes('font-size: 16px'));
+    });
+
+    it('should not use stale bundle cache', async function() {
+      const fpath = path.join(root, 'components/about.css');
+      const res = await requestPath('/about.css');
+      const bundle = porter.packet.bundles['about.css'];
+      assert.deepEqual(bundle.entries, [ 'about.js' ]);
+
+      await fs.writeFile(fpath, 'body { color: navy }');
+      const res2 = await requestPath('/about.css');
+      assert.deepEqual(bundle.entries.sort(), [ 'about.css', 'about.js' ]);
+      assert.notEqual(res.text, res2.text);
     });
   });
 
