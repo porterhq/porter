@@ -2,7 +2,7 @@
 
 [![NPM Downloads](https://img.shields.io/npm/dm/@cara/porter.svg?style=flat)](https://www.npmjs.com/package/@cara/porter)
 [![NPM Version](http://img.shields.io/npm/v/@cara/porter.svg?style=flat)](https://www.npmjs.com/package/@cara/porter)
-[![Build Status](https://travis-ci.org/erzu/porter.svg)](https://travis-ci.org/erzu/porter)
+[![codecov](https://codecov.io/gh/porterhq/porter/branch/master/graph/badge.svg?token=9CNWJ1N4T9)](https://codecov.io/gh/porterhq/porter)
 
 Porter is a **consolidated browser module solution** which provides a module system for web browsers that is both CommonJS and [ES Modules](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/import) compatible.
 
@@ -14,7 +14,7 @@ Here are the features that make Porter different from (if not better than) other
 
 ## Setup
 
-> This document is mainly about Porter the middleware. To learn about Porter CLI, please visit the [corresponding folder](https://github.com/erzu/porter/packages/porter-cli).
+> This document is mainly about Porter the middleware. To learn about Porter CLI, please visit the [corresponding folder](https://github.com/porterhq/porter/packages/porter-cli).
 
 Porter the middleware is compatible with Koa (both major versions) and Express:
 
@@ -32,7 +32,7 @@ app.use(porter.func())
 
 ## Modules
 
-With the default setup, browser modules at `./components` folder is now accessible with `/path/to/file.js` or `/${pkg.name}/${pkg.version}/path/to/file.js`. Take [demo-cli](https://github.com/erzu/porter/packages/demo-cli) for example, the file structure shall resemble that of below:
+With the default setup, browser modules at `./components` folder is now accessible with `/path/to/file.js` or `/${pkg.name}/${pkg.version}/path/to/file.js`. Take [demo-cli](https://github.com/porterhq/porter/packages/demo-cli) for example, the file structure shall resemble that of below:
 
 ```bash
 ➜  demo-cli git:(master) tree -L 2
@@ -42,6 +42,7 @@ With the default setup, browser modules at `./components` folder is now accessib
 │   └── app.js
 ├── node_modules      # dependencies
 │   ├── @cara
+│   │   └── porter
 │   ├── jquery
 │   └── prismjs
 ├── package.json
@@ -68,7 +69,7 @@ In `./public/index.html`, we can now add CSS and JavaScript entries:
 </html>
 ```
 
-The extra `?main` querystring might seem a bit confusing at first glance. It tells Porter the middleware to bundle loader when `/app.js?main` is accessed. The equivalent `<script>` entry of above is:
+The extra `?main` querystring might seem a bit confusing at first glance. It tells the porter middleware to bundle loader when `/app.js?main` is accessed. The equivalent `<script>` entry of above is:
 
 ```html
 <script src="/loader.js" data-main="app.js"></script>
@@ -77,20 +78,9 @@ The extra `?main` querystring might seem a bit confusing at first glance. It tel
 Both `<script>`s work as the JavaScript entry of current page. In `./components/app.js`, there are the good old `require` and `exports`:
 
 ```js
-// es5
-'use strict'
-
-const jQuery = require('jquery')  // => ./node_modules/jquery/dist/jquery.js
-const React = require('react')    // => ./node_modules/react/index.js
-const util = require('./util')    // => ./components/util.js or ./components/util/index.js
-```
-
-and the fancy new `import` and `export`:
-
-```js
-import jQuery from 'jquery'
-import * as React from 'react'
-import util from './util'
+import $ from 'jquery';         // => ./node_modules/jquery/dist/jquery.js
+import * as React from 'react'; // => ./node_modules/react/index.js
+import util from './util';      // => ./components/util.js or ./components/util/index.js
 ```
 
 In CSS entry, there's `@import`:
@@ -102,76 +92,7 @@ In CSS entry, there's `@import`:
 
 ## Options
 
-### `cache={ dest }`
-
-To accelerate responses, Porter caches following things:
-
-- CSS post-process results (code and source map) after `@import`s being processed.
-- JS transpile results (code and source map) if Babel or TypeScript is enabled.
-
-By default, these files are stored in the folder specified by `dest='public'`. At some circumstances, we may need to put cache files into a different folder, therefore here is the extra `cache={ dest }`:
-
-```js
-const porter = new Porter({
-  cache: { dest: '.porter-cache' },   // where the cache file goes to
-  dest: 'public'                      // where the compiled assets will be at after porter.compileAll()
-})
-```
-
-If `cache={ dest }` is undefined, cache files are put into `dest='public'` as well.
-
-It is recommended that the directory that contain cache files shall be served statically, which makes the source maps accessible. Here is an example in Koa:
-
-```js
-const serve = require('koa-static')
-
-app.use(serve('.porter-cache'))
-app.use(serve('public'))
-```
-
-### `dest='public'`
-
-The directory that contains compile results, and cache files as well if `cache={ dest }` is undefined.
-
-### `paths='components'`
-
-The directory or directories that contain browser modules. For example, if we need to import modules from both the `./components` directory and `./node_modules/@corp/shared-components`:
-
-```js
-const porter = new Porter({
-  paths: [ 'components', 'node_modules/@corp/shared-components']
-})
-```
-
-### `root=process.cwd()`
-
-This option should never be necessary. Options like `paths` and `dest` are all resolved against `root`, which defaults to `process.cwd()`. If the project root is different than `process.cwd()`, try set `root`.
-
-### `source={ serve, root }`
-
-Like `cache={}`, the `source={}` option is an object, which contains two properties that are all related to source maps. In development phase, the source maps are generated while Porter processes requests. In those source map files, `sourceContents` are stripped, and `sourceRoot` are set to `/`. Therefore to make source mapping actually take place in devtools, we need to enable `source={ serve }` during development as well:
-
-```js
-const porter = new Porter({
-  source: { serve: process.env.NODE_ENV == 'development' }
-})
-```
-
-Regarding `source={ root }`, it is not used until the project goes into production. When the JavaScript and CSS codes are compiled (with `porter.compileAll()` or so), source maps get generated with `sourceContents` stripped, and `sourceRoot` can not be `/` in production because `source={ serve }` should be off in production. Therefore, `source={ root }` shall be set to the actual origin that is able to serve the source securely.
-
-In our practice, the `source={ root }` is usually set to <http://localhost:3000>.
-
-### `transpile={ only }`
-
-By default, Porter checks transpiler configs of the project (that is, the root package) only. When it comes to dependencies in ES6+ (which shouldn't be common in npm land), transpile logic shall be activated for them as well. To specify these packages that need to be transpiled as well, use `transpile={ only }`:
-
-```js
-const porter = new Porter({
-  transpile: { only: ['some-es6-module'] }
-})
-```
-
-If the module being loaded is listed in `transformOnly`, and a `.babelrc` within the module directory is found, porter will process the module source with babel too, like the way it handles components. Don't forget to install the presets and plugins listed in the module's `.babelrc` .
+<https://www.yuque.com/porterhq/porter/fitqkz>
 
 ## Deployment
 
@@ -219,20 +140,17 @@ After `porter.compileAll({ entries: ['app.js'] })`, the files in `./public` shou
 
 ```bash
 public
-├── @cara
-│   └── demo-app
-│       └── 2.0.0-3
-|           ├── app.js
-|           └── app.js.map
+├── app.${contenthash}.js
+├── app.${contenthash}.js.map
 ├── jquery
 │   └── 3.3.1
 │       └── dist
-|           ├── jquery.js
-|           └── jquery.js.map
+|           ├── jquery.${contenthash}.js
+|           └── jquery.${contenthash}.js.map
 └── lodash
     └── 4.17.10
-        ├── ~bundle.js
-        └── ~bundle.js.map
+        ├── ~bundle.${contenthash}.js
+        └── ~bundle.${contenthash}.js.map
 ```
 
 For different kinds of projects, different strategies shall be employed. We can tell Porter to bundle dependencies at certain scope with `porter.compileEntry()`:
@@ -283,7 +201,7 @@ Both way works. To make `app.js` consumable by the Loader, it will be wrapped in
 ```js
 define(id, deps, function(require, exports, module) {
   // actual main.js content
-})
+});
 ```
 
 - `id` is deducted from the file path.
