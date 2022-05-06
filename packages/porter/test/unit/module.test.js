@@ -98,4 +98,16 @@ describe('Module', function() {
       assert(!mod.imports.includes('fs'));
     });
   });
+
+  describe('module.isRootEntry', function() {
+    it('should recognize worker entries in dependencies as well', async function() {
+      const packet = porter.packet.find({ name: '@cara/demo-worker' });
+      const mod = packet.files['components/worker.js'];
+      assert.equal(mod.isWorker, true);
+      assert.equal(mod.isRootEntry, true);
+
+      const main = packet.files['index.js'];
+      assert.equal(main.isWorker, false);
+    });
+  });
 });

@@ -20,7 +20,7 @@ describe('porter.compileEntry()', function() {
 
   describe('.compileEntry({ entry, code })', function () {
     it('can compile component with specified code', async function () {
-      const { code } = await porter.compileEntry({
+      const { code, map } = await porter.compileEntry({
         entry: 'fake/entry.js',
         code: `
           'use strict'
@@ -33,12 +33,13 @@ describe('porter.compileEntry()', function() {
       expect(code).to.contain('yen/1.2.4/index.js');
       expect(code).to.contain('yen/1.2.4/events.js');
       expect(code).to.not.contain('define("preload.js"');
+      expect(map.sources).to.contain('loader.js');
     });
   });
 
   describe('.compileEntry({ entry, deps, code })', function() {
     it('can compile component with specified deps and code', async function() {
-      const { code } = await porter.compileEntry({
+      const { code, map } = await porter.compileEntry({
         entry: 'fake/entry.js',
         deps: ['yen', 'jquery'],
         code: `
@@ -53,6 +54,8 @@ describe('porter.compileEntry()', function() {
       expect(code).to.contain('removeClass');
       // fake modules should be removed afterwards
       expect(Object.keys(porter.packet.files)).to.not.contain('fake/entry.js');
+      expect(map.sources).to.contain('loader.js');
+      expect(map.sources).to.contain('node_modules/jquery/dist/jquery.js');
     });
 
     it('can compile component with specified deps and code', async function() {
