@@ -50,8 +50,10 @@
       el.onload = function() {
         callback();
       };
-      el.onerror = function() {
-        callback(new Error('Failed to fetch ' + el.src));
+      el.onerror = function(cause) {
+        var err = new Error('Failed to fetch ' + el.src);
+        err.cause = cause;
+        callback(err);
       };
     }
     else {
@@ -66,8 +68,13 @@
   }
 
   var requestScript;
+  var requestStyle;
+  var rCss = /\.css$/;
+  var rWasm = /\.wasm$/;
+  var rExt = /(\.\w+)$/;
+  var rDigest = /\.[0-9a-f]{8}(\.\w+)$/;
 
-  if (typeof importScripts == 'function') {
+  if (typeof importScripts === 'function') {
     /* eslint-env worker */
     requestScript = function loadScript(url, callback) {
       try {
@@ -77,12 +84,14 @@
       }
       callback();
     };
+    requestStyle = function loadStyle(url, callback) {
+      callback();
+    };
   }
   else {
     var doc = document;
     var head = doc.head || doc.getElementsByTagName('head')[0] || doc.documentElement;
     var baseElement = head.getElementsByTagName('base')[0] || null;
-
     requestScript = function loadScript(url, callback) {
       var el = doc.createElement('script');
 
@@ -96,6 +105,24 @@
       el.crossOrigin = '';
 
       // baseElement cannot be undefined in IE8-.
+      head.insertBefore(el, baseElement);
+    };
+    requestStyle = function loadStyle(uri, callback) {
+      if (typeof importScripts === 'function' || !rDigest.test(uri)) {
+        callback();
+        return;
+      }
+      var el = doc.createElement('link');
+      el.rel = 'stylesheet';
+      el.href = uri;
+      el.onload = function() {
+        callback();
+      };
+      el.onerror = function(cause) {
+        var err = new Error('Failed to fetch ' + uri);
+        err.cause = cause;
+        callback(err);
+      };
       head.insertBefore(el, baseElement);
     };
   }
@@ -122,9 +149,6 @@
     }
     return _loadWasm(module, imports);
   }
-
-  var rWasm = /\.wasm$/;
-  var rDigest = /\.[0-9a-f]{8}(\.\w+)$/;
 
   function requestWasm(uri, callback) {
     var id = uri.replace(baseUrl, '').replace(rDigest, '$1');
@@ -157,6 +181,8 @@
   function request(uri, callback) {
     if (rWasm.test(uri)) {
       requestWasm(uri, callback);
+    } else if (rCss.test(uri)) {
+      requestStyle(uri, callback);
     } else {
       requestScript(uri, callback);
     }
@@ -265,7 +291,7 @@
     // `<script src="/loader.js" data-main="app.js"></script>`
     if (name in lock) {
       var meta = lock[name][version];
-      var file = isRootEntry || rWasm.test(obj.file) ? obj.file : (meta.main || 'index.js');
+      var file = isRootEntry || rWasm.test(obj.file) || rCss.test(obj.file) ? obj.file : (meta.main || 'index.js');
       if (meta.manifest && meta.manifest[file]) {
         return baseUrl + resolve(name, version, meta.manifest[file]);
       }
@@ -333,12 +359,6 @@
           mod.status = MODULE_FETCHED;
         }
       }
-    }
-
-    if (mod.id.slice(-4) === '.css') {
-      mod.status = MODULE_FETCHED;
-      mod.ignite();
-      return;
     }
 
     if (mod.status < MODULE_FETCHING) {
@@ -424,7 +444,8 @@
       if (!dep && rDigest.test(parseUri(id)) && typeof Promise === 'function') {
         // eslint-disable-next-line no-shadow
         return Object.assign(new Promise(function(resolve, reject) {
-          require.async(specifier, resolve);
+          // foo.d41d8cd9.css might exists
+          require.async([ specifier, id.replace(rExt, '.css') ], resolve);
           setTimeout(function() {
             reject(new Error('import(' + JSON.stringify(specifier) + ') timeout'));
           }, system.timeout);

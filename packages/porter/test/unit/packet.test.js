@@ -40,6 +40,15 @@ describe('Packet', function() {
     await porter.destroy();
   });
 
+  describe('packet.copy', function() {
+    it('shoud not include bundle dependencies', async function() {
+      const { packet } = porter;
+      const { manifest = {} } = packet.copy;
+      assert.equal(manifest['dynamic-import/foo.js'], undefined);
+      assert.equal(manifest['dynamic-import/foo.css'], undefined);
+    });
+  });
+
   describe('packet.resolve()', function() {
     it('resolve object-inspect', async function() {
       const inspect = porter.packet.find({ name: 'object-inspect' });
@@ -93,6 +102,8 @@ describe('Packet', function() {
     it('recognize css @import', function() {
       const cssFiles = Object.keys(porter.packet.files).filter(file => file.endsWith('.css'));
       expect(cssFiles.sort()).to.eql([
+        'dynamic-import/baz.css',
+        'dynamic-import/foo.css',
         'home.css',
         'home_dep.css',
         'stylesheets/app.css',

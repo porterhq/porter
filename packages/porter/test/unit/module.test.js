@@ -36,6 +36,20 @@ describe('Module', function() {
     });
   });
 
+  describe('module.dynamicFamily', function() {
+    it('should iterate through first level of dynamic imports', async function() {
+      const entry = porter.packet.entries['test/suite.js'];
+      const result = Array.from(entry.dynamicFamily, mod => path.relative(root, mod.fpath));
+      assert.deepEqual(result, [
+        'browser_modules/mad-import/foo.js',
+        'node_modules/chart.js/dist/Chart.js',
+        'browser_modules/dynamic-import/sum.js',
+        'browser_modules/dynamic-import/foo.js',
+        'browser_modules/dynamic-import/bar.js',
+      ]);
+    });
+  });
+
   describe('module.lock', function() {
     it('should generate compact lock', function() {
       assert('react-color' in porter.packet.dependencies);
@@ -45,8 +59,9 @@ describe('Module', function() {
     it('should generate dynamic imports lock', function() {
       const { lock } = porter.packet.entries['test/suite.js'];
       const { manifest } = lock[porter.packet.name][porter.packet.version];
-      const { output } = porter.packet.bundles['dynamic-import/sum.js'];
-      assert.equal(manifest['dynamic-import/sum.js'], output);
+      const { bundles } = porter.packet;
+      assert.equal(manifest['dynamic-import/sum.js'], bundles['dynamic-import/sum.js'].output);
+      assert.equal(manifest['dynamic-import/foo.css'], bundles['dynamic-import/foo.css'].output);
     });
   });
 

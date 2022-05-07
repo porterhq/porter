@@ -47,11 +47,44 @@ describe('Bundle without preload', function() {
       const [ bundle ] = Bundle.wrap({ packet, entries: [ 'home.js' ], format: '.css' });
       assert.deepEqual(bundle.entries.sort(), [ 'home.css', 'home.js' ]);
     });
+
+    it('should create bundles for dynamic css imports', async function() {
+      const { packet } = porter;
+      const bundle = packet.bundles['test/suite.js'];
+      const files = bundle.children.map(child => {
+        return path.relative(root, child.packet.files[child.entry].fpath);
+      });
+      assert.deepEqual(files, [
+        'browser_modules/mad-import/foo.js',
+        'node_modules/chart.js/dist/Chart.js',
+        'browser_modules/dynamic-import/sum.js',
+        'browser_modules/dynamic-import/foo.js',
+        'browser_modules/dynamic-import/foo.js', // { format: '.css' }
+        'browser_modules/dynamic-import/bar.js',
+        'browser_modules/dynamic-import/bar.js', // { format: '.css' }
+      ]);
+
+      const dynamicBundles = Object.keys(packet.bundles).filter(key => /dynamic/.test(key));
+      assert.deepEqual(dynamicBundles, [
+        'dynamic-import/sum.js',
+        'dynamic-import/foo.js',
+        'dynamic-import/foo.css',
+        'dynamic-import/bar.js',
+        'dynamic-import/bar.css',
+      ]);
+
+      assert.equal(packet.bundles['dynamic-import/foo.js'].format, '.js');
+      assert.equal(packet.bundles['dynamic-import/foo.css'].format, '.css');
+    });
   });
 
   describe('[Symbol.iterator]', function() {
     it('should iterate over all modules that belong to bundle', async function() {
       assert.deepEqual(Object.keys(porter.packet.bundles).sort(), [
+        'dynamic-import/bar.css',
+        'dynamic-import/bar.js',
+        'dynamic-import/foo.css',
+        'dynamic-import/foo.js',
         'dynamic-import/sum.js',
         'home.css',
         'home.js',
