@@ -140,7 +140,7 @@ module.exports = class Module {
         const copy = lock[child.packet.name][child.packet.version];
         const { manifest = {} } = copy;
         copy.manifest = manifest;
-        manifest[child.outkey] = child.output;
+        manifest[child.outkey.replace(/\.\w+$/, child.format)] = child.output;
       }
     } else if (this.fake) {
       // fake modules are self contained

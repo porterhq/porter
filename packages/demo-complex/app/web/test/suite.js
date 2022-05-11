@@ -3,11 +3,20 @@ import Button from '../components/button';
 import { lowerCase } from '../utils/string.mjs';
 
 describe('import js extensions', function() {
-  it('import "./button.jsx"', function() {
+  it('import "../components/button.jsx"', function() {
     expect(Button).to.be.a(Function);
   });
 
-  it('import "./string.mjs"', function() {
+  it('import "../utils/string.mjs"', function() {
     expect(lowerCase).to.be.a(Function);
+  });
+});
+
+describe('dynamic imports', function() {
+  it('import("./foo.jsx")', function(done) {
+    import('./foo.jsx').then(function(exports) {
+      expect(exports.default).to.be.a(Function);
+      done();
+    }).catch(err => done(err));
   });
 });
