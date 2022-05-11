@@ -488,13 +488,13 @@ module.exports = class Packet {
   get copy() {
     const copy = {};
     const manifest = {};
-    const { dependencies, main, bundles, parent, entries } = this;
+    const { dependencies, main, bundles, parent, entries, isolated } = this;
 
     for (const file in bundles) {
       if (!parent && entries[file] && !entries[file].isPreload) continue;
       const bundle = bundles[file];
       // bundle dependencies will be handled in module.lock
-      if (!bundle.parent) manifest[file] = bundle.output;
+      if (isolated || !bundle.parent) manifest[file] = bundle.output;
     }
 
     if (Object.keys(manifest).length > 0) copy.manifest = manifest;
