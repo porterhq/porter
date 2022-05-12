@@ -14,7 +14,6 @@ describe('Porter with preload', function() {
     // compiling without cache could be time consuming
     this.timeout(600000);
     const root = path.resolve(__dirname, '../../../demo-app');
-    const dest = path.join(root, 'public');
     let porter;
     let entries;
     let manifest;
@@ -55,13 +54,13 @@ describe('Porter with preload', function() {
     });
 
     it('should include css imported in js', async function() {
-      const fpath = path.join(dest, manifest['home.css']);
+      const fpath = path.join(porter.output.path, manifest['home.css']);
       const content = await readFile(fpath, 'utf8');
       assert(content.includes('margin: 40px;'));
     });
 
     it('should compile entries with same-packet dependencies bundled', async function () {
-      const fpath = path.join(dest, manifest['home.js']);
+      const fpath = path.join(porter.output.path, manifest['home.js']);
       const content = await readFile(fpath, 'utf8');
       assert(content.includes('define("home_dep.js",'));
       assert(content.includes('porter.lock'));
@@ -92,46 +91,109 @@ describe('Porter with preload', function() {
     });
 
     it('should generate source map of entries', async function() {
-      const fpath = path.join(dest, `${manifest['home.js']}.map`);
+      const fpath = path.join(porter.output.path, `${manifest['home.js']}.map`);
       const map = JSON.parse(await readFile(fpath, 'utf8'));
-      assert(map.sources.includes('loader.js'));
-      assert(map.sources.includes('components/home.js'));
-      assert(map.sources.includes('components/home_dep.js'));
+      assert(map.sources.includes('porter:///loader.js'));
+      assert(map.sources.includes('porter:///components/home.js'));
+      assert(map.sources.includes('porter:///components/home_dep.js'));
     });
 
     it('should generate source map of components from other paths', async function() {
-      const fpath = path.join(dest, `${manifest['test/suite.js']}.map`);
+      const fpath = path.join(porter.output.path, `${manifest['test/suite.js']}.map`);
       const map = JSON.parse(await readFile(fpath, 'utf8'));
-      assert(map.sources.includes('loader.js'));
-      assert(map.sources.includes('browser_modules/test/suite.js'));
-      assert(map.sources.includes('browser_modules/require-directory/convert/index.js'));
+      assert(map.sources.includes('porter:///loader.js'));
+      assert(map.sources.includes('porter:///browser_modules/test/suite.js'));
+      assert(map.sources.includes('porter:///browser_modules/require-directory/convert/index.js'));
     });
 
     it('should set sourceRoot in components source map', async function() {
-      const fpath = path.join(dest, `${manifest['home.js']}.map`);
+      const fpath = path.join(porter.output.path, `${manifest['home.js']}.map`);
       const map = JSON.parse(await readFile(fpath, 'utf8'));
       assert.equal(map.sourceRoot, 'http://localhost:3000/');
     });
 
     it('should set sourceRoot in related dependencies too', async function() {
-      const fpath = path.join(dest, `${manifest['home.js']}.map`);
+      const react = porter.packet.find({ name: 'react' });
+      const fpath = path.join(porter.output.path, `${react.bundle.outputPath}.map`);
       const map = JSON.parse(await readFile(fpath, 'utf8'));
       assert.equal(map.sourceRoot, 'http://localhost:3000/');
     });
 
+    it('should minify exclusive packet', async function () {
+      const react = porter.packet.find({ name: 'react' });
+      const fpath = path.join(porter.output.path, react.bundle.outputPath);
+      const content = await fs.readFile(fpath, 'utf-8');
+      assert.ok(content.split('\n').every(line => line.startsWith('define(')));
+    });
+
     it('should compile stylesheets', async function() {
       assert(entries.includes(`public/${manifest['stylesheets/app.css']}`));
-      const fpath = path.join(dest, `${manifest['stylesheets/app.css']}`);
+      const fpath = path.join(porter.output.path, `${manifest['stylesheets/app.css']}`);
       const content = await readFile(fpath, 'utf-8');
       assert.ok(content.includes('font-family:'));
-      assert.ok(content.includes(`/*# sourceMappingURL=${path.basename(fpath)}.map */`));
     });
 
     it('should compile dynamic imports', async function() {
       assert(entries.includes(`public/${manifest['dynamic-import/sum.js']}`));
-      const fpath = path.join(dest, manifest['dynamic-import/sum.js']);
+      const fpath = path.join(porter.output.path, manifest['dynamic-import/sum.js']);
       const map = JSON.parse(await readFile(`${fpath}.map`, 'utf8'));
-      assert(!map.sources.includes('loader.js'));
+      assert(!map.sources.includes('porter:///loader.js'));
+    });
+  });
+});
+
+
+describe('Porter with preload', function() {
+  describe('porter.compileAll()', function() {
+    // compiling without cache could be time consuming
+    this.timeout(600000);
+    const root = path.resolve(__dirname, '../../../demo-app');
+    let porter;
+    // let entries;
+    let manifest;
+
+    before(async function() {
+      porter = new Porter({
+        root,
+        paths: ['components', 'browser_modules'],
+        preload: 'preload',
+        lazyload: ['lazyload.js'],
+        source: { inline: true },
+        bundle: { exclude: [ 'react', 'react-dom' ] },
+      });
+      await fs.rm(porter.cache.path, { recursive: true, force: true });
+      await porter.ready();
+
+      await porter.compileAll({
+        entries: ['home.css', 'home.js', 'test/suite.js', 'stylesheets/app.css']
+      });
+      // entries = await glob('public/**/*.{css,js,map}', { cwd: root });
+      const fpath = path.join(root, 'manifest.json');
+      await assert.doesNotReject(async function() {
+        await fs.access(fpath);
+      });
+      manifest = require(fpath);
+    });
+
+    after(async function() {
+      await porter.destroy();
+    });
+
+    it('should set sourcesContent in components source map', async function() {
+      const fpath = path.join(porter.output.path, `${manifest['home.js']}.map`);
+      const map = JSON.parse(await readFile(fpath, 'utf8'));
+      assert.equal(map.sourceRoot, porter.source.root);
+      assert.equal(map.sourcesContent?.length, map.sources.length);
+      console.log(map.sourcesContent);
+    });
+
+    it('should set sourcesContent in related dependencies too', async function() {
+      const react = porter.packet.find({ name: 'react' });
+      const fpath = path.join(porter.output.path, `${react.bundle.outputPath}.map`);
+      const map = JSON.parse(await readFile(fpath, 'utf8'));
+      assert.equal(map.sourceRoot, porter.source.root);
+      assert.equal(map.sourcesContent?.length, map.sources.length);
+      console.log(map.sourcesContent);
     });
   });
 });

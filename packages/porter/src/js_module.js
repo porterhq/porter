@@ -22,7 +22,6 @@ module.exports = class JsModule extends Module {
     this.dynamicImports = dynamicImports.filter(ignoreImport);
   }
 
-
   /**
    * (partially) handle browserify.transform in package.json
    * @param {string} fpath
@@ -188,15 +187,15 @@ module.exports = class JsModule extends Module {
      */
     if (!fpath.startsWith(packet.dir)) return;
 
+    const filenameRelative = path.relative(app.root, fpath);
     const transpilerOptions = {
       ...packet.transpilerOpts,
       sourceMaps: true,
-      sourceRoot: '/',
       inputSourceMap: map,
       ast: false,
       filename: fpath,
-      filenameRelative: path.relative(app.root, fpath),
-      sourceFileName: path.relative(app.root, fpath),
+      filenameRelative,
+      sourceFileName: `porter:///${filenameRelative}`,
       cwd: app.root,
     };
     return await babel.transform(code, transpilerOptions);
@@ -204,7 +203,7 @@ module.exports = class JsModule extends Module {
 
   uglify({ code, map }) {
     const { fpath, app } = this;
-    const source = path.relative(app.root, fpath);
+    const source = `porter:///${path.relative(app.root, fpath)}`;
     const { keep_fnames } = app.uglifyOptions || {};
 
     const result = UglifyJS.minify({ [source]: code }, {
@@ -221,10 +220,7 @@ module.exports = class JsModule extends Module {
       },
       keep_fnames: keep_fnames instanceof RegExp ? keep_fnames.test(source) : keep_fnames,
       output: { ascii_only: true },
-      sourceMap: {
-        content: map,
-        root: '/'
-      }
+      sourceMap: { content: map },
     });
 
     if (result.error) throw result.error;

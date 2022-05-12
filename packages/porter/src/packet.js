@@ -493,7 +493,12 @@ module.exports = class Packet {
     for (const file in bundles) {
       if (!parent && entries[file] && !entries[file].isPreload) continue;
       const bundle = bundles[file];
-      // bundle dependencies will be handled in module.lock
+      // css bundles generated with css in js
+      if (!parent && !bundle.parent && bundle.format === '.css') continue;
+      // import(specifier) -> module.lock
+      // import Worker from 'worker-loader!worker.js'; -> packet.copy
+      // import 'react' // isolated; -> packet.copy
+      // import Foo from './foo.wasm'; -> packet.copy
       if (isolated || !bundle.parent) manifest[file] = bundle.output;
     }
 
@@ -538,9 +543,8 @@ module.exports = class Packet {
 
   async parseLoader(loaderConfig) {
     const fpath = path.join(__dirname, '..', 'loader.js');
-    const code = await readFile(fpath, 'utf8');
-
-    return new Promise(resolve => {
+    const sourceContent = await readFile(fpath, 'utf8');
+    const code = await new Promise(resolve => {
       const stream = looseEnvify(fpath, {
         BROWSER: true,
         NODE_ENV: process.env.NODE_ENV || 'development',
@@ -549,8 +553,9 @@ module.exports = class Packet {
       let buf = '';
       stream.on('data', chunk => buf += chunk);
       stream.on('end', () => resolve(buf));
-      stream.end(code);
+      stream.end(sourceContent);
     });
+    return { sourceContent, code };
   }
 
   async pack({ minify = false } = {}) {
@@ -602,15 +607,20 @@ module.exports = class Packet {
     if (!map) return { code, map };
     if (map instanceof SourceMapGenerator) map = map.toJSON();
     if (typeof map == 'string') map = JSON.parse(map);
-
-    code = output.endsWith('.js')
-      ? `${code}\n//# sourceMappingURL=${path.basename(output)}.map`
-      : `${code}\n/*# sourceMappingURL=${path.basename(output)}.map */`;
-
-    map.sources = map.sources.map(source => source.replace(/^\//, ''));
-    map.sourceRoot = this.app.source.root;
-
+    if (!this.app.source.inline) map.sourceRoot = this.app.source.root;
     return { code, map };
+  }
+
+  async writeSourceMap(fpath, map) {
+    if (!map) return;
+    const { app } = this;
+    let resultMap;
+    if (app.source.inline) {
+      resultMap = JSON.stringify(map);
+    } else {
+      resultMap = JSON.stringify(map, (k, v) => k !== 'sourcesContent' ? v : undefined);
+    }
+    await writeFile(`${fpath}.map`, resultMap);
   }
 
   async compileAll(opts) {
@@ -678,9 +688,7 @@ module.exports = class Packet {
       await fs.mkdir(path.dirname(fpath), { recursive: true });
       await Promise.all([
         writeFile(fpath, code),
-        map && writeFile(`${fpath}.map`, JSON.stringify(map, (k, v) => {
-          if (k !== 'sourcesContent') return v;
-        })) || Promise.resolve(),
+        this.writeSourceMap(fpath, map),
       ]);
     }
 

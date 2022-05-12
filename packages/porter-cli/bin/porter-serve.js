@@ -139,7 +139,6 @@ async function serve() {
   const porter = new Porter({
     paths: [...program.paths, path.join(__dirname, '../components')],
     source: { serve: true },
-    entries: [ program.suite ],
     lazyload: program.lazyload,
     transpile: { include: program.include },
   });

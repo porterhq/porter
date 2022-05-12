@@ -6,7 +6,7 @@ const serve = require('koa-static');
 const app = new Koa();
 // const porter = require('./lib/porter');
 // const porter = require('./lib/porter_preload');
-const porter = require('./lib/porter_isolate');
+const porter = require('./lib/porter_exclude');
 
 app.use(serve('views'));
 app.use(serve('public'));

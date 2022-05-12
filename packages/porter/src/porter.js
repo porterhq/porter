@@ -107,7 +107,7 @@ class Porter {
     this.preload = [].concat(opts.preload || []);
     this.lazyload = [].concat(opts.lazyload || []);
 
-    this.source = { serve: false, root: '/', ...opts.source };
+    this.source = { serve: false, inline: false, root: 'http://localhost/', ...opts.source };
     this.cssTranspiler = postcss([ AtImport ].concat(opts.postcssPlugins || []));
     this.lessOptions = opts.lessOptions;
     this.uglifyOptions = opts.uglifyOptions;
@@ -132,7 +132,8 @@ class Porter {
     const result = await this.readFilePath(fpath);
 
     if (name == 'loader.js') {
-      result[0] = await this.packet.parseLoader(this.packet.loaderConfig);
+      const { code } = await this.packet.parseLoader(this.packet.loaderConfig);
+      result[0] = code;
     }
 
     return result;
@@ -406,7 +407,6 @@ class Porter {
     if (map instanceof SourceMapGenerator) {
       map = map.toJSON();
     }
-    map.sources = map.sources.map(source => source.replace(/^\//, ''));
 
     return [ map, { 'Last-Modified': bundle.updatedAt.toGMTString() } ];
   }

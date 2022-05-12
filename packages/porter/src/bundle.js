@@ -163,8 +163,8 @@ module.exports = class Bundle {
         if (format === '.js') {
           // exclude external modules if module packet is isolated
           if (mod.packet !== packet && scope !== 'all') continue;
-          if (mod.preloaded && !preload && !packet.isolated) continue;
-          if (mod.packet !== packet && mod.packet.isolated) continue;
+          if (mod.preloaded && !preload) continue;
+          if (mod.packet !== packet && mod.packet.isolated && !preload) continue;
         }
         // might be WasmModule or web worker
         if (mod.isolated || (format === '.js' && mod.isRootEntry)) continue;
@@ -172,10 +172,14 @@ module.exports = class Bundle {
       }
     }
 
-    function* iterateEntry(entry, preload = false) {
+    function* iterateEntry(entry, preload = null) {
       done[entry.id] = true;
       if (mode === DEPTH_FIRST) yield* iterate(entry, preload);
-      if (extensions.includes(path.extname(entry.file))) yield entry;
+      if (extensions.includes(path.extname(entry.file))) {
+        if (!(entry.packet.isolated && preload && entry.packet !== preload?.packet)) {
+          yield entry;
+        }
+      }
       if (mode === BREATH_FIRST) yield* iterate(entry, preload);
     }
 
@@ -193,7 +197,7 @@ module.exports = class Bundle {
        * - bundling a program generated entry that needs to be self contained
        * - bundling a web worker
        */
-      const preload = entry.isPreload || entry.fake || (entry.isWorker);
+      const preload = entry.isPreload || entry.fake || entry.isWorker ? entry : null;
       yield* iterateEntry(entry, preload);
     }
   }
@@ -251,29 +255,35 @@ module.exports = class Bundle {
     return packet.parent ? path.join(name, version, output) : output;
   }
 
-  async createSourceNode({ source, code, map }) {
+  async createSourceNode({ source, sourceContent, code, map }) {
     if (map instanceof SourceMapGenerator) {
       map = map.toJSON();
     }
 
     if (map) {
       const consumer = await new SourceMapConsumer(map);
-      return SourceNode.fromStringWithSourceMap(code, consumer);
+      const node = SourceNode.fromStringWithSourceMap(code, consumer);
+      if (sourceContent) node.setSourceContent(source, sourceContent);
+      return node;
     }
 
     // Source code need to be mapped line by line to debug in devtools.
+    // return new SourceNode(1, 0, source, code);
     const lines = code.split('\n');
     const node = new SourceNode();
     for (let i = 0; i < lines.length; i++) {
       node.add(new SourceNode(i + 1, 0, source, lines[i]));
     }
+    if (sourceContent) node.setSourceContent(source, sourceContent);
     return node.join('\n');
-    // return new SourceNode(1, 0, source, code)
   }
 
   async obtainLoader(loaderConfig) {
+    const { code, sourceContent } = await this.packet.parseLoader(loaderConfig);
     return {
-      code: await this.packet.parseLoader(loaderConfig)
+      source: 'porter:///loader.js',
+      sourceContent,
+      code,
     };
   }
 
@@ -281,14 +291,17 @@ module.exports = class Bundle {
     const loaderCache = this.#loaderCache;
     const cacheKey = JSON.stringify(loaderConfig);
     if (loaderCache[cacheKey]) return loaderCache[cacheKey];
-    const code = await this.packet.parseLoader(loaderConfig);
-
-    return loaderCache[cacheKey] = UglifyJS.minify({ 'loader.js': code }, {
+    const { code, sourceContent } = await this.packet.parseLoader(loaderConfig);
+    const source = 'porter:///loader.js';
+    const result = UglifyJS.minify({ [source]: code }, {
       compress: { dead_code: true },
       output: { ascii_only: true },
-      sourceMap: { root: '/' },
       ie8: true
     });
+    if (result.error) throw result.error;
+    result.source = source;
+    result.sourceContent = sourceContent;
+    return (loaderCache[cacheKey] = result);
   }
 
   /**
@@ -346,7 +359,8 @@ module.exports = class Bundle {
 
   async obtain(options = {}) {
     const { entries } = this;
-    const cacheKey  = JSON.stringify({ entries });
+    const { minify } = options;
+    const cacheKey  = JSON.stringify({ entries, minify });
 
     if (this.#cacheKey === cacheKey) {
       return { code: this.#code, map: this.#map };
@@ -365,7 +379,7 @@ module.exports = class Bundle {
    */
   async _obtain({ minify = false } = {}) {
     const { app, entries, children, packet, format, loader } = this;
-    const cacheKey = JSON.stringify({ entries });
+    const cacheKey = JSON.stringify({ entries, minify });
 
     if (format === '.wasm') {
       for (const mod of this) {
@@ -383,8 +397,13 @@ module.exports = class Bundle {
 
     for (const mod of this.iterate({ mode: BREATH_FIRST })) {
       const { code, map } = minify ? await mod.minify() : await mod.obtain();
-      const source = path.relative(app.root, mod.fpath);
-      node.prepend(await this.createSourceNode({ source, code, map }));
+      const subnode = await this.createSourceNode({
+        source: `porter:///${path.relative(app.root, mod.fpath)}`,
+        sourceContent: mod.code || await fs.readFile(mod.fpath, 'utf-8'),
+        code,
+        map,
+      });
+      node.prepend(subnode);
     }
 
     const mod = await this.getEntryModule({ minify });
@@ -396,15 +415,14 @@ module.exports = class Bundle {
 
     if (mod.isRootEntry && loader !== false && format === '.js') {
       // bundle with loader unless turned off specifically
-      const { code, map } = minify
+      const result = minify
         ? await this.minifyLoader(loaderConfig)
         : await this.obtainLoader(loaderConfig);
-      const source = 'loader.js';
-      node.prepend(await this.createSourceNode({ source, code, map }));
+      node.prepend(await this.createSourceNode(result));
       node.add(`porter["import"](${JSON.stringify(mod.id)})`);
     }
 
-    const result = node.join('\n').toStringWithSourceMap({ sourceRoot: '/' });
+    const result = node.join('\n').toStringWithSourceMap({ sourceRoot: app.source.root });
     this.#code = result.code;
     this.#map = result.map;
     this.#cacheKey = cacheKey;
@@ -463,31 +481,4 @@ module.exports = class Bundle {
   async minify() {
     return await this.obtain({ minify: true });
   }
-
-  // async minify(opts) {
-  //   const { code, map } = await this.obtain(opts);
-  //   if (path.extname(this.entry) === '.css') return { code, map };
-
-  //   const result = UglifyJS.minify(code, {
-  //     compress: {
-  //       dead_code: true,
-  //       global_defs: {
-  //         process: {
-  //           env: {
-  //             BROWSER: true,
-  //             NODE_ENV: process.env.NODE_ENV
-  //           }
-  //         }
-  //       }
-  //     },
-  //     output: { ascii_only: true },
-  //     sourceMap: {
-  //       content: map.toString(),
-  //       root: '/'
-  //     },
-  //   });
-
-  //   if (result.error) throw result.error;
-  //   return result;
-  // }
 };
