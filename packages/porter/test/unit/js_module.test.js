@@ -29,7 +29,7 @@ describe('JsModule', function() {
     const pkg = porter.packet.find({ name: 'yen' });
     const mod = pkg.files['events.js'];
     const { map } = await mod.obtain();
-    assert.deepEqual(map.sources, [ 'node_modules/yen/events.js' ]);
+    assert.deepEqual(map.sources, [ 'porter:///node_modules/yen/events.js' ]);
   });
 
   it('should not stop at broken cache', async function() {
@@ -72,42 +72,6 @@ describe('JsModule', function() {
     assert.ok(mod);
     assert.ok(mod.dynamicChildren.length > 0);
     assert.ok(mod.dynamicChildren.find(child => child.file === 'dynamic-import/sum.js'));
-  });
-});
-
-describe('JsModule import CSS', function() {
-  const root = path.resolve(__dirname, '../../../demo-complex');
-  let porter;
-
-  before(async function() {
-    porter = new Porter({
-      root,
-      paths: 'app/web',
-      entries: ['home.jsx'],
-      resolve: {
-        alias: { '@/': '' },
-        extensions: [ '*', '.js', '.jsx', '.css', '.less' ],
-      },
-    });
-    await fs.rm(porter.cache.path, { recursive: true, force: true });
-    await porter.ready();
-  });
-
-  after(async function() {
-    await porter.destroy();
-  });
-
-  it('should have css dependencies parsed', async function() {
-    const mod = porter.packet.files['home.jsx'];
-    assert.deepEqual(mod.children.map(child => path.relative(root, child.fpath)), [
-      'node_modules/react-dom/index.js',
-      'node_modules/react/index.js',
-      'app/web/home_dep.js',
-      'app/web/utils/index.js',
-      'node_modules/cropper/dist/cropper.css',
-      'app/web/stylesheets/app.less',
-      'app/web/components/button.jsx',
-    ]);
   });
 });
 

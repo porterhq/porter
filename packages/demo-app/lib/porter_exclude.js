@@ -8,7 +8,7 @@ module.exports = new Porter({
   paths: ['components', 'browser_modules'],
   dest: 'public',
   source: {
-    serve: true,
+    inline: true,
     root: 'http://localhost:3000',
   },
   preload: 'preload',

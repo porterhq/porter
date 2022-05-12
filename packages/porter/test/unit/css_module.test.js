@@ -52,9 +52,8 @@ describe('CssModule', function() {
     const mod = porter.packet.files['stylesheets/app.css'];
     const { map } = await mod.obtain();
     assert.deepEqual(map.sources, [
-      'components/stylesheets/app.css',
+      'porter:///components/stylesheets/app.css',
     ]);
-    assert.equal(map.sourceRoot, '/');
   });
 
   it('should set status to MODULE_LOADED after parse', async function() {

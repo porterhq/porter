@@ -33,7 +33,7 @@ describe('porter.compileEntry()', function() {
       expect(code).to.contain('yen/1.2.4/index.js');
       expect(code).to.contain('yen/1.2.4/events.js');
       expect(code).to.not.contain('define("preload.js"');
-      expect(map.sources).to.contain('loader.js');
+      expect(map.sources).to.contain('porter:///loader.js');
     });
   });
 
@@ -54,8 +54,8 @@ describe('porter.compileEntry()', function() {
       expect(code).to.contain('removeClass');
       // fake modules should be removed afterwards
       expect(Object.keys(porter.packet.files)).to.not.contain('fake/entry.js');
-      expect(map.sources).to.contain('loader.js');
-      expect(map.sources).to.contain('node_modules/jquery/dist/jquery.js');
+      expect(map.sources).to.contain('porter:///loader.js');
+      expect(map.sources).to.contain('porter:///node_modules/jquery/dist/jquery.js');
     });
 
     it('can compile component with specified deps and code', async function() {

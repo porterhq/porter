@@ -231,7 +231,6 @@ describe('Bundle with preload', function() {
 
       assert.ok(reactModules.every(mod => !modules.includes(mod)));
       assert.ok(reactModules.every(mod => !preloadModules.includes(mod)));
-      assert.ok(reactModules.some(mod => mod.packet.name === 'object-assign'));
       assert.equal(react.bundle.entry, react.main);
       assert.equal(react.bundle.output.replace(/.[a-f0-9]{8}/, ''), react.main);
     });
@@ -246,6 +245,10 @@ describe('Bundle with preload', function() {
       // scheduler is dependency of react-dom, which should not be bundled separately
       const scheduler = porter.packet.find({ name: 'scheduler' });
       assert.equal(scheduler.bundle, null);
+
+      const preloadBundle = porter.packet.bundles['preload.js'];
+      const preloadModules = Array.from(preloadBundle);
+      assert.ok(preloadModules.some(mod => mod.packet.name === 'object-assign'));
     });
   });
 
@@ -271,11 +274,11 @@ describe('Bundle with preload', function() {
       const { map } = await bundle.obtain();
       const { sources } = JSON.parse(map.toString());
       assert.deepEqual(sources.map(source => source.replace(/^\//, '')), [
-        'components/stylesheets/common/reset.css',
-        'components/stylesheets/common/base.css',
-        'node_modules/cropper/dist/cropper.css',
-        'node_modules/prismjs/themes/prism.css',
-        'components/stylesheets/app.css',
+        'porter:///components/stylesheets/common/reset.css',
+        'porter:///components/stylesheets/common/base.css',
+        'porter:///node_modules/cropper/dist/cropper.css',
+        'porter:///node_modules/prismjs/themes/prism.css',
+        'porter:///components/stylesheets/app.css',
       ]);
     });
   });
@@ -322,106 +325,6 @@ describe('Bundle with TypeScript', function() {
       assert(!files.includes('store.ts'));
       const { code } = await bundle.obtain();
       assert(!code.includes('store.js'));
-    });
-  });
-});
-
-describe('Bundle with CSS in JS', function() {
-  const root = path.resolve(__dirname, '../../../demo-complex');
-  let porter;
-
-  before(async function() {
-    porter = new Porter({
-      root,
-      paths: 'app/web',
-      entries: [ 'home.jsx', 'about.jsx' ],
-      resolve: {
-        alias: {
-          '@': '',
-        },
-        extensions: [ '*', '.js', '.jsx', '.css', '.less' ],
-        import: {
-          libraryName: 'antd',
-          style: true,
-        },
-      },
-      lessOptions: {
-        javascriptEnabled: true,
-      },
-    });
-    await fs.rm(porter.cache.path, { recursive: true, force: true });
-    await porter.ready();
-  });
-
-  after(async function() {
-    await porter.destroy();
-  });
-
-  describe('[Symbol.iterator]', function() {
-    it('should not bundle css modules into js bundle', async function() {
-      const bundle = porter.packet.bundles['home.jsx'];
-      const modules = [ ...bundle ];
-      assert.deepEqual(modules.map(mod => path.relative(root, mod.fpath)), [
-        'app/web/home_dep.js',
-        'app/web/i18n/index.js',
-        'app/web/utils/index.js',
-        'app/web/components/button.jsx',
-        'app/web/home.jsx',
-      ]);
-    });
-
-    it('should generate css bundle if there are css in js', async function() {
-      const bundle = porter.packet.bundles['home.css'];
-      assert.ok(bundle);
-      assert.equal(bundle.format, '.css');
-      const modules = [ ...bundle ];
-      assert.deepEqual(modules.map(mod => path.relative(root, mod.fpath)), [
-        'node_modules/cropper/dist/cropper.css',
-        'app/web/stylesheets/app.less',
-      ]);
-    });
-
-    it('should append css dependencies to css bundle', async function() {
-      const bundle = porter.packet.bundles['about.css'];
-      assert.ok(bundle);
-      assert.equal(bundle.format, '.css');
-      const modules = [ ...bundle ];
-      assert.deepEqual(modules.map(mod => path.relative(root, mod.fpath)), [
-        'node_modules/antd/lib/style/default.less',
-        'node_modules/antd/lib/layout/style/index.less',
-        'node_modules/antd/lib/menu/style/index.less',
-        'node_modules/antd/lib/tooltip/style/index.less',
-        'app/web/about.less',
-      ]);
-    });
-  });
-
-  describe('bundle.obtain()', function() {
-    it('should work', async function() {
-      const bundle = porter.packet.bundles['home.css'];
-      const result = await bundle.obtain();
-      assert.ok(result.code.includes('.cropper'));
-      assert.ok(result.code.includes('.page'));
-
-      const map = result.map.toJSON();
-      assert.deepEqual(map.sources.map(source => source.replace(/^\//, '')), [
-        'node_modules/cropper/dist/cropper.css',
-        'app/web/stylesheets/app.less',
-      ]);
-    });
-  });
-
-  describe('bundle.output', function() {
-    it('should work', async function() {
-      const bundle = porter.packet.bundles['home.css'];
-      assert.equal(bundle.output, `home.${bundle.contenthash}.css`);
-    });
-  });
-
-  describe('bundle.outputPath', function() {
-    it('should work', async function() {
-      const bundle = porter.packet.bundles['home.css'];
-      assert.equal(bundle.outputPath, `home.${bundle.contenthash}.css`);
     });
   });
 });

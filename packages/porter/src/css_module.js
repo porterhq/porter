@@ -58,16 +58,14 @@ module.exports = class CssModule extends Module {
       map: {
         // https://postcss.org/api/#sourcemapoptions
         inline: false,
-        sourcesContent: false,
         annotation: false,
         absolute: true,
       }
     });
 
     map = JSON.parse(result.map);
-    map.sourceRoot = '/';
     map.sources = map.sources.map(source => {
-      return path.relative(app.root, source.replace(/^file:/, ''));
+      return `porter:///${path.relative(app.root, source.replace(/^file:/, ''))}`;
     });
 
     return { code: result.css, map };

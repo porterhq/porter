@@ -62,7 +62,9 @@ module.exports = class LessModule extends CssModule {
 
     if (typeof result.map === 'string') result.map = JSON.parse(result.map);
     const { sources } = result.map;
-    result.map.sources = sources.map(source => path.relative(app.root, source));
+    result.map.sources = sources.map(source => {
+      return `porter:///${path.relative(app.root, source)}`;
+    });
     return { code: result.css, map: result.map };
   }
 };

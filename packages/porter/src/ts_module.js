@@ -22,7 +22,6 @@ module.exports = class TsModule extends JsModule {
       compilerOptions: {
         ...compilerOptions,
         module: ts.ModuleKind.CommonJS,
-        sourceRoot: '/',
         sourceMap: true,
         // ts.transpileModule() needs source map not being inlined
         inlineSourceMap: false,
@@ -32,8 +31,7 @@ module.exports = class TsModule extends JsModule {
 
     if (sourceMapText) {
       map = JSON.parse(sourceMapText);
-      map.sources = [ fileName ];
-      map.file = fileName;
+      map.sources = [ `porter:///${fileName}` ];
     }
 
     if (diagnostics.length) {

@@ -56,6 +56,7 @@ async function checkReload({ sourceFile, targetFile, pathname }) {
 
 describe('Porter', function() {
   before(async function() {
+    await fs.unlink(path.join(root, 'components/about.css')).catch(() => {});
     porter = new Porter({
       root,
       paths: ['components', 'browser_modules'],
@@ -77,18 +78,11 @@ describe('Porter', function() {
   });
 
   after(async function() {
+    await fs.unlink(path.join(root, 'components/about.css')).catch(() => {});
     await porter.destroy();
   });
 
   describe('Porter_readFile()', function() {
-    before(async function() {
-      await fs.unlink(path.join(root, 'components/about.css')).catch(() => {});
-    });
-
-    after(async function() {
-      await fs.unlink(path.join(root, 'components/about.css')).catch(() => {});
-    });
-
     it('should give correct result when packing concurrently', async function() {
       // when requesting css and js entries simutaneously, `porter.pack()` will be executed twice. If home.js takes time to parse its dependencies, it could be not ready when packing the first time.
       const results = await Promise.all([
@@ -257,17 +251,26 @@ describe('Porter', function() {
       await requestPath('/home.js', 200);
       const res = await requestPath('/home.js.map', 200);
       const map = JSON.parse(res.text);
-      assert(map.sources.includes('components/home_dep.js'));
-      assert(map.sources.includes('components/home.js'));
+      assert(map.sources.includes('porter:///components/home_dep.js'));
+      assert(map.sources.includes('porter:///components/home.js'));
     });
 
     it('should generate source map when accessing ${file}?main', async function() {
       await requestPath('/home.js?main', 200);
       const res = await requestPath('/home.js.map', 200);
       const map = JSON.parse(res.text);
-      assert(map.sources.includes('components/home_dep.js'));
-      assert(map.sources.includes('components/home.js'));
-      assert(map.sources.includes('loader.js'));
+      assert.ok(map.sources.includes('porter:///components/home_dep.js'));
+      assert.ok(map.sources.includes('porter:///components/home.js'));
+      assert.ok(map.sources.includes('porter:///loader.js'));
+      assert.equal(map.sourcesContent?.length, map.sources.length);
+    });
+
+    it('should generate source map when accessing ${file}?main', async function() {
+      await requestPath('/home.css', 200);
+      const res = await requestPath('/home.css.map', 200);
+      const map = JSON.parse(res.text);
+      assert.ok(map.sources.includes('porter:///components/home_dep.css'));
+      assert.equal(map.sourcesContent?.length, map.sources.length);
     });
 
     it('should generate source map when accessing dependencies', async function() {
@@ -275,8 +278,13 @@ describe('Porter', function() {
       await requestPath(`/${name}/${version}/${bundle.entry}`, 200);
       const res = await requestPath(`/${name}/${version}/${bundle.entry}.map`, 200);
       const map = JSON.parse(res.text);
-      assert(map.sources.includes('node_modules/react/cjs/react.development.js'));
-      assert(map.sources.includes('node_modules/react/index.js'));
+      assert.ok(map.sources.includes('porter:///node_modules/react/cjs/react.development.js'));
+      assert.ok(map.sources.includes('porter:///node_modules/react/index.js'));
+      assert.equal(map.sourcesContent?.length, map.sources.length);
+    });
+
+    it('should 404 when accesing missing source map', async function() {
+      await requestPath('/missing.map', 404);
     });
   });
 });
