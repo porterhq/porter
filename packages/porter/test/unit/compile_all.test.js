@@ -110,6 +110,7 @@ describe('Porter with preload', function() {
       const fpath = path.join(porter.output.path, `${manifest['home.js']}.map`);
       const map = JSON.parse(await readFile(fpath, 'utf8'));
       assert.equal(map.sourceRoot, 'http://localhost:3000/');
+      assert.equal(map.sourcesContent, undefined);
     });
 
     it('should set sourceRoot in related dependencies too', async function() {
@@ -117,6 +118,7 @@ describe('Porter with preload', function() {
       const fpath = path.join(porter.output.path, `${react.bundle.outputPath}.map`);
       const map = JSON.parse(await readFile(fpath, 'utf8'));
       assert.equal(map.sourceRoot, 'http://localhost:3000/');
+      assert.equal(map.sourcesContent, undefined);
     });
 
     it('should minify exclusive packet', async function () {
@@ -183,8 +185,7 @@ describe('Porter with preload', function() {
       const fpath = path.join(porter.output.path, `${manifest['home.js']}.map`);
       const map = JSON.parse(await readFile(fpath, 'utf8'));
       assert.equal(map.sourceRoot, porter.source.root);
-      assert.equal(map.sourcesContent?.length, map.sources.length);
-      console.log(map.sourcesContent);
+      assert.equal(map.sourcesContent.filter(item => item).length, map.sources.length);
     });
 
     it('should set sourcesContent in related dependencies too', async function() {
@@ -192,8 +193,7 @@ describe('Porter with preload', function() {
       const fpath = path.join(porter.output.path, `${react.bundle.outputPath}.map`);
       const map = JSON.parse(await readFile(fpath, 'utf8'));
       assert.equal(map.sourceRoot, porter.source.root);
-      assert.equal(map.sourcesContent?.length, map.sources.length);
-      console.log(map.sourcesContent);
+      assert.equal(map.sourcesContent.filter(item => item).length, map.sources.length);
     });
   });
 });

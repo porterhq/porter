@@ -25,7 +25,7 @@ describe('test/app/index.test.js', function() {
   });
 
   describe('bundle[Symbol.iterator]', function() {
-    it('should at least include itself', function() {
+    it('should include itself', function() {
       const packet = porter.packet.find({ name: '@cara/hello-worker' });
       const bundle = packet.bundles['worker.js'];
       assert.deepEqual(Array.from(bundle, mod => path.relative(packet.dir, mod.fpath)), [
