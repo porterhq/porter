@@ -1,6 +1,6 @@
 {
   "name": "@cara/demo-complex",
-  "version": "4.0.13",
+  "version": "4.1.0",
   "private": true,
   "description": "",
   "main": "index.js",
@@ -10,8 +10,8 @@
     "@babel/core": "^7.16.0",
     "@babel/preset-env": "^7.1.0",
     "@babel/preset-react": "^7.16.0",
-    "@cara/porter": "^4.0.13",
-    "@cara/porter-cli": "^4.0.13",
+    "@cara/porter": "^4.1.0",
+    "@cara/porter-cli": "^4.1.0",
     "antd": "^4.17.3",
     "classnames": "^2.3.1",
     "cropper": "^4.1.0",
