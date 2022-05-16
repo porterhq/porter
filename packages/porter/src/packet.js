@@ -598,16 +598,29 @@ module.exports = class Packet {
 
   /**
    * Fix source map related settings in both code and map.
-   * @param {Object} opts
-   * @param {string} opts.file
-   * @param {string} opts.code
-   * @param {Object|SourceMapGenerator} opts.map
+   * @param {Object} result
+   * @param {string} result.code
+   * @param {Object|SourceMapGenerator} result.map
+   * @param {Bundle} bundle
+   * @param {string} bundle.outputPath
    */
-  setSourceMap({ output, code, map }) {
+  setSourceMap({ code, map }, bundle) {
     if (!map) return { code, map };
+
+    // normalize map
     if (map instanceof SourceMapGenerator) map = map.toJSON();
     if (typeof map == 'string') map = JSON.parse(map);
-    if (!this.app.source.inline) map.sourceRoot = this.app.source.root;
+
+    const { source } = this.app;
+    if (source.root) map.sourceRoot = source.root;
+
+    const sourceMappingURL = source.mappingURL
+      ? `${source.mappingURL}${bundle.outputPath}.map`
+      : `${path.basename(bundle.outputPath)}.map`;
+    code = bundle.outputPath.endsWith('.js')
+      ? `${code}\n//# sourceMappingURL=${sourceMappingURL}`
+      : `${code}\n/*# sourceMappingURL=${sourceMappingURL} */`;
+
     return { code, map };
   }
 
@@ -618,6 +631,8 @@ module.exports = class Packet {
     if (app.source.inline) {
       resultMap = JSON.stringify(map);
     } else {
+      map.sources = map.sources.map(source => source.replace(/^porter:\/\/\//, ''));
+      map.sourceRoot = app.source.root;
       resultMap = JSON.stringify(map, (k, v) => k !== 'sourcesContent' ? v : undefined);
     }
     await writeFile(`${fpath}.map`, resultMap);
@@ -677,7 +692,7 @@ module.exports = class Packet {
       }
 
       if (!this.parent) manifest[bundle.outkey] = bundle.output;
-      const { code, map } = this.setSourceMap({ output: bundle.output, ...result });
+      const { code, map } = this.setSourceMap(result, bundle);
       if (!opts.writeFile) return { code, map };
 
       const { outputPath } = bundle;

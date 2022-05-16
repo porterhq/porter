@@ -233,7 +233,8 @@ describe('Packet', function() {
       const bundle = await pkg.compile(main);
       const fpath = path.join(root, 'public', `${bundle.outputPath}.map`);
       const map = JSON.parse(await fs.readFile(fpath, 'utf8'));
-      expect(map.sources).to.contain('porter:///node_modules/react/index.js');
+      // options.source.serve mode
+      expect(map.sources).to.contain('node_modules/react/index.js');
     });
 
     it('should compile packet with different main entry', async function () {

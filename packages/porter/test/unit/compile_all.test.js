@@ -93,17 +93,17 @@ describe('Porter with preload', function() {
     it('should generate source map of entries', async function() {
       const fpath = path.join(porter.output.path, `${manifest['home.js']}.map`);
       const map = JSON.parse(await readFile(fpath, 'utf8'));
-      assert(map.sources.includes('porter:///loader.js'));
-      assert(map.sources.includes('porter:///components/home.js'));
-      assert(map.sources.includes('porter:///components/home_dep.js'));
+      assert(map.sources.includes('loader.js'));
+      assert(map.sources.includes('components/home.js'));
+      assert(map.sources.includes('components/home_dep.js'));
     });
 
     it('should generate source map of components from other paths', async function() {
       const fpath = path.join(porter.output.path, `${manifest['test/suite.js']}.map`);
       const map = JSON.parse(await readFile(fpath, 'utf8'));
-      assert(map.sources.includes('porter:///loader.js'));
-      assert(map.sources.includes('porter:///browser_modules/test/suite.js'));
-      assert(map.sources.includes('porter:///browser_modules/require-directory/convert/index.js'));
+      assert(map.sources.includes('loader.js'));
+      assert(map.sources.includes('browser_modules/test/suite.js'));
+      assert(map.sources.includes('browser_modules/require-directory/convert/index.js'));
     });
 
     it('should set sourceRoot in components source map', async function() {
@@ -111,6 +111,7 @@ describe('Porter with preload', function() {
       const map = JSON.parse(await readFile(fpath, 'utf8'));
       assert.equal(map.sourceRoot, 'http://localhost:3000/');
       assert.equal(map.sourcesContent, undefined);
+      assert.ok(map.sources.every(source => !source.startsWith('porter:///')));
     });
 
     it('should set sourceRoot in related dependencies too', async function() {
@@ -119,13 +120,14 @@ describe('Porter with preload', function() {
       const map = JSON.parse(await readFile(fpath, 'utf8'));
       assert.equal(map.sourceRoot, 'http://localhost:3000/');
       assert.equal(map.sourcesContent, undefined);
+      assert.ok(map.sources.every(source => !source.startsWith('porter:///')));
     });
 
     it('should minify exclusive packet', async function () {
       const react = porter.packet.find({ name: 'react' });
       const fpath = path.join(porter.output.path, react.bundle.outputPath);
       const content = await fs.readFile(fpath, 'utf-8');
-      assert.ok(content.split('\n').every(line => line.startsWith('define(')));
+      assert.ok(content.split('\n').every(line => /^(?:define\(|\/\/#)/.test(line)));
     });
 
     it('should compile stylesheets', async function() {
@@ -139,7 +141,7 @@ describe('Porter with preload', function() {
       assert(entries.includes(`public/${manifest['dynamic-import/sum.js']}`));
       const fpath = path.join(porter.output.path, manifest['dynamic-import/sum.js']);
       const map = JSON.parse(await readFile(`${fpath}.map`, 'utf8'));
-      assert(!map.sources.includes('porter:///loader.js'));
+      assert(!map.sources.includes('loader.js'));
     });
   });
 });
