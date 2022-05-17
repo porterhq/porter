@@ -35,8 +35,11 @@ async function checkReload({ sourceFile, targetFile, pathname }) {
 
   const { fpath: sourcePath } = sourceModule;
   const source = await readFile(sourcePath, 'utf8');
-  const mark = `/* changed ${Date.now().toString(36)} */`;
-  await writeFile(sourcePath, `${source}${mark}`);
+  const mark = Math.floor((Math.random() * (16 ** 6))).toString(16).padStart(0);
+  const change = /\.(?:css)$/.test(sourcePath)
+    ? `div { color: #${mark}}`
+    : `/* changed ${mark} */`;
+  await writeFile(sourcePath, `${source}${change}`);
 
   try {
     if (process.platform !== 'darwin' && process.platform !== 'win32') {

@@ -37,9 +37,20 @@ describe('test/app/index.test.js', function() {
     it('should include itself when bundling isolated packet', async function() {
       const packet = porter.packet.find({ name: 'react' });
       const bundle = packet.bundle;
-      assert.deepEqual(Array.from(bundle, mod => path.relative(packet.dir, mod.fpath)), [
-        'cjs/react.development.js',
-        'index.js',
+      assert.deepEqual(Array.from(bundle, child => path.relative(root, child.fpath)), [
+        'node_modules/react/cjs/react.development.js',
+        'node_modules/react/index.js',
+      ]);
+    });
+  });
+
+  describe('module.children', function() {
+    it('should initialize children', async function() {
+      const mod = porter.packet.files['stylesheets/app.css'];
+      assert.deepEqual(Array.from(mod.children, child => path.relative(root, child.fpath)), [
+        'components/stylesheets/common/base.css',
+        'node_modules/cropper/dist/cropper.css',
+        'node_modules/prismjs/themes/prism.css',
       ]);
     });
   });

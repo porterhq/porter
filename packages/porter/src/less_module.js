@@ -20,16 +20,7 @@ module.exports = class LessModule extends CssModule {
     this.imports = [];
   }
 
-  // async parseImport(dep) {
-  //   if (dep.startsWith('~')) return await super.parseImport(dep.slice(1));
-
-  //   const mod = await this.parseRelative(dep);
-  //   if (mod) return mod;
-
-  //   return await super.parseImport(dep);
-  // }
-
-  async transpile({ code, map }) {
+  async transpile({ code, map, minify }) {
     const { app, packet, fpath } = this;
     const less = app.packet.tryRequire('less');
 
@@ -65,6 +56,6 @@ module.exports = class LessModule extends CssModule {
     result.map.sources = sources.map(source => {
       return `porter:///${path.relative(app.root, source)}`;
     });
-    return { code: result.css, map: result.map };
+    return super.transpile({ code: result.css, map: result.map, minify });
   }
 };

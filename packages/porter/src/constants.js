@@ -9,7 +9,7 @@ const rModuleId = /^((?:@[^\/]+\/)?[^\/]+)(?:\/(\d+\.\d+\.\d+[^\/]*))?(?:\/(.*))
 const EXTENSION_MAP ={
   '.js': [ '.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs', '.json' ],
   '.wasm': [ '.wasm' ],
-  '.css': [ '.css', '.less' ],
+  '.css': [ '.css', '.less', '.scss', '.sass' ],
 };
 
 module.exports = {

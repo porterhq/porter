@@ -1,0 +1,11 @@
+.about-content {
+  color: #233;
+}
+
+@keyframes dots {
+  0% { content: '.'; }
+  20% { content: '..'; }
+  40% { content: '...'; }
+  60% { content: '....'; }
+  80% { content: '.....'; }
+}

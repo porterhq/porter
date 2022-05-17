@@ -230,7 +230,7 @@
 
   function suffix(id) {
     if (id.slice(-1) == '/') return id + 'index.js';
-    id = id.replace(/\.(?:js|jsx|ts|tsx|mjs|cjs)$/, '.js');
+    id = id.replace(/\.(?:jsx?|tsx?|mjs|cjs)$/, '.js').replace(/\.(?:less|sass|scss)$/, '.css');
     return /\.(?:css|js|wasm)$/.test(id) ? id : id + '.js';
   }
 

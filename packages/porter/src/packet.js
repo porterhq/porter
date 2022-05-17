@@ -15,9 +15,17 @@ const JsModule = require('./js_module');
 const TsModule = require('./ts_module');
 const JsonModule = require('./json_module');
 const WasmModule = require('./wasm_module');
+const SassModule = require('./sass_module');
 const Stub = require('./stub');
 const Bundle = require('./bundle');
 const { MODULE_LOADED } = require('./constants');
+
+function createModule(opts) {
+  const { fpath, packet } = opts;
+  const { moduleCache } = packet.app;
+  if (moduleCache[fpath]) return moduleCache[fpath];
+  return (moduleCache[fpath] = Module.create(opts));
+}
 
 /**
  * Leave the factory method of Module here to keep from cyclic dependencies.
@@ -43,6 +51,9 @@ Module.create = function(opts) {
       return new JsModule(opts);
     case '.less':
       return new LessModule(opts);
+    case '.sass':
+    case '.scss':
+      return new SassModule(opts);
     default:
       return new Stub(opts);
   }
@@ -384,7 +395,7 @@ module.exports = class Packet {
       // There might be multiple resolves on same file.
       if (file in files) return files[file];
 
-      const mod = Module.create({ file, fpath, packet: this });
+      const mod = createModule({ file, fpath, packet: this });
       return mod;
     }
   }
@@ -430,7 +441,7 @@ module.exports = class Packet {
     const { moduleCache } = this.app;
     const fpath = path.join(paths[0], entry);
     delete moduleCache[fpath];
-    const mod = Module.create({ file: entry, fpath, packet: this });
+    const mod = createModule({ file: entry, fpath, packet: this });
 
     Object.assign(mod, { imports, code, fake: true });
     entries[mod.file] = files[mod.file] = mod;

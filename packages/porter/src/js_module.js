@@ -141,12 +141,19 @@ module.exports = class JsModule extends Module {
         await this.parseImport(dep);
       }
     }
-    // import './foo.d.ts';
+
     for (const dep of imports) {
       if (!this.fake && !this.imports.includes(dep)) {
-        const mod = await this.parseImport(dep);
-        for (let i = this.children.length - 1; i >= 0; i--) {
-          if (this.children[i] === mod) this.children.splice(i, 1);
+        if (/\.(?:css|less|sass|scss)$/.test(dep)) {
+          // import './baz.less';
+          this.imports.push(dep);
+        } else {
+          // import './foo.d.ts';
+          // import './bar.ts';
+          const mod = await this.parseImport(dep);
+          for (let i = this.children.length - 1; i >= 0; i--) {
+            if (this.children[i] === mod) this.children.splice(i, 1);
+          }
         }
       }
     }

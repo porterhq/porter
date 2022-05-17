@@ -32,6 +32,14 @@ describe('test/complex/index.test.js', function() {
     await porter.destroy();
   });
 
+  describe('.browserslistrc', function() {
+    it('should transpile with correct targets setting', async function() {
+      const mod = porter.packet.files['utils/index.js'];
+      const { code } = await mod.obtain();
+      assert.ok(code.includes('async function'));
+    });
+  });
+
   describe('module.children', function() {
     it('should have css dependencies parsed', async function() {
       const mod = porter.packet.files['home.jsx'];
@@ -47,8 +55,8 @@ describe('test/complex/index.test.js', function() {
     });
 
     it('should resolve less module', async function() {
-      const entry = porter.packet.files['home.jsx'];
-      assert.deepEqual(entry.children.map(mod => path.relative(root, mod.fpath)), [
+      const mod = porter.packet.files['home.jsx'];
+      assert.deepEqual(mod.children.map(child => path.relative(root, child.fpath)), [
         'node_modules/react-dom/index.js',
         'node_modules/react/index.js',
         'app/web/home_dep.js',
@@ -56,6 +64,14 @@ describe('test/complex/index.test.js', function() {
         'node_modules/cropper/dist/cropper.css',
         'app/web/stylesheets/app.less',
         'app/web/components/button.jsx',
+      ]);
+    });
+
+    it('should recognize css modules', async function() {
+      const mod = porter.packet.files['components/button.jsx'];
+      assert.deepEqual(mod.children.map(child => path.relative(root, child.fpath)), [
+        'node_modules/react/index.js',
+        'app/web/components/button.module.less',
       ]);
     });
 
@@ -87,6 +103,21 @@ describe('test/complex/index.test.js', function() {
         await style.obtain();
       });
     });
+
+    it('should transpile css modules with exports', async function() {
+      const mod = porter.packet.files['components/button.module.less'];
+      await mod.obtain();
+      assert.ok(mod.constructor.name, 'LessModule');
+      assert.ok(mod.exports);
+      assert.ok(mod.exports.constructor.name, 'JsonModule');
+    });
+
+    it('should transpile custom media', async function() {
+      const mod = await porter.packet.parseEntry('detail.css');
+      const { code } = await mod.obtain();
+      assert.ok(!code.includes('@custom-media'));
+      assert.ok(code.includes('@media (max-width: 50rem)'));
+    });
   });
 
   describe('packet.copy', function() {
@@ -97,13 +128,13 @@ describe('test/complex/index.test.js', function() {
   });
 
   describe('bundle[Symbol.iterator]', function() {
-    it('should not bundle css modules into js bundle', async function() {
+    it('should bundle css modules into js bundle', async function() {
       const bundle = porter.packet.bundles['home.jsx'];
-      const modules = [ ...bundle ];
-      assert.deepEqual(modules.map(mod => path.relative(root, mod.fpath)), [
+      assert.deepEqual(Array.from(bundle, mod => path.relative(root, mod.fpath)), [
         'app/web/home_dep.js',
         'app/web/i18n/index.js',
         'app/web/utils/index.js',
+        'app/web/components/button.module.less',
         'app/web/components/button.jsx',
         'app/web/home.jsx',
       ]);
@@ -113,10 +144,10 @@ describe('test/complex/index.test.js', function() {
       const bundle = porter.packet.bundles['home.css'];
       assert.ok(bundle);
       assert.equal(bundle.format, '.css');
-      const modules = [ ...bundle ];
-      assert.deepEqual(modules.map(mod => path.relative(root, mod.fpath)), [
+      assert.deepEqual(Array.from(bundle, mod => path.relative(root, mod.fpath)), [
         'node_modules/cropper/dist/cropper.css',
         'app/web/stylesheets/app.less',
+        'app/web/components/button.module.less',
       ]);
     });
 
@@ -124,13 +155,14 @@ describe('test/complex/index.test.js', function() {
       const bundle = porter.packet.bundles['about.css'];
       assert.ok(bundle);
       assert.equal(bundle.format, '.css');
-      const modules = [ ...bundle ];
-      assert.deepEqual(modules.map(mod => path.relative(root, mod.fpath)), [
+      assert.deepEqual(Array.from(bundle, mod => path.relative(root, mod.fpath)), [
         'node_modules/antd/lib/style/default.less',
         'node_modules/antd/lib/layout/style/index.less',
         'node_modules/antd/lib/menu/style/index.less',
         'node_modules/antd/lib/tooltip/style/index.less',
         'app/web/about.less',
+        'app/web/about_dep.scss',
+        'app/web/about_broken.css',
       ]);
     });
   });
@@ -146,6 +178,7 @@ describe('test/complex/index.test.js', function() {
       assert.deepEqual(map.sources.map(source => source.replace(/^\//, '')), [
         'porter:///node_modules/cropper/dist/cropper.css',
         'porter:///app/web/stylesheets/app.less',
+        'porter:///app/web/components/button.module.less',
       ]);
     });
   });

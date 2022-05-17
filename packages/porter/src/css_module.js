@@ -2,8 +2,10 @@
 
 const fs = require('fs/promises');
 const path = require('path');
+const css = require('@parcel/css');
 
 const Module = require('./module');
+const JsonModule = require('./json_module');
 const { MODULE_LOADING, MODULE_LOADED } = require('./constants');
 
 const rAtImport = /(?:^|\n)\s*@import\s+(['"])([^'"]+)\1;/g;
@@ -32,7 +34,7 @@ module.exports = class CssModule extends Module {
     const code = this.code || (await fs.readFile(fpath, 'utf8'));
     if (!this.imports) this.matchImport(code);
 
-    // ordering matters in css modules
+    // precedence matters in css modules
     const result = await Promise.all(this.imports.map(this.parseImport, this));
     this.children = result.filter(mod => mod != null);
     this.status = MODULE_LOADED;
@@ -44,35 +46,63 @@ module.exports = class CssModule extends Module {
     return { code };
   }
 
-  async transpile({ code, map }) {
-    const { fpath, app } = this;
-    const { cssTranspiler } = app;
+  async transpile({ code, map, minify = false }) {
+    const { file, fpath, packet, app } = this;
+    if (!app.targets) app.targets = css.browserslistToTargets(app.browsers);
 
-    /**
-     * PostCSS doesn't support sourceRoot yet
-     * https://github.com/postcss/postcss/blob/master/docs/source-maps.md
-     */
-    const result = await cssTranspiler.process(code, {
-      from: fpath,
-      path: this.app.paths,
-      map: {
-        // https://postcss.org/api/#sourcemapoptions
-        inline: false,
-        annotation: false,
-        absolute: true,
+    let result;
+    try {
+      result = css.transform({
+        filename: `porter:///${path.relative(app.root, fpath)}`,
+        code: Buffer.from(code),
+        minify,
+        sourceMap: true,
+        analyzeDependencies: true,
+        cssModules: /\.module\.(?:css|scss|sass|less)$/.test(fpath),
+        drafts: {
+          nesting: true,
+          customMedia: true,
+        },
+        targets: app.targets,
+      });
+    } catch (err) {
+      const { data, source, loc } = err;
+      let line = source.split('\n')[loc.line - 1];
+      let column = loc.column;
+      if (line.length > 2058) {
+        column = 128;
+        line = `... ${line.slice(Math.max(0, loc.column - 128), Math.min(loc.column + 128, line.length))}`;
       }
-    });
+      console.error(`${data.type}: ${data.value.type} (${path.relative(process.cwd(), fpath)})
 
-    map = JSON.parse(result.map);
-    map.sources = map.sources.map(source => {
-      return `porter:///${path.relative(app.root, source.replace(/^file:/, ''))}`;
-    });
+      ${line}
+      ${' '.repeat(column - 1)}↑`);
+      return { code, map };
+    }
 
-    return { code: result.css, map };
+    const { exports, dependencies = [] } = result;
+
+    if (exports) {
+      const mapping = {};
+      for (const key in exports) mapping[key] = exports[key].name;
+      this.exports = new JsonModule({ file, fpath, packet, code: JSON.stringify(mapping) });
+    }
+
+    let resultCode = result.code.toString();
+    for (const dep of dependencies) {
+      if (dep.type === 'url') {
+        resultCode = resultCode.replace(dep.placeholder, dep.url);
+      }
+    }
+
+    return {
+      code: resultCode,
+      map: JSON.parse(result.map),
+    };
   }
 
   async minify() {
     const { code, map } = await this.load();
-    return this.transpile({ code, map });
+    return this.transpile({ code, map, minify: true });
   }
 };

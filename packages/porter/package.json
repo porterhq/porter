@@ -11,12 +11,14 @@
     "access": "public"
   },
   "dependencies": {
+    "@parcel/css": "^1.8.3",
+    "browserslist": "^4.20.3",
     "debug": "^3.1.0",
     "glob": "^7.0.5",
     "js-tokens": "^4.0.0",
     "loose-envify": "^1.3.1",
     "mime": "^1.4.0",
-    "postcss": "^8.2.10",
+    "sass": "^1.51.0",
     "source-map": "^0.7.3",
     "uglify-js": "^3.14.3"
   },
@@ -27,7 +29,6 @@
     "koa": "^2.13.4",
     "mocha": "^9.1.1",
     "nyc": "^13.1.0",
-    "postcss-preset-env": "^7.0.1",
     "semver": "^4.3.6",
     "sinon": "^12.0.1",
     "supertest": "^6.1.6"
