@@ -105,7 +105,7 @@ describe('Module', function() {
   describe('module.obtain()', function() {
     it('should neglect node.js core modules such as fs', async function() {
       const packet = porter.packet.find({ name: 'fontkit' });
-      const mod = packet.files['index.js'];
+      const mod = packet.files['dist/main.cjs'];
       const result = await mod.obtain();
       // should be optimized away by brfs
       assert(!result.code.includes('/use.trie'));

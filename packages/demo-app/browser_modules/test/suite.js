@@ -96,7 +96,8 @@ describe('worker from dependency', function() {
 
 describe('neglect node.js core modules', function() {
   it('should neglect node.js core modules by default', function() {
+    global.Buffer = require('buffer').Buffer;
     const fontkit = require('fontkit');
-    expect(fontkit.create).to.be.a(Function);
+    expect(fontkit.default.create).to.be.a(Function);
   });
 });

@@ -18,6 +18,7 @@ const Bundle = require('./bundle');
 const { MODULE_LOADED, rModuleId } = require('./constants');
 const AtImport = require('./at_import');
 const Cache = require('./cache');
+const { EXTENSION_MAP } = require('./constants');
 
 function waitFor(mod) {
   return new Promise((resolve, reject) => {
@@ -356,19 +357,24 @@ class Porter {
     const packet = this.packet.find({ name, version });
     if (!packet) throw new Error(`unknown dependency ${id}`);
 
-    const ext = path.extname(file);
+    const format = path.extname(file);
+    const extensions = EXTENSION_MAP[format] || [];
     // lazyloads should not go through `packet.parseEntry(file)`
     let mod = packet.files[file];
-    let bundle = packet.bundles[mod ? mod.file : file];
+    let bundle;
+    for (const ext of extensions) {
+      const key = (mod ? mod.file : file).replace(rExt, ext);
+      if ((bundle = packet.bundles[key])) break;
+    }
 
     // - bundle is accessed for the first time and the entry is not prepared in advance
     // - bundle is a css bundle generated from js entry
     if (packet === this.packet && (!bundle || !mod)) {
       debug('parseEntry', file);
-      mod = await packet.parseEntry(file.replace(rExt, '')).catch(() => null);
-      if (ext === '.css') mod = await packet.parseEntry(file).catch(() => mod);
+      mod = await packet.parseEntry(file.replace(rExt, ''));
+      if (format === '.css') mod = (await packet.parseEntry(file)) || mod;
       await this.reload();
-      if (mod) [ bundle ] = Bundle.wrap({ packet, entries: [ mod.file ], format: ext, loader });
+      if (mod) [ bundle ] = Bundle.wrap({ packet, entries: [ mod.file ], format, loader });
     }
 
     this.parseCache[id] = null;

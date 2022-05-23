@@ -392,12 +392,11 @@ module.exports = class Packet {
   async parseEntry(entry) {
     // entry is '' when `require('foo/')`, should fallback to `this.main`
     if (!entry) entry = this.module || this.main;
-    const { app, dir, entries, files } = this;
+    const { app, entries, files } = this;
     const mod = await this.parseModule(entry);
 
     // if neglected in alias
-    if (mod === false) return mod;
-    if (!mod) throw new Error(`unknown entry ${entry} (${dir})`);
+    if (!mod) return mod;
 
     entries[mod.file] = files[mod.file] = mod;
     if (this === app.packet) app.entries = Object.keys(entries);
