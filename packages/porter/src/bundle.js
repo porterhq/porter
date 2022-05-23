@@ -7,12 +7,7 @@ const UglifyJS = require('uglify-js');
 const { SourceMapConsumer, SourceMapGenerator, SourceNode } = require('source-map');
 const debug = require('debug')('porter');
 const Module = require('./module');
-
-const extMap = {
-  '.js': [ '.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs', '.json' ],
-  '.wasm': [ '.wasm' ],
-  '.css': [ '.css', '.less' ],
-};
+const { EXTENSION_MAP } = require('./constants');
 
 const rExt = /(\.\w+)?$/;
 
@@ -54,7 +49,7 @@ module.exports = class Bundle {
       return results;
     }
 
-    const cssExtensions = extMap['.css'];
+    const cssExtensions = EXTENSION_MAP['.css'];
     let cssImports = false;
     for (const mod of entry.immediateFamily) {
       // import './foo.css';
@@ -95,7 +90,7 @@ module.exports = class Bundle {
 
     let { format } = options;
     if (!format && ext) {
-      for (const [ key, extensions ] of Object.entries(extMap)) {
+      for (const [ key, extensions ] of Object.entries(EXTENSION_MAP)) {
         if (extensions.includes(ext)) format = key;
       }
     }
@@ -151,7 +146,7 @@ module.exports = class Bundle {
 
   * iterate({ mode = DEPTH_FIRST } = {}) {
     const { entries, packet, scope, format } = this;
-    const extensions = extMap[format];
+    const extensions = EXTENSION_MAP[format];
     const done = {};
 
     function* iterate(entry, preload) {
@@ -206,7 +201,7 @@ module.exports = class Bundle {
     if (this.#entries) return this.#entries;
 
     const { entries } = this.packet;
-    const extensions = extMap[this.format];
+    const extensions = EXTENSION_MAP[this.format];
     return Object.keys(entries).filter(file => {
       return extensions.includes(path.extname(file)) && !entries[file].isRootEntry;
     });
