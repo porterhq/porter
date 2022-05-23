@@ -1,7 +1,7 @@
 {
   "name": "@cara/demo-wasm",
   "description": "A WebAssembly consumption demo",
-  "version": "4.1.0",
+  "version": "4.1.1",
   "private": true,
   "dependencies": {
     "@cara/hello-wasm": "^4.0.0-beta.10",
@@ -11,7 +11,7 @@
   "devDependencies": {
     "@babel/core": "^7.16.0",
     "@babel/preset-env": "^7.10.3",
-    "@cara/porter-cli": "^4.1.0",
+    "@cara/porter-cli": "^4.1.1",
     "expect.js": "^0.3.1",
     "mocha": "^9.1.1"
   },
