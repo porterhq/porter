@@ -46,4 +46,9 @@ describe('test/unit/babel_plugin.test.js', function() {
   greet(__module.meta);
 });`);
   });
+
+  it('should remove import "./foo.css";', function() {
+    const result = babel.transform('import "./foo.css"', { plugins: [ plugin ]});
+    assert.equal(result.code, '');
+  });
 });

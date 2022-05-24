@@ -64,7 +64,7 @@ module.exports = class Bundle {
       for (const file of entries) {
         if (!cssBundle.entries.includes(file)) cssBundle.entries.push(file);
       }
-      results.push(cssBundle);
+      results.unshift(cssBundle);
     }
 
     for (const mod of entry.dynamicFamily) {
@@ -77,7 +77,7 @@ module.exports = class Bundle {
       for (const depBundle of depBundles) {
         depBundle.parent = bundle;
         bundle.children.push(depBundle);
-        results.push(depBundle);
+        results.unshift(depBundle);
       }
     }
 
@@ -174,6 +174,8 @@ module.exports = class Bundle {
         if (!(entry.packet.isolated && preload && entry.packet !== preload?.packet)) {
           yield entry;
         }
+      } else if (format === '.js' && entry.exports) {
+        yield entry.exports; // css modules
       }
       if (mode === BREATH_FIRST) yield* iterate(entry, preload);
     }

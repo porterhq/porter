@@ -2,8 +2,6 @@
 
 const path = require('path');
 const assert = require('assert').strict;
-const postcssPresetEnv = require('postcss-preset-env');
-const cssnano = require('cssnano');
 const fs = require('fs/promises');
 
 const Porter = require('../..');
@@ -18,10 +16,6 @@ describe('CssModule', function() {
       root,
       paths: ['components', 'browser_modules'],
       entries: ['home.js', 'stylesheets/app.css'],
-      postcssPlugins: [
-        postcssPresetEnv(),
-        cssnano(),
-      ],
     });
     await fs.rm(porter.cache.path, { recursive: true, force: true });
     await porter.ready();

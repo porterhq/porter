@@ -14,6 +14,8 @@ function strip(text = '') {
     : text;
 }
 
+const cssExtensions = [ '.css', '.less', '.sass', '.scss' ];
+
 /**
  * @typedef { import("@babel/core").NodePath } NodePath
  */
@@ -57,6 +59,12 @@ module.exports = function({ types: t }) {
           node.property.name === 'meta') {
         path.replaceWithSourceString('__module.meta');
       }
+    },
+
+    ImportDeclaration(path) {
+      const { node } = path;
+      if (!cssExtensions.some(ext => node.source.value.endsWith(ext))) return;
+      if (node.specifiers.length === 0) path.remove();
     },
   };
 

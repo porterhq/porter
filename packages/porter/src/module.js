@@ -6,10 +6,6 @@ const { MODULE_INIT, rModuleId } = require('./constants');
 
 module.exports = class Module {
   constructor({ file, fpath, packet }) {
-    const { moduleCache } = packet.app;
-    if (moduleCache[fpath]) return moduleCache[fpath];
-    moduleCache[fpath] = this;
-
     Object.defineProperties(this, {
       app: {
         value: packet.app,

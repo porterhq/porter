@@ -32,8 +32,11 @@ async function checkReload({ packet = porter.packet, sourceFile, targetFile, pat
   await requestPath(pathname);
 
   const source = await readFile(sourcePath, 'utf8');
-  const mark = `/* changed ${Date.now().toString(36)} */`;
-  await writeFile(sourcePath, `${source}${mark}`);
+  const mark = Math.floor((Math.random() * (16 ** 6))).toString(16).padStart(0);
+  const change = /\.(?:css)$/.test(sourcePath)
+    ? `div { color: #${mark}}`
+    : `/* changed ${mark} */`;
+  await writeFile(sourcePath, `${source}${change}`);
 
   try {
     // https://stackoverflow.com/questions/10468504/why-fs-watchfile-called-twice-in-node
@@ -54,6 +57,7 @@ describe('Porter_readFile()', function() {
   before(async function() {
     await fs.rm(porter.cache.path, { recursive: true, force: true });
     await porter.ready();
+    await porter.packet.parseEntry('stylesheets/app.css');
   });
 
   after(async function() {

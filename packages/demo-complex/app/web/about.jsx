@@ -10,6 +10,8 @@ import {
 } from '@ant-design/icons';
 
 import './about.less';
+import './about_dep.scss';
+import './about_broken.css';
 
 const { Header, Sider, Content } = Layout;
 
@@ -51,7 +53,7 @@ function About() {
             minHeight: 280,
           }}
         >
-          Content
+          <div className="about-content">Content</div>
         </Content>
       </Layout>
     </Layout>

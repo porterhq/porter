@@ -1,0 +1,4 @@
+/* top level nesting isn't possible */
+& .foo {
+  color: red;
+}
