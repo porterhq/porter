@@ -139,7 +139,7 @@ class Porter {
     return result;
   }
 
-  async _pack({ minify = false } = {}) {
+  async pack({ minify = false } = {}) {
     const { packet, entries, preload } = this;
     const files = preload.concat(entries);
 
@@ -151,6 +151,10 @@ class Porter {
 
     for (const dep of packet.all) {
       if (dep !== packet) await dep.pack({ minify });
+    }
+
+    for (const file of files) {
+      Bundle.wrap({ packet, entries: [ file ] });
     }
   }
 
@@ -170,18 +174,7 @@ class Porter {
         }
       }
     }
-    await this._pack();
-  }
-
-  async pack({ minify = false } = {}) {
-    await this._pack();
-    const { packet, entries, preload } = this;
-    const files = preload.concat(entries);
-
-    for (const file of files) {
-      const bundles = Bundle.wrap({ packet, entries: [ file ] });
-      for (const bundle of bundles) await (minify ? bundle.minify() : bundle.obtain());
-    }
+    await this.pack({ minify: false });
   }
 
   prepareFiles(files, isEntry = false) {
@@ -234,7 +227,10 @@ class Porter {
     }
 
     // compileAll(entries) needs to defer packing, otherwise pack when ready
-    if (!minify) await this.pack({ minify });
+    if (!minify) {
+      await this.pack({ minify });
+      for (const bundle of Object.values(packet.bundles)) await bundle.obtain();
+    }
   }
 
   async compilePackets(opts) {
@@ -271,7 +267,7 @@ class Porter {
     entries = Object.keys(this.packet.entries);
 
     debug('packing necessary bundles');
-    await this._pack({ minify: true });
+    await this.pack({ minify: true });
 
     debug('compile packets');
     if (this.preload.length > 0) {
@@ -280,12 +276,7 @@ class Porter {
       await this.compilePackets();
     }
 
-    debug('compile preload');
     const manifest = {};
-    for (const file of this.preload) {
-      await this.packet.compile(file, { all: this.preload.length > 0, manifest });
-    }
-
     debug('compile lazyload');
     for (const mod of this.lazyloads) {
       if (mod.packet === this.packet) {
@@ -293,9 +284,9 @@ class Porter {
       }
     }
 
-    debug('compile entries');
-    for (const entry of entries) {
-      await this.packet.compile(entry, { all: this.preload.length > 0, manifest });
+    debug('compile preload and entries');
+    for (const bundle of Object.values(this.packet.bundles)) {
+      await bundle.compile({ manifest });
     }
 
     debug('manifest.json');

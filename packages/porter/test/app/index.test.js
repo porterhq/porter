@@ -13,7 +13,7 @@ describe('test/app/index.test.js', function() {
     porter = new Porter({
       root,
       paths: ['components', 'browser_modules'],
-      entries: ['home.js', 'test/suite.js', 'stylesheets/app.css'],
+      entries: ['home.js', 'home.css', 'test/suite.js', 'stylesheets/app.css'],
       preload: 'preload',
       bundle: {
         exclude: ['react', 'react-dom', 'chart.js'],
@@ -30,6 +30,13 @@ describe('test/app/index.test.js', function() {
     it('should manifest preload', function() {
       const { packet } = porter;
       assert.deepEqual(Object.keys(packet.copy.manifest), [ 'preload.js' ]);
+    });
+  });
+
+  describe('packet.bundles', function() {
+    it('should merge css bundles', async function() {
+      const bundle = porter.packet.bundles['home.css'];
+      assert.deepEqual(bundle.entries, [ 'home.css', 'home.js' ]);
     });
   });
 

@@ -38,7 +38,7 @@ describe('Porter with preload', function() {
       await assert.doesNotReject(async function() {
         await fs.access(fpath);
       });
-      manifest = require(fpath);
+      manifest = JSON.parse(await fs.readFile(fpath, 'utf-8'));
     });
 
     after(async function() {
@@ -169,18 +169,23 @@ describe('Porter with preload', function() {
       await porter.ready();
 
       await porter.compileAll({
-        entries: ['home.css', 'home.js', 'test/suite.js', 'stylesheets/app.css']
+        entries: ['home.js', 'home.css', 'test/suite.js', 'stylesheets/app.css']
       });
       // entries = await glob('public/**/*.{css,js,map}', { cwd: root });
       const fpath = path.join(root, 'manifest.json');
       await assert.doesNotReject(async function() {
         await fs.access(fpath);
       });
-      manifest = require(fpath);
+      manifest = JSON.parse(await fs.readFile(fpath, 'utf-8'));
     });
 
     after(async function() {
       await porter.destroy();
+    });
+
+    it('should merge css bundles', async function() {
+      const bundle = porter.packet.bundles['home.css'];
+      assert.deepEqual(bundle.entries, [ 'home.css', 'home.js' ]);
     });
 
     it('should set sourcesContent in components source map', async function() {

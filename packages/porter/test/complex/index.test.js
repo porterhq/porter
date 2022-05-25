@@ -127,6 +127,17 @@ describe('test/complex/index.test.js', function() {
     });
   });
 
+  describe('packet.reload()', function() {
+    it('should reload corresponding css bundle', async function() {
+      const { packet } = porter;
+      const bundle = packet.bundles['about.css'];
+      assert.ok(bundle.output);
+      await packet.reload('change', 'about_dep.js');
+      await new Promise(resolve => setTimeout(resolve, 200));
+      assert.ok(!bundle.output);
+    });
+  });
+
   describe('bundle[Symbol.iterator]', function() {
     it('should bundle css modules into js bundle', async function() {
       const bundle = porter.packet.bundles['home.jsx'];

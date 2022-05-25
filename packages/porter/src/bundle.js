@@ -3,6 +3,7 @@
 const crypto = require('crypto');
 const fs = require('fs/promises');
 const path = require('path');
+const util = require('util');
 const UglifyJS = require('uglify-js');
 const { SourceMapConsumer, SourceMapGenerator, SourceNode } = require('source-map');
 const debug = require('debug')('porter');
@@ -332,7 +333,6 @@ module.exports = class Bundle {
     this.#cacheKey = null;
     this.#contenthash = null;
     this.#obtainCache = {};
-    await this.obtain();
   }
 
   async getEntryModule({ minify = false } = {}) {
@@ -477,5 +477,66 @@ module.exports = class Bundle {
 
   async minify() {
     return await this.obtain({ minify: true });
+  }
+
+  /**
+   * Fix source map related settings in both code and map.
+   * @param {Object} result
+   * @param {string} result.code
+   * @param {Object|SourceMapGenerator} result.map
+   * @param {Bundle} bundle
+   * @param {string} bundle.outputPath
+   */
+   setSourceMap({ code, map }, bundle) {
+    if (!map) return { code, map };
+
+    // normalize map
+    if (map instanceof SourceMapGenerator) map = map.toJSON();
+    if (typeof map == 'string') map = JSON.parse(map);
+
+    const { app } = this;
+    if (app.source.inline !== true) {
+      map.sourceRoot = app.source.root;
+      map.sources = map.sources.map(source => source.replace(/^porter:\/\/\//, ''));
+      map.sourcesContent = undefined;
+    }
+
+    const sourceMappingURL = app.source.mappingURL
+      ? `${app.source.mappingURL}${bundle.outputPath}.map`
+      : `${path.basename(bundle.outputPath)}.map`;
+    code = bundle.outputPath.endsWith('.js')
+      ? `${code}\n//# sourceMappingURL=${sourceMappingURL}`
+      : `${code}\n/*# sourceMappingURL=${sourceMappingURL} */`;
+
+    return { code, map };
+  }
+
+  async compile(options = {}) {
+    const { manifest = {}, writeFile = true } = options;
+    if (await this.exists()) {
+      const { entryPath, outputPath } = this;
+      manifest[this.outkey] = this.output;
+      debug('bundle exists %s -> %s', entryPath, outputPath, this.entries);
+      return;
+    }
+
+    // compile dependencies first
+    for (const child of this.children) await child.compile({ manifest });
+
+    const result = await this.minify();
+    const { app, outputPath } = this;
+    if (!outputPath) {
+      throw new Error(util.format('bundle empty %s %j', this.entryPath, this.entries));
+    }
+
+    manifest[this.outkey] = this.output;
+    const { code, map } = this.setSourceMap(result, this);
+    if (!writeFile) return { code, map };
+    const fpath = path.join(app.output.path, outputPath);
+    await fs.mkdir(path.dirname(fpath), { recursive: true });
+    await Promise.all([
+      fs.writeFile(fpath, code),
+      map ? fs.writeFile(`${fpath}.map`, JSON.stringify(map)) : Promise.resolve(),
+    ]);
   }
 };

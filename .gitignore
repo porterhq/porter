@@ -11,3 +11,4 @@ coverage
 *.log
 manifest.json
 package-lock.json
+docs/Gemfile.lock

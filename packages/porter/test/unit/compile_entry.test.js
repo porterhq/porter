@@ -10,7 +10,11 @@ describe('porter.compileEntry()', function() {
   let porter;
 
   before(async function() {
-    porter = new Porter({ root, preload: 'preload' });
+    porter = new Porter({
+      root,
+      preload: 'preload',
+      source: { inline: true },
+    });
     await porter.ready();
   });
 
