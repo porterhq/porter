@@ -108,7 +108,7 @@
       head.insertBefore(el, baseElement);
     };
     requestStyle = function loadStyle(uri, callback) {
-      if (typeof importScripts === 'function' || !rDigest.test(uri)) {
+      if (typeof importScripts === 'function' || !rDigest.test(uri) || doc.querySelector('[href="' + uri + '"]')) {
         callback();
         return;
       }

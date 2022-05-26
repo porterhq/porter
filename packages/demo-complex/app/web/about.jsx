@@ -12,6 +12,7 @@ import {
 import './about.less';
 import './about_dep.scss';
 import './about_broken.css';
+import './about_dep';
 
 const { Header, Sider, Content } = Layout;
 

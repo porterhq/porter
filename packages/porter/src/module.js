@@ -130,7 +130,9 @@ module.exports = class Module {
       copies[version] = { ...copies[version], ...copy };
     }
 
-    const bundle = this.packet.bundles[this.file];
+    const { bundles, name, version } = this.packet;
+    const bundle = bundles[this.file];
+
     if (bundle && bundle.children?.length > 0) {
       for (const child of bundle.children) {
         const copy = lock[child.packet.name][child.packet.version];
@@ -140,7 +142,7 @@ module.exports = class Module {
       }
     } else if (this.fake) {
       // fake modules are self contained
-      const copy = lock[this.packet.name][this.packet.version];
+      const copy = lock[name][version];
       copy.manifest = undefined;
     }
 

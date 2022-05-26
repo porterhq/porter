@@ -4,7 +4,6 @@ const debug = require('debug')('porter');
 const { existsSync, watch, promises: fs } = require('fs');
 const looseEnvify = require('loose-envify');
 const path = require('path');
-const { SourceMapGenerator } = require('source-map');
 const util = require('util');
 
 const glob = util.promisify(require('glob'));
@@ -58,8 +57,6 @@ Module.create = function(opts) {
       return new Stub(opts);
   }
 };
-
-const { lstat, readFile, realpath, writeFile } = fs;
 
 module.exports = class Packet {
   constructor({ app, dir, paths, parent, packet, alias } = {}) {
@@ -115,8 +112,8 @@ module.exports = class Packet {
 
   static async create({ dir, parent, app }) {
     // cnpm (npminstall) dedupes dependencies with symbolic links
-    dir = await realpath(dir);
-    const content = await readFile(path.join(dir, 'package.json'), 'utf8');
+    dir = await fs.realpath(dir);
+    const content = await fs.readFile(path.join(dir, 'package.json'), 'utf8');
     const data = JSON.parse(content);
 
     // prefer existing packet to de-duplicate packets
@@ -238,7 +235,7 @@ module.exports = class Packet {
           // cache 用于兼容 babel.config.js 中 api.cache 调用
           this.transpilerOpts = require(configPath)({ cache: () => {} });
         } else {
-          const content = await readFile(configPath, 'utf8').catch(() => '');
+          const content = await fs.readFile(configPath, 'utf8').catch(() => '');
           if (!content) continue;
           try {
             this.transpiler = configObj.transpiler;
@@ -315,20 +312,27 @@ module.exports = class Packet {
   }
 
   async reload(eventType, filename) {
-    const { files, app, bundles } = this;
+    const { files, app } = this;
     const mod = files[filename];
     const { mtime } = await fs.stat(mod.fpath).catch(() => ({ mtime: null }));
     if (mtime === null || mod.reloaded >= mtime) return;
     mod.reloaded = mtime;
     await mod.reload();
 
-    const { bundles: rootBundles } = app.packet;
-    for (const bundle of Object.values(bundles).concat(Object.values(rootBundles))) {
+    const bundles = Object.values(this.bundles);
+    if (app.packet !== this) bundles.push(...Object.values(app.packet.bundles));
+    const outkeys = new Set();
+    for (const bundle of bundles) {
       for (const m of bundle) {
         if (m === mod) {
-          await bundle.reload();
-          break;
+          outkeys.add(bundle.outkey);
+          if (bundle.format === '.js') outkeys.add(bundle.outkey.replace(/\.\w+$/, '.css'));
         }
+      }
+    }
+    for (const bundle of bundles) {
+      for (const outkey of outkeys) {
+        if (bundle.outkey === outkey ) await bundle.reload();
       }
     }
   }
@@ -473,7 +477,7 @@ module.exports = class Packet {
     for (const dir of paths) {
       for (const suffix of suffixes) {
         const fpath = path.join(dir, `${file}${suffix}`);
-        const stats = await lstat(fpath).catch(() => null);
+        const stats = await fs.lstat(fpath).catch(() => null);
         if (stats && stats.isFile()) return [fpath, suffix];
       }
     }
@@ -553,7 +557,7 @@ module.exports = class Packet {
 
   async parseLoader(loaderConfig) {
     const fpath = path.join(__dirname, '..', 'loader.js');
-    const sourceContent = await readFile(fpath, 'utf8');
+    const sourceContent = await fs.readFile(fpath, 'utf8');
     const code = await new Promise(resolve => {
       const stream = looseEnvify(fpath, {
         BROWSER: true,
@@ -570,7 +574,7 @@ module.exports = class Packet {
 
   async pack({ minify = false } = {}) {
     const entries = [];
-    const { app, isolated, lazyloaded, main, bundles, files } = this;
+    const { app, isolated, lazyloaded, main, files, bundles } = this;
 
     // the modules might not be fully parsed yet, the process returns early when parsing multiple times.
     await new Promise(resolve => {
@@ -583,7 +587,7 @@ module.exports = class Packet {
       })();
     });
 
-    for (const mod of Object.values(this.files)) {
+    for (const mod of Object.values(files)) {
       if (mod.isRootEntry) {
         entries.push(mod.file);
       } else if (mod.file.endsWith('.wasm')) {
@@ -596,80 +600,28 @@ module.exports = class Packet {
     if (app.preload.length === 0 || isolated || lazyloaded) entries.push(main);
 
     for (const entry of new Set(entries)) {
-      const bundle = bundles[entry] || Bundle.create({
+      Bundle.create({
         packet: this,
         entries: entry === main ? null : [ entry ],
       });
+    }
+
+    for (const bundle of Object.values(bundles)) {
       if (bundle.entries.length > 0 && !(minify && await bundle.exists())) {
         await (minify ? bundle.minify() : bundle.obtain());
       }
     }
   }
 
-  /**
-   * Fix source map related settings in both code and map.
-   * @param {Object} result
-   * @param {string} result.code
-   * @param {Object|SourceMapGenerator} result.map
-   * @param {Bundle} bundle
-   * @param {string} bundle.outputPath
-   */
-  setSourceMap({ code, map }, bundle) {
-    if (!map) return { code, map };
-
-    // normalize map
-    if (map instanceof SourceMapGenerator) map = map.toJSON();
-    if (typeof map == 'string') map = JSON.parse(map);
-
-    const { source } = this.app;
-    if (source.root) map.sourceRoot = source.root;
-
-    const sourceMappingURL = source.mappingURL
-      ? `${source.mappingURL}${bundle.outputPath}.map`
-      : `${path.basename(bundle.outputPath)}.map`;
-    code = bundle.outputPath.endsWith('.js')
-      ? `${code}\n//# sourceMappingURL=${sourceMappingURL}`
-      : `${code}\n/*# sourceMappingURL=${sourceMappingURL} */`;
-
-    return { code, map };
-  }
-
-  async writeSourceMap(fpath, map) {
-    if (!map) return;
-    const { app } = this;
-    let resultMap;
-    if (app.source.inline) {
-      resultMap = JSON.stringify(map);
-    } else {
-      map.sources = map.sources.map(source => source.replace(/^porter:\/\/\//, ''));
-      map.sourceRoot = app.source.root;
-      resultMap = JSON.stringify(map, (k, v) => k !== 'sourcesContent' ? v : undefined);
-    }
-    await writeFile(`${fpath}.map`, resultMap);
-  }
-
   async compileAll(opts) {
-    const { entries, files, bundles, main } = this;
-
-    for (const file in files) {
-      if (file.endsWith('.wasm')) {
-        bundles[file] = await this.compile(file, opts);
-      }
-    }
-
-    for (const entry in entries) {
-      if (entry.endsWith('.js') && entries[entry].isRootEntry) {
-        bundles[entry] = await this.compile(entry, opts);
-      }
-    }
-
-    bundles[main] = await this.compile([], opts);
+    const { bundles } = this;
+    for (const bundle of Object.values(bundles)) await bundle.compile(opts);
   }
 
   async compile(entries, opts) {
     if (!Array.isArray(entries)) entries = [entries];
-    opts = { package: true, writeFile: true, ...opts };
-    const { manifest = {} } = opts;
+    opts = { package: true, ...opts };
+    const { manifest = {}, writeFile = true } = opts;
 
     // compile({ entry: 'fake/entry', deps, code }, opts)
     if (typeof entries[0] === 'object') {
@@ -681,43 +633,18 @@ module.exports = class Packet {
 
     const { app } = this;
     const bundles = Bundle.wrap({ ...opts, packet: this, entries });
-
-    for (let i = bundles.length - 1; i >= 0; i--) {
-      const bundle = bundles[i];
-
-      if (await bundle.exists()) {
-        const { entryPath, outputPath } = bundle;
-        if (!this.parent) manifest[bundle.outkey] = bundle.output;
-        debug('bundle exists %s -> %s', entryPath, outputPath, bundle.entries);
-        continue;
-      }
-
-      const result = await bundle.minify();
-      const mod = this.files[entries[0]];
-
-      if (mod && mod.fake) {
-        delete this.files[mod.file];
-        delete this.entries[mod.file];
-        delete app.moduleCache[mod.fpath];
-      }
-
-      if (!this.parent) manifest[bundle.outkey] = bundle.output;
-      const { code, map } = this.setSourceMap(result, bundle);
-      if (!opts.writeFile) return { code, map };
-
-      const { outputPath } = bundle;
-      if (!outputPath) {
-        throw new Error(util.format('bundle empty %s %j', bundle.entryPath, bundle.entries));
-      }
-      const fpath = path.join(app.output.path, outputPath);
-      await fs.mkdir(path.dirname(fpath), { recursive: true });
-      await Promise.all([
-        writeFile(fpath, code),
-        this.writeSourceMap(fpath, map),
-      ]);
+    let result;
+    for (const bundle of bundles) {
+      result = await bundle.compile({ manifest, writeFile });
     }
 
-    return bundles[0];
+    const mod = this.files[entries[0]];
+    if (mod && mod.fake) {
+      delete this.files[mod.file];
+      delete this.entries[mod.file];
+      delete app.moduleCache[mod.fpath];
+    }
+    return writeFile ? bundles[0] : result;
   }
 
   async destroy() {
