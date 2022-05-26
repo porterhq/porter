@@ -1,7 +1,7 @@
 {
   "name": "@cara/demo-app",
   "description": "A web app built with koa and porter",
-  "version": "4.1.1",
+  "version": "4.2.0",
   "private": true,
   "dependencies": {
     "express": "^4.16.2",
@@ -20,10 +20,10 @@
     "@babel/plugin-transform-runtime": "^7.16.4",
     "@babel/preset-env": "^7.1.0",
     "@babel/runtime": "^7.16.3",
-    "@cara/demo-wasm": "^4.1.1",
-    "@cara/demo-worker": "^4.1.1",
-    "@cara/porter": "^4.1.1",
-    "@cara/porter-cli": "^4.1.1",
+    "@cara/demo-wasm": "^4.2.0",
+    "@cara/demo-worker": "^4.2.0",
+    "@cara/porter": "^4.2.0",
+    "@cara/porter-cli": "^4.2.0",
     "brfs": "^2.0.1",
     "brotli": "^1.3.2",
     "buffer": "^5.7.1",

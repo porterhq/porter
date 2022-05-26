@@ -1,7 +1,7 @@
 {
   "name": "@cara/demo-typescript",
   "description": "A Porter Demo in TypeScript",
-  "version": "4.1.1",
+  "version": "4.2.0",
   "private": true,
   "dependencies": {
     "prismjs": "^1.14.0"
@@ -11,7 +11,7 @@
     "@babel/core": "^7.16.0",
     "@babel/preset-env": "^7.15.8",
     "@babel/preset-react": "^7.14.5",
-    "@cara/porter-cli": "^4.1.1",
+    "@cara/porter-cli": "^4.2.0",
     "@types/expect.js": "^0.3.29",
     "@types/mocha": "^9.0.0",
     "@types/prismjs": "^1.9.0",
