@@ -19,6 +19,13 @@ function collectInclude(val, includes) {
   return includes;
 }
 
+function getExecutablePath() {
+  switch (process.platform) {
+    case 'darwin':
+      return '/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome';
+  }
+}
+
 program
   .option('-D --dest [dest]', 'public folder', 'public')
   .option('-H --headless [headless]', 'run headless tests right after server is started', false)
@@ -43,7 +50,7 @@ const fs = require('fs');
 const http = require('http');
 const Koa = require('koa');
 const path = require('path');
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-core');
 const Porter = require('@cara/porter');
 
 const exists = fs.existsSync;
@@ -59,9 +66,10 @@ if (!exists(pkgPath)) {
 serve().catch(err => console.error(err.stack));
 
 async function test({ port }) {
-  const browser = process.env.CI == 'true'
-    ? await puppeteer.launch({ args: ['--no-sandbox'] })
-    : await puppeteer.launch();
+  const executablePath = process.env.CHROMIUM_BIN || process.env.CHROME_BIN || getExecutablePath();
+  const options = { executablePath };
+  if (process.env.CI == 'true') options.args = ['--no-sandbox'];
+  const browser = await puppeteer.launch(options);
   const page = await browser.newPage();
 
   const report = result => {
