@@ -191,7 +191,8 @@ describe('Porter with preload', function() {
     it('should set sourcesContent in components source map', async function() {
       const fpath = path.join(porter.output.path, `${manifest['home.js']}.map`);
       const map = JSON.parse(await readFile(fpath, 'utf8'));
-      assert.equal(map.sourceRoot, porter.source.root);
+      // no need to set source root since sources content are inlined already
+      // assert.equal(map.sourceRoot, porter.source.root);
       assert.equal(map.sourcesContent.filter(item => item).length, map.sources.length);
     });
 
@@ -199,7 +200,7 @@ describe('Porter with preload', function() {
       const react = porter.packet.find({ name: 'react' });
       const fpath = path.join(porter.output.path, `${react.bundle.outputPath}.map`);
       const map = JSON.parse(await readFile(fpath, 'utf8'));
-      assert.equal(map.sourceRoot, porter.source.root);
+      // assert.equal(map.sourceRoot, porter.source.root);
       assert.equal(map.sourcesContent.filter(item => item).length, map.sources.length);
     });
   });
