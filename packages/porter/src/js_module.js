@@ -4,6 +4,7 @@ const debug = require('debug')('porter');
 const path = require('path');
 const UglifyJS = require('uglify-js');
 const { promises: { readFile } } = require('fs');
+const merge = require('lodash/merge');
 
 const Module = require('./module');
 const matchRequire = require('./match_require');
@@ -211,25 +212,25 @@ module.exports = class JsModule extends Module {
   uglify({ code, map }) {
     const { fpath, app } = this;
     const source = `porter:///${path.relative(app.root, fpath)}`;
-    const { keep_fnames } = app.uglifyOptions || {};
+    const { uglifyOptions = {} } = app;
+    const { keep_fnames } = uglifyOptions;
 
-    const result = UglifyJS.minify({ [source]: code }, {
-      ...app.uglifyOptions,
+    const result = UglifyJS.minify({ [source]: code }, merge(uglifyOptions, {
       compress: {
         dead_code: true,
         global_defs: {
           process: {
             env: {
               BROWSER: true,
-              NODE_ENV: process.env.NODE_ENV
-            }
-          }
-        }
+              NODE_ENV: process.env.NODE_ENV,
+            },
+          },
+        },
       },
       keep_fnames: keep_fnames instanceof RegExp ? keep_fnames.test(source) : keep_fnames,
       output: { ascii_only: true },
       sourceMap: { content: map },
-    });
+    }));
 
     if (result.error) throw result.error;
     return result;
