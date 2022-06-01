@@ -46,8 +46,42 @@ module.exports = class CssModule extends Module {
     return { code };
   }
 
-  async transpile({ code, map, minify = false }) {
+  async _transpile(options) {
+    let { code, map } = options;
+    const { fpath, app } = this;
+    const { cssTranspiler } = app;
+
+    /**
+     * PostCSS doesn't support sourceRoot yet
+     * https://github.com/postcss/postcss/blob/master/docs/source-maps.md
+     */
+    const result = await cssTranspiler.process(code, {
+      from: fpath,
+      path: this.app.paths,
+      map: {
+        // https://postcss.org/api/#sourcemapoptions
+        inline: false,
+        annotation: false,
+        absolute: true,
+        prev: map,
+      }
+    });
+
+    map = JSON.parse(result.map);
+    map.sources = map.sources.map(source => {
+      return `porter:///${path.relative(app.root, source.replace(/^file:/, ''))}`;
+    });
+
+    return { code: result.css, map };
+  }
+
+  async transpile(options) {
     const { file, fpath, packet, app } = this;
+    const cssModules = /\.module\.(?:css|scss|sass|less)$/.test(fpath);
+    // parcel css doesn't transpile nesting rules against targets correctly yet
+    if (!cssModules) return await this._transpile(options);
+
+    const { code, map, minify = false } = options;
     if (!app.targets) app.targets = css.browserslistToTargets(app.browsers);
 
     let result;
@@ -58,7 +92,7 @@ module.exports = class CssModule extends Module {
         minify,
         sourceMap: true,
         analyzeDependencies: true,
-        cssModules: /\.module\.(?:css|scss|sass|less)$/.test(fpath),
+        cssModules,
         drafts: {
           nesting: true,
           customMedia: true,

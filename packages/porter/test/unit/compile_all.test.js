@@ -56,7 +56,7 @@ describe('Porter with preload', function() {
     it('should include css imported in js', async function() {
       const fpath = path.join(porter.output.path, manifest['home.css']);
       const content = await readFile(fpath, 'utf8');
-      assert(content.includes('margin:40px'));
+      assert(/margin:\s*40px/.test(content));
     });
 
     it('should compile entries with same-packet dependencies bundled', async function () {
