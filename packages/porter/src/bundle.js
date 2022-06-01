@@ -419,7 +419,7 @@ module.exports = class Bundle {
       node.add(`porter["import"](${JSON.stringify(mod.id)})`);
     }
 
-    const result = node.join('\n').toStringWithSourceMap({ sourceRoot: app.source.root });
+    const result = node.join('\n').toStringWithSourceMap();
     this.#code = result.code;
     this.#map = result.map;
     this.#cacheKey = cacheKey;
