@@ -214,6 +214,7 @@ module.exports = class JsModule extends Module {
     const { keep_fnames } = app.uglifyOptions || {};
 
     const result = UglifyJS.minify({ [source]: code }, {
+      ...app.uglifyOptions,
       compress: {
         dead_code: true,
         global_defs: {
