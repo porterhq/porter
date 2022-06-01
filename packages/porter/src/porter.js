@@ -5,6 +5,7 @@ const debug = require('debug')('porter');
 const { existsSync, promises: fs } = require('fs');
 const mime = require('mime');
 const path = require('path');
+const postcss = require('postcss');
 const { SourceMapGenerator } = require('source-map');
 const browserslist = require('browserslist');
 
@@ -16,6 +17,7 @@ const Packet = require('./packet');
 const rExt = /\.(?:css|gif|jpg|jpeg|js|png|svg|swf|ico)$/i;
 const Bundle = require('./bundle');
 const { MODULE_LOADED, rModuleId } = require('./constants');
+const AtImport = require('./at_import');
 const Cache = require('./cache');
 const { EXTENSION_MAP } = require('./constants');
 
@@ -108,6 +110,7 @@ class Porter {
     this.lazyload = [].concat(opts.lazyload || []);
 
     this.source = { serve: false, inline: false, root: 'http://localhost/', ...opts.source };
+    this.cssTranspiler = postcss([ AtImport ].concat(opts.postcssPlugins || []));
     this.lessOptions = opts.lessOptions;
     this.uglifyOptions = opts.uglifyOptions;
     this.browsers = browserslist();
