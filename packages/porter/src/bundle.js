@@ -151,6 +151,8 @@ module.exports = class Bundle {
     const done = {};
 
     function* iterate(entry, preload) {
+      // remote modules don't have children locally
+      if (!entry.children) return;
       const children = [ ...entry.children ];
       if (mode === BREATH_FIRST) children.reverse();
       for (const mod of children) {

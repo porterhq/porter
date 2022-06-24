@@ -232,7 +232,11 @@ module.exports = class JsModule extends Module {
       sourceMap: { content: map },
     }));
 
-    if (result.error) throw result.error;
+    if (result.error) {
+      throw new Error(`failed to minify: ${path.relative(app.root, fpath)}`, {
+        cause: result.error,
+      });
+    }
     return result;
   }
 };
