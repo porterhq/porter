@@ -543,7 +543,7 @@
     file = file ||  map.main || 'index.js';
 
     if (map.browser) {
-      let result = map.browser['./' + file];
+      var result = map.browser['./' + file];
       if (result === undefined) result = map.browser['./' + file + '.js'];
       if (result === false) return '';
       if (typeof result === 'string') file = result;
