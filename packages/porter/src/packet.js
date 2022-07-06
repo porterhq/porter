@@ -507,8 +507,10 @@ module.exports = class Packet {
     for (const file in bundles) {
       if (!parent && entries[file] && !entries[file].isPreload) continue;
       const bundle = bundles[file];
-      // css bundles generated with css in js
-      if (!parent && !bundle.parent && bundle.format === '.css') continue;
+      // css bundles generated with css in js but not lazyloaded css bundles
+      if (!parent && !bundle.parent && bundle.format === '.css' && bundle.scope !== 'module') {
+        continue;
+      }
       // import(specifier) -> module.lock
       // import Worker from 'worker-loader!worker.js'; -> packet.copy
       // import 'react' // isolated; -> packet.copy
