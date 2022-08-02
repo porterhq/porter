@@ -175,7 +175,9 @@
         // ignite the wasm module to execute context module for the second time
         callback();
       })
-      .catch(err => callback(err));
+      .catch(function onError(err) {
+        callback(err);
+      });
   }
 
   function request(uri, callback) {
