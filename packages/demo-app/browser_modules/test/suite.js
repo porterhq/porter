@@ -10,6 +10,7 @@ require('../mad-import/suite');
 require('../require-json/suite');
 require('../brfs/suite');
 require('../dynamic-import/suite');
+require('../loader/suite');
 
 describe('global', function() {
   it('should equal to window', function() {
