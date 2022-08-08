@@ -409,7 +409,7 @@ module.exports = class Bundle {
 
     if (mod.isRootEntry && !mod.isPreload && format === '.js') {
       await Promise.all(children.map(child => child.obtain({ minify })));
-      node.prepend(`Object.assign(porter.lock, ${JSON.stringify(mod.lock)})`);
+      node.prepend(`porter.merge(porter.lock, ${JSON.stringify(mod.lock)})`);
     }
 
     if (mod.isRootEntry && loader !== false && format === '.js') {
@@ -454,7 +454,7 @@ module.exports = class Bundle {
 
     if (mod.isRootEntry && !mod.isPreload && format === '.js') {
       await Promise.all(children.map(child => child.fuzzyObtain({ minify })));
-      chunks.unshift(`Object.assign(porter.lock, ${JSON.stringify(mod.lock)})`);
+      chunks.unshift(`porter.merge(porter.lock, ${JSON.stringify(mod.lock)})`);
     }
 
     if (mod.isRootEntry && loader !== false && format === '.js') {
