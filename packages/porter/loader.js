@@ -618,7 +618,7 @@
     merge: function Porter_merge(target, source) {
       if (source == null || target == null) return target;
       if (typeof source !== 'object' || typeof target !== 'object') return target;
-      for (const key in source) {
+      for (var key in source) {
         if (!source.hasOwnProperty(key)) continue;
         var value = source[key];
         if (value == null || typeof value !== 'object' || target[key] == null || typeof target[key] !== 'object') {
