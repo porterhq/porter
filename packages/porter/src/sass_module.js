@@ -2,6 +2,7 @@
 
 // const path = require('path');
 const sass = require('sass');
+const { pathToFileURL } = require('url');
 const CssModule = require('./css_module');
 
 module.exports = class SassModule extends CssModule {
@@ -11,11 +12,18 @@ module.exports = class SassModule extends CssModule {
   }
 
   async transpile({ code, map, minify }) {
-    const { packet } = this;
+    const { fpath, packet } = this;
     const loadPaths = packet.paths || [ packet.dir ];
 
-    const result = sass.compileString(code, {
+    const result = await sass.compileStringAsync(code, {
       loadPaths,
+      url: pathToFileURL(fpath),
+      importers: [{
+        findFileUrl: async (url) => {
+          const mod = await this.parseImport(url);
+          return mod ? pathToFileURL(mod.fpath) : null;
+        },
+      }],
     });
 
     return super.transpile({ code: result.css, map: result.sourceMap, minify });

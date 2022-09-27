@@ -10,7 +10,6 @@ import {
 } from '@ant-design/icons';
 
 import './about.less';
-import './about_dep.scss';
 import './about_broken.css';
 import './about_dep';
 
