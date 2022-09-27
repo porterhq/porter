@@ -1,10 +1,10 @@
 {
   "name": "@cara/demo-proxy",
   "description": "A demo proxy with FakePackage",
-  "version": "4.2.11",
+  "version": "4.2.12",
   "private": true,
   "dependencies": {
-    "@cara/porter": "^4.2.11",
+    "@cara/porter": "^4.2.12",
     "koa": "^2.6.2",
     "koa-static": "^5.0.0"
   },

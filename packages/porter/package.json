@@ -1,7 +1,7 @@
 {
   "name": "@cara/porter",
   "description": "A middleware for web modules",
-  "version": "4.2.11",
+  "version": "4.2.12",
   "main": "src/porter.js",
   "repository": {
     "type": "git",
