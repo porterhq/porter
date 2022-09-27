@@ -172,8 +172,9 @@ describe('test/complex/index.test.js', function() {
         'node_modules/antd/lib/menu/style/index.less',
         'node_modules/antd/lib/tooltip/style/index.less',
         'app/web/about.less',
-        'app/web/about_dep.scss',
         'app/web/about_broken.css',
+        'node_modules/cropperjs/src/index.scss',
+        'app/web/about_dep.scss',
       ]);
     });
   });
