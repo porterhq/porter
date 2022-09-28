@@ -40,6 +40,13 @@ describe('test/complex/index.test.js', function() {
     });
   });
 
+  describe('module.id', function() {
+    it('should convert extension to .js', async function() {
+      const mod = porter.packet.files['about.jsx'];
+      assert.equal(mod.id, 'about.js');
+    });
+  });
+
   describe('module.children', function() {
     it('should have css dependencies parsed', async function() {
       const mod = porter.packet.files['home.jsx'];

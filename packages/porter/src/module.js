@@ -25,7 +25,7 @@ module.exports = class Module {
   }
 
   get id() {
-    const file = this.file.replace(/\.tsx?/, '.js');
+    const file = this.file.replace(/\.[jt]sx?/, '.js');
     if (!this.packet.parent) return file;
     return [this.name, this.version, file].join('/');
   }
