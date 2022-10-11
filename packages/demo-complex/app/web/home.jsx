@@ -8,6 +8,8 @@ import 'cropper/dist/cropper.css';
 import './stylesheets/app.less';
 import Button from './components/button';
 
+import './notfound';
+
 greeting('Hi there!');
 
 function Home() {

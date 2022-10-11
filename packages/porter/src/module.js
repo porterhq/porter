@@ -132,9 +132,17 @@ module.exports = class Module {
 
     const { bundles, name, version } = this.packet;
     const bundle = bundles[this.file];
+    const children = bundle && bundle.children || [];
 
-    if (bundle && bundle.children?.length > 0) {
-      for (const child of bundle.children) {
+    for (const mod of this.family) {
+      if (mod !== this && mod.isRootEntry && !mod.isWorker) {
+        const depBundle = bundles[mod.file];
+        if (!children.includes(depBundle)) children.push(depBundle);
+      }    
+    }
+
+    if (children.length > 0) {
+      for (const child of children) {
         const copy = lock[child.packet.name][child.packet.version];
         const { manifest = {} } = copy;
         copy.manifest = manifest;

@@ -58,6 +58,7 @@ describe('test/complex/index.test.js', function() {
         'node_modules/cropper/dist/cropper.css',
         'app/web/stylesheets/app.less',
         'app/web/components/button.jsx',
+        'app/web/notfound.jsx',
       ]);
     });
 
@@ -71,6 +72,7 @@ describe('test/complex/index.test.js', function() {
         'node_modules/cropper/dist/cropper.css',
         'app/web/stylesheets/app.less',
         'app/web/components/button.jsx',
+        'app/web/notfound.jsx',
       ]);
     });
 
@@ -88,6 +90,18 @@ describe('test/complex/index.test.js', function() {
         'app/web/notfound_dep.coffee',
         'app/web/notfound.styl',
         'app/web/editor.jsx',
+      ]);
+    });
+  });
+
+  describe('module.lock', function() {
+    it('should manifest root entries if imported', async function() {
+      const mod = porter.packet.files['home.jsx'];
+      const { manifest } = mod.lock[porter.packet.name][porter.packet.version];
+      assert.deepEqual(Object.keys(manifest), [
+        'editor.css',
+        'editor.js',
+        'notfound.js',
       ]);
     });
   });

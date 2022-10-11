@@ -627,25 +627,23 @@ module.exports = class Packet {
 
     // compile({ entry: 'fake/entry', deps, code }, opts)
     if (typeof entries[0] === 'object') {
-      await this.parseFakeEntry(entries[0]);
-      entries[0] = entries[0].entry;
+      const [{ entry }] = entries;
+      const mod = this.files[entry];
       // clear bundle cache, fake entries should always start from scratch
-      this.bundles[entries[0]] = null;
+      this.bundles[entry] = null;
+      delete this.files[entry];
+      delete this.entries[entry];
+      if (mod) delete this.app.moduleCache[mod.fpath];
+      await this.parseFakeEntry(entries[0]);
+      entries[0] = entry;
     }
 
-    const { app } = this;
     const bundles = Bundle.wrap({ ...opts, packet: this, entries });
     let result;
     for (const bundle of bundles) {
       result = await bundle.compile({ manifest, writeFile });
     }
 
-    const mod = this.files[entries[0]];
-    if (mod && mod.fake) {
-      delete this.files[mod.file];
-      delete this.entries[mod.file];
-      delete app.moduleCache[mod.fpath];
-    }
     return writeFile ? bundles[0] : result;
   }
 
