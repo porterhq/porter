@@ -56,14 +56,12 @@ describe('porter.compileEntry()', function() {
       const { name, version, main } = porter.packet.find({ name: 'jquery' });
       expect(code).to.contain(`${name}/${version}/${main}`);
       expect(code).to.contain('removeClass');
-      // fake modules should be removed afterwards
-      expect(Object.keys(porter.packet.files)).to.not.contain('fake/entry.js');
       expect(map.sources).to.contain('porter:///loader.js');
       expect(map.sources).to.contain('porter:///node_modules/jquery/dist/jquery.js');
     });
 
     it('can compile component with specified deps and code', async function() {
-      const { code } = await porter.compileEntry({
+      const { code, map } = await porter.compileEntry({
         entry: 'fake/entry.js',
         imports: ['yen', 'jquery'],
         code: `
@@ -75,8 +73,9 @@ describe('porter.compileEntry()', function() {
 
       const { name, version, main } = porter.packet.find({ name: 'jquery' });
       expect(code).to.contain(`${name}/${version}/${main}`);
-      // fake modules should be removed afterwards
-      expect(Object.keys(porter.packet.files)).to.not.contain('fake/entry.js');
+      expect(code).to.contain('addClass');
+      expect(map.sources).to.contain('porter:///loader.js');
+      expect(map.sources).to.contain('porter:///node_modules/jquery/dist/jquery.js');
     });
   });
 
