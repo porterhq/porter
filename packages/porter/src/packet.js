@@ -628,12 +628,10 @@ module.exports = class Packet {
     // compile({ entry: 'fake/entry', deps, code }, opts)
     if (typeof entries[0] === 'object') {
       const [{ entry }] = entries;
-      const mod = this.files[entry];
       // clear bundle cache, fake entries should always start from scratch
       this.bundles[entry] = null;
       delete this.files[entry];
       delete this.entries[entry];
-      if (mod) delete this.app.moduleCache[mod.fpath];
       await this.parseFakeEntry(entries[0]);
       entries[0] = entry;
     }
