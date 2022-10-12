@@ -12,3 +12,5 @@ coverage
 manifest.json
 package-lock.json
 docs/Gemfile.lock
+docs/.bundle
+docs/vendor
