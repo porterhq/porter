@@ -1,5 +1,7 @@
 'use strict';
 
+const glob = require('glob');
+
 // https://github.com/junosuarez/heredoc/blob/master/index.js
 const stripPattern = /^[ \t]*(?=[^\s]+)/mg;
 
@@ -17,14 +19,19 @@ function strip(text = '') {
 const cssExtensions = [ '.css', '.less', '.sass', '.scss' ];
 
 /**
- * @typedef { import("@babel/core").NodePath } NodePath
+ * @param {Object} options
+ * @param { import("@babel/types")} options.types
+ * @param { import("@babel/template")} options.template
+ * @returns {Object}
  */
+module.exports = function({ types: t, template }) {
+  let globIndex = 0;
 
-module.exports = function({ types: t }) {
   const visitor = {
     /**
      * Remove `require('heredoc')`
-     * @param {NodePath} path
+     * @param {import("@babel/core").NodePath} path
+     * @param {import('@babel/core').PluginPass} state
      */
     VariableDeclaration(path) {
       const { node } = path;
@@ -37,7 +44,8 @@ module.exports = function({ types: t }) {
 
     /**
      * Transform `heredoc(function() {/* text ...})` to text.
-     * @param {NodePath} path
+     * @param {import("@babel/core").NodePath} path
+     * @param {import('@babel/core').PluginPass} state
      */
     CallExpression(path) {
       const { node } = path;
@@ -50,14 +58,48 @@ module.exports = function({ types: t }) {
     },
 
     /**
-     * Transform `import.meta` to `__module.meta`
-     * @param {NodePath} path
+     * Transform `import.meta.url` to `__module.meta.url`
+     * Transform `import.meta.glob(pattern, options)` like vite https://vitejs.dev/guide/features.html#glob-import
+     * @param {import("@babel/core").NodePath} path
+     * @param {import('@babel/core').PluginPass} state
      */
-    MetaProperty(path) {
-      const { node } = path;
-      if (node.meta && node.meta.name === 'import' &&
-          node.property.name === 'meta') {
-        path.replaceWithSourceString('__module.meta');
+    MetaProperty(path, state) {
+      if (t.isMemberExpression(path.parent) && path.parent.property.name === 'url') {
+        path.replaceWith(t.memberExpression(t.identifier('__module'), t.identifier('meta')));
+      } 
+      if (t.isCallExpression(path.parentPath.parent) && path.parent.property.name === 'glob') {
+        const node = path.parentPath.parent;
+        if (node.arguments.length === 0) {
+          throw new Error('import.meta.glob must have at least one argument');
+        }
+        const [pattern, options = {}] = node.arguments;
+        if (!t.isStringLiteral(pattern)) {
+          throw new Error('import.meta.glob first argument must be a string literal');
+        }
+        const opts = { cwd: require('path').dirname(state.file.opts.filename) };
+        for (const prop of options.properties || []) opts[prop.key.name] = prop.value.value;
+        const files = glob.sync(pattern.value, opts);
+        const callExpression = path.find(p => p.isCallExpression());
+        if (opts.eager) {
+          const properties = [];
+          const buildImport = template('import * as %%local%% from %%source%%;', { sourceType: 'module' });
+          const statement = callExpression.getStatementParent();
+          for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const local = `__glob_${globIndex++}_${i}`;
+            statement.insertBefore(buildImport({ local: t.identifier(local), source: t.stringLiteral(file) }));
+            properties.push(t.objectProperty(t.stringLiteral(file), t.identifier(local)));
+          }
+          callExpression.replaceWith(t.objectExpression(properties));
+        } else {
+          const properties = [];
+          const buildDynamicImport = template.expression('() => import(%%source%%)', { sourceType: 'module' });
+          for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            properties.push(t.objectProperty(t.stringLiteral(file), buildDynamicImport({ source: t.stringLiteral(file) })));
+          }
+          callExpression.replaceWith(t.objectExpression(properties));
+        }
       }
     },
 

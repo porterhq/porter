@@ -2,6 +2,7 @@
 
 const babel = require('@babel/core');
 const { strict: assert } = require('assert');
+const path = require('path');
 const plugin = require('../../src/babel_plugin');
 
 describe('test/unit/babel_plugin.test.js', function() {
@@ -38,13 +39,34 @@ describe('test/unit/babel_plugin.test.js', function() {
 }`);
   });
 
-  it('should replace import.meta', function() {
+  it('should replace import.meta.url', function() {
     const result = babel.transform(`import('./dynamic/greet').then((greet) => {
-      greet(import.meta)
+      greet(import.meta.url)
     })`, { plugins: [ plugin ] });
     assert.equal(result.code, `import('./dynamic/greet').then(greet => {
-  greet(__module.meta);
+  greet(__module.meta.url);
 });`);
+  });
+
+  it('should replace import.meta.glob()', function() {
+    const result = babel.transform("const files = import.meta.glob('./test/*.mjs')", { 
+      plugins: [ plugin ],
+      filename: path.join(__dirname, '../../loader.js'),
+    });
+    assert.equal(result.code, `const files = {
+  "./test/hooks.mjs": () => import("./test/hooks.mjs")
+};`);
+  });
+
+  it('should replace import.meta.glob(pattern, { eager: true })', function() {
+    const result = babel.transform("const files = import.meta.glob('./test/*.mjs', { eager: true })", { 
+      plugins: [ plugin ],
+      filename: path.join(__dirname, '../../loader.js'),
+    });
+    assert.equal(result.code, `import * as __glob_0_0 from "./test/hooks.mjs";
+const files = {
+  "./test/hooks.mjs": __glob_0_0
+};`);
   });
 
   it('should remove import "./foo.css";', function() {
