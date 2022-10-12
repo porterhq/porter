@@ -156,16 +156,17 @@
     var contextId = id.replace(rWasm, '.js');
     var context = registry[contextId];
     if (!context) throw new Error('context module of ' + uri + ' not found');
-    // execute context module factory for the first time to grab the imports
-    context.execute();
-
-    // prepare the imports of wasm module
-    var imports = {};
-    imports['./' + contextId.split('/').pop()] = context.exports;
 
     // loader.js might be required to run in legacy browser hence async/await not used
     fetch(new URL(uri, location.origin))
       .then(function onResponse(module) {
+        // execute context module factory for the first time to grab the imports
+        // FIXME: context might not be ready to execute if the packet weren't bundled
+        context.execute();
+
+        // prepare the imports of wasm module
+        var imports = {};
+        imports['./' + contextId.split('/').pop()] = context.exports;
         return loadWasm(module, imports);
       })
       .then(function onLoad(result) {

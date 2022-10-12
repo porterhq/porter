@@ -205,7 +205,7 @@ module.exports = class Packet {
   async findTranspiler() {
     if (this.transpiler) return;
     const obj = {
-      babel: ['babel.config.js', '.babelrc'],
+      babel: ['babel.config.js', 'babel.config.cjs', '.babelrc'],
       typescript: 'tsconfig.json',
     };
     const configMappers = [];
