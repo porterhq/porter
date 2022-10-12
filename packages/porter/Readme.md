@@ -32,7 +32,7 @@ app.use(porter.func())
 
 ## Modules
 
-With the default setup, browser modules at `./components` folder is now accessible with `/path/to/file.js` or `/${pkg.name}/${pkg.version}/path/to/file.js`. Take [demo-cli](https://github.com/porterhq/porter/packages/demo-cli) for example, the file structure shall resemble that of below:
+With the default setup, browser modules at `./components` folder is now accessible with `/path/to/file.js`. Take [demo-cli](https://github.com/porterhq/porter/tree/master/packages/demo-cli) for example, the file structure shall resemble that of below:
 
 ```bash
 ➜  demo-cli git:(master) tree -L 2
@@ -57,7 +57,7 @@ In `./public/index.html`, we can now add CSS and JavaScript entries:
 <html>
 <head>
   <meta charset="utf-8">
-  <title>An Porter Demo</title>
+  <title>A Porter Demo</title>
   <!-- CSS entry -->
   <link rel="stylesheet" type="text/css" href="/app.css">
 </head>
@@ -69,18 +69,33 @@ In `./public/index.html`, we can now add CSS and JavaScript entries:
 </html>
 ```
 
-The extra `?main` querystring might seem a bit confusing at first glance. It tells the porter middleware to bundle loader when `/app.js?main` is accessed. The equivalent `<script>` entry of above is:
+> The extra `?main` parameter in the JavaScript entry query is added for historical reasons. It tells the porter middleware to include loader.js when bundling app.js, which isn't necessary if loader.js is included explicitly:
+>
+> ```html
+> <!-- entry format 1 -->
+> <script src="/loader.js" data-main="app.js"></script>
+> <!-- entry format 2 -->
+> <script src="/loader.js"></script>
+> <script>porter.import('app')</script>
+> ```
+> 
+> Both formats are no longer recommended, please use `<script src="/app.js?main"></script>` directly.
 
-```html
-<script src="/loader.js" data-main="app.js"></script>
-```
-
-Both `<script>`s work as the JavaScript entry of current page. In `./components/app.js`, there are the good old `require` and `exports`:
+In JavaScript entry, all kinds of imports are supported:
 
 ```js
 import $ from 'jquery';         // => ./node_modules/jquery/dist/jquery.js
 import * as React from 'react'; // => ./node_modules/react/index.js
 import util from './util';      // => ./components/util.js or ./components/util/index.js
+
+// <link rel="stylesheet" type="text/css" href="/app.js"> is still needed though
+import './foo.css';
+
+// will fetch the wasm file, instantiate it, and return the exports
+import wasm from './foo.wasm';
+
+// will bundle and fetch worker.js separately 
+import Worker from 'worker-loader!./worker.js';
 ```
 
 In CSS entry, there's `@import`:
@@ -92,7 +107,86 @@ In CSS entry, there's `@import`:
 
 ## Options
 
-<https://www.yuque.com/porterhq/porter/fitqkz>
+In a nutshell, here is the list of porter options:
+
+```javascript
+const path = require('path');
+const Porter = require('@cara/porter');
+
+const porter = new Porter({
+  // project root, defaults to `process.cwd()`
+  root: process.cwd(),
+  
+  // paths of browser modules, or components, defaults to `'components'`
+  paths: 'components',
+  
+  // output settings
+  output: {
+    // path of the compile output, defaults to `'public'`
+    path: 'public',
+  },
+  
+  // cache settings
+  cache: {
+    // path of the cache store, defaults to `output.path`
+		path: '.porter-cache',
+    
+    // cache identifier to shortcut cache invalidation
+    identifier({ packet }) {
+      return JSON.stringify([
+        require('@cara/porter/package.json').version,
+				packet.transpiler,
+				packet.transpilerVersion,
+				packet.transpilerOpts,
+      ]);
+    },
+  },
+  
+  // preload common dependencies, defaults to `[]`
+  preload: [ 'preload', '@babel/runtime' ],
+  
+  // the module resolution behaviour
+  resolve: {
+    // an alias at project level to simplify import specifier, such as
+    //     import util from '@/util'; // => components/util/index.js
+    alias: {
+      '@': path.join(process.cwd(), 'components'),
+    },
+    
+    // supported extensions
+    extensions: [ '*', '.js', '.jsx', '.ts', '.tsx', '.css' ],
+    
+		// transform big libraries that support partial import by conventions
+    import: [
+      { libraryName: 'antd', style: 'css' },
+      { libraryName: 'lodash', 
+        libraryDirectory: '', 
+        camel2DashComponentName: false },
+    ],
+  },
+  
+  // transpile settings
+  transpile: {
+    // turn on transpilation on certain dependencies, defaults to `[]`
+    include: [ 'antd' ],
+  },
+  
+  // bundle settings
+  bundle: {
+    // excluded dependencies will be bundled separately, defaults to `[]`
+    exclude: [ 'antd' ],
+  },
+  
+  // source settings
+  source: {
+    // serve the source file if it's development mode, defaults to `false`
+    serve: process.env.NODE_ENV !== 'production',
+    
+    // the `sourceRoot` in the generated source map, defaults to `'/'`
+    root: 'localhost:3000',
+  },
+});
+```
 
 ## Deployment
 
@@ -162,149 +256,3 @@ porter.compileEntry('app.js', { package: true })
 // bundle everything
 porter.compileEntry('app.js', { all: true })
 ```
-
-## Behind the Scene
-
-Let's start with `app.js`, which might seem a bit confusing at the first glance. It is added to the page directly:
-
-```html
-<script src="/app.js?main"></script>
-```
-
-And suddenly you can write `app.js` as Node.js Modules or ES Modules right away:
-
-```js
-import mobx from 'mobx'
-const React = require('react')
-```
-
-How can browser know where to `import` MobX or `require` React when executing `app.js`?
-
-### Loader
-
-The secret is, entries that has `main` in the querystring (e.g. `app.js?main`) will be prepended with two things before the the actual `app.js` when it's served with Porter:
-
-1. Loader
-2. Package lock
-
-You can import `app.js` explicitly if you prefer:
-
-```html
-<script src="/loader.js"></script>
-<script>porter.import('app')</script>
-<!-- or with shortcut -->
-<script src="/loader.js" data-main="app"></script>
-```
-
-Both way works. To make `app.js` consumable by the Loader, it will be wrapped into Common Module Declaration format on the fly:
-
-```js
-define(id, deps, function(require, exports, module) {
-  // actual main.js content
-});
-```
-
-- `id` is deducted from the file path.
-- `dependencies` is parsed from the factory code with [js-tokens](https://github.com/lydell/js-tokens).
-- `factory` (the anonymouse function) body is left untouched or transformed with babel depending on whether `.babelrc` exists or not.
-
-If ES Module is preferred, you'll need two things:
-
-1. Put a `.babelrc` file under your components directory.
-2. Install the presets or plugins configured in said `.babelrc`.
-
-Back to the Loader, after the wrapped `app.js` is fetched, it won't execute right away. The dependencies need to be resolved first. For relative dependencies (e.g. dependencies within the same package), it's easy to just resolve them against `module.id`. For external dependencies (in this case, react and mobx), `node_modules` are looked.
-
-The parsed dependencies is in two trees, one for modules (file by file), one for packages (folder by folder). When the entry module (e.g. `app.js`) is accessed, a package lock is generated and prepended before the module to make sure the correct module path is used.
-
-Take heredoc's (simplified) node_modules for example:
-
-```bash
-➜  heredoc git:(master) ✗ tree node_modules -I "mocha|standard"
-node_modules
-└── should
-    ├── index.js
-    ├── node_modules
-    │   └── should-type
-    │       ├── index.js
-    │       └── package.json
-    └── package.json
-```
-
-It will be flattened into:
-
-```js
-{
-  "should": {
-    "6.0.3": {
-      "main": "./lib/should.js",
-      "dependencies": {
-        "should-type": "0.0.4"
-      }
-    }
-  },
-  "should-type": {
-    "0.0.4": {}
-  }
-}
-```
-
-### Loader Config
-
-Besides package lock, there're several basic loader settings (which are all configurable while `new Porter()`):
-
-| property  | description |
-|-----------|-------------|
-| `baseUrl` | root path of the browser modules, e.g. `https://staticfile.org/`      |
-| `map`     | module mappings that may interfere module resolution                  |
-| `package` | metadata of the root package, e.g. `{ name, version, main, entries }` |
-| `preload` | a syntax sugar for quick loading certain files before entry           |
-
-In development phase, Porter configs the loader with following settings:
-
-```js
-{
-  baseUrl: '/',
-  package: { /* generated from package.json of the project */ }
-}
-```
-
-### Wrap It Up
-
-So here is `app.js?main` expanded:
-
-```js
-// GET /loader.js returns both Loader and Loader Config.
-;(function() { /* Loader */ })
-Object.assign(porter.lock, /* package lock */)
-
-// The module definition and the import kick off.
-define(id, dependencies, function(require, exports, module) { /* app.js */ })
-porter.import('app')
-```
-
-Here's the actual interaction between browser and Porter:
-
-![](https://cdn.yuque.com/__puml/76189ffa06e35b64edd55c3e9423734d.svg)
-
-### StyleSheets
-
-The stylesheets part is much easier since Porter processes CSS `@import`s at the first place. Take following `app.css` for example:
-
-```css
-@import "cropper/dist/cropper.css";
-@import "common.css"
-
-body {
-  padding: 50px;
-}
-```
-
-![](https://cdn.yuque.com/__puml/5c1a7b8ae1312893829aaf4f357cdadd.svg)
-
-When browser requests `app.css`:
-
-1. `postcss-import` processes all of the `@import`s;
-2. `autoprefixer` transforms the bundle;
-
-Porter then responses with the processed CSS (which has all `@import`s replaced with actual file contents).
