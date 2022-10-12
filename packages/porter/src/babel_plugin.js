@@ -76,7 +76,7 @@ module.exports = function({ types: t, template }) {
         if (!t.isStringLiteral(pattern)) {
           throw new Error('import.meta.glob first argument must be a string literal');
         }
-        const opts = { cwd: require('path').dirname(state.file.opts.filename) };
+        const opts = { cwd: require('path').dirname(state.filename) };
         for (const prop of options.properties || []) opts[prop.key.name] = prop.value.value;
         const files = glob.sync(pattern.value, opts);
         const callExpression = path.find(p => p.isCallExpression());
