@@ -2,13 +2,14 @@
 [![NPM Version](http://img.shields.io/npm/v/@cara/porter.svg?style=flat)](https://www.npmjs.com/package/@cara/porter)
 [![codecov](https://codecov.io/gh/porterhq/porter/branch/master/graph/badge.svg?token=9CNWJ1N4T9)](https://codecov.io/gh/porterhq/porter)
 
+[中文版](./Readme.zh-CN.md)
+
 Porter is a bundler which makes web applications with hybrid module formats easier to compile the assets and mitigate browser compatibility nuances.
 
 ## User Guides
 
-It is recommended starting with our [starter](https://porterhq.github.io/porter/starter) documentation or the thorough [user guides](https://porterhq.github.io/porter/basics).
+It is recommended to first start with our [starter](https://porterhq.github.io/porter/starter) documentation or the thorough [user guides](https://porterhq.github.io/porter/basics).
 
-推荐阅读《[快速上手](https://porterhq.github.io/porter/zh/starter)》和《[帮助手册](https://porterhq.github.io/porter/zh/basics)》。
 
 ## Packages
 
@@ -24,5 +25,3 @@ As of demo-app, users interested in porter the middleware may take the `app.js` 
 ## How to Contribute
 
 To learn more about the project setup of Porter, please read our [contributing guides](https://porterhq.github.io/porter/contributing/guides).
-
-无论是提问题还是需求，是参与开发还是编写文档，Porter 都非常需要大家的参与，欢迎阅读《[如何参与](https://porterhq.github.io/porter/zh/contributing/guides)》一文了解更多。
