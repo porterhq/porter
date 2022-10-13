@@ -31,15 +31,15 @@ const porter = new Porter({
   // cache settings
   cache: {
     // path of the cache store, defaults to `output.path`
-		path: '.porter-cache',
+    path: '.porter-cache',
     
     // cache identifier to shortcut cache invalidation
     identifier({ packet }) {
       return JSON.stringify([
         require('@cara/porter/package.json').version,
-				packet.transpiler,
-				packet.transpilerVersion,
-				packet.transpilerOpts,
+        packet.transpiler,
+        packet.transpilerVersion,
+        packet.transpilerOpts,
       ]);
     },
   },
@@ -58,7 +58,7 @@ const porter = new Porter({
     // supported extensions
     extensions: [ '*', '.js', '.jsx', '.ts', '.tsx', '.css' ],
     
-		// transform big libraries that support partial import by conventions
+    // transform big libraries that support partial import by conventions
     import: [
       { libraryName: 'antd', style: 'css' },
       { libraryName: 'lodash', 
@@ -277,9 +277,9 @@ new Porter({
     identifier({ packet }) {
       return JSON.stringify([
         require('@cara/porter/package.json').version,
-				packet.transpiler,
-				packet.transpilerVersion,
-				packet.transpilerOpts,
+        packet.transpiler,
+        packet.transpilerVersion,
+        packet.transpilerOpts,
       ]);
     },
   },
