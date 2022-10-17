@@ -8,6 +8,110 @@
 
 @import "{{ site.theme }}";
 
+@mixin light-theme {
+  --theme-color: #1296db;
+  --color: #24292e;
+  --bg-color: #fff;
+  --border-color: #eaecef;
+  --anchor-color: #0366d6;
+}
+
+@mixin dark-theme {
+  --theme-color: #1296db;
+  --color: #e5e5e5;
+  --bg-color: #212229;
+  --border-color: #505050;
+  --anchor-color: #6e95c0;
+}
+
+@mixin dark-theme-overrides {
+  .markdown-body {
+    div.highlight {
+      background-color: rgba(0, 0, 0, 0.05);
+
+      pre {
+        background-color: inherit;
+      }
+    }
+
+    h1, h2 {
+      border-color: var(--border-color);
+    }
+
+    table {
+      tr {
+        background-color: transparent;
+        border-color: rgba(255, 255, 255, 0.05);
+
+        &:nth-child(2n) {
+          background-color: rgba(255, 255, 255, 0.05);
+        }
+      }
+
+      th, td {
+        border-color: rgba(255, 255, 255, 0.15);
+      }
+    }
+
+    code, tt {
+      background-color: rgba(255, 255, 255, 0.15);
+    }
+
+    pre code {
+      background-color: transparent;
+    }
+  }
+
+  .border-gray-light {
+    border-color: var(--border-color) !important;
+  }
+
+  .color-scheme {
+    background: none;
+    color: var(--color);
+  }
+}
+
+:root.light {
+  @include light-theme;
+}
+
+:root.dark {
+  @import 'base16-dark';
+  @include dark-theme;
+}
+
+html.dark {
+  // @import 'base16-dark';
+  @include dark-theme-overrides;
+}
+
+@media (prefers-color-schema: light) {
+  :root:not(.light):not(.dark) {
+    @include light-theme;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light):not(.dark) {
+    @include dark-theme;
+  }
+
+  html:not(.light):not(.dark) {
+    @import 'base16-dark';
+    @include dark-theme-overrides;
+  }
+}
+
+body {
+  color: var(--color);
+  background-color: var(--bg-color);
+}
+
+a {
+  color: var(--anchor-color);
+}
+
 #header {
   background: #f0f0f0;
   border-bottom: 1px solid #e0e0e0;
@@ -31,6 +135,10 @@
 
       & > a {
         display: block;
+      }
+
+      & a {
+        color: var(--color);
       }
     }
 
@@ -64,7 +172,7 @@
       right: -0.5em;
       text-align: right;
       background: #f0f0f0;
-      border: 1px solid #e0e0e0;
+      border: 1px solid var(--border-color);
       z-index: 10;
       padding: 0.25em 0;
 
@@ -134,7 +242,7 @@
       margin-bottom: 12px;
       font-size: 2em;
       font-weight: bold;
-      color: #1296db;
+      color: var(--theme-color);
 
       &:hover {
         background-color: transparent;
@@ -145,9 +253,13 @@
       padding: 6px 12px 6px 36px;
 
       &:hover {
-        background-color: #f0f0f0;
+        background-color: rgba(255, 255, 255, 0.15);
         text-decoration: none;
       }
+    }
+
+    .color-scheme {
+      margin: 6px 6px 6px 36px;
     }
 
     nav {
