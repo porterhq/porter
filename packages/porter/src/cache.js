@@ -10,12 +10,15 @@ const { version } = require('../package.json');
  * Cache transpilation results of module
  */
 module.exports = class Cache {
-  constructor({ path: cachePath, identifier }) {
+  constructor({ path: cachePath, identifier, clean = false }) {
     this.path = cachePath;
     if (typeof identifier === 'function') this.identifier = identifier;
+    this.clean = clean;
   }
 
-  identifier({ packet }) {
+  identifier(app) {
+    const { packet } = app;
+    const { uglifyOptions } = app;
     const rPorterDir = new RegExp(path.resolve(__dirname, '..'), 'g');
     const result = JSON.stringify({
       version,
@@ -24,6 +27,7 @@ module.exports = class Cache {
         version: packet.transpilerVersion,
         options: packet.transpilerOpts,
       },
+      uglifyOptions,
     });
     return result.replace(rPorterDir, '<porterDir>');
   }
@@ -61,10 +65,10 @@ module.exports = class Cache {
 
   async prepare({ packet }) {
     this.salt = this.identifier({ packet });
-
+    if (this.clean) await fs.rm(this.path, { recursive: true, force: true });
     const saltPath = path.join(this.path, 'salt.cache');
     const salt = await fs.readFile(saltPath, 'utf8').catch(() => '');
-    if (salt !== this.salt) {
+    if (!this.clean && salt !== this.salt) {
       if (salt) debug('cache salt changed from %j to %j', salt, this.salt);
       await fs.mkdir(path.dirname(saltPath), { recursive: true });
       await fs.writeFile(saltPath, this.salt);

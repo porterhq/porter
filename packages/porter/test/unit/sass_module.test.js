@@ -2,7 +2,6 @@
 
 const path = require('path');
 const assert = require('assert').strict;
-const fs = require('fs/promises');
 
 const Porter = require('../..');
 
@@ -15,8 +14,8 @@ describe('SassModuel', function() {
       root,
       paths: 'app/web',
       entries: ['about.jsx'],
+      cache: { clean: true },
     });
-    await fs.rm(porter.cache.path, { recursive: true, force: true });
     await porter.ready();
   });
 

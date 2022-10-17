@@ -22,26 +22,33 @@ const porter = new Porter({
   // paths of browser modules, or components, defaults to `'components'`
   paths: 'components',
   
-  // output settings
+  // 构建产物输出配置
   output: {
-    // path of the compile output, defaults to `'public'`
+    // 输出路径，默认为 'public'
     path: 'public',
+
+    // 开始构建之前是否清空 public 目录
+    cache: false,
   },
   
-  // cache settings
+  // 缓存设置
   cache: {
-    // path of the cache store, defaults to `output.path`
-    path: '.porter-cache',
+    // 缓存存储路径
+    path: 'node_modules/.porter-cache',
     
-    // cache identifier to shortcut cache invalidation
-    identifier({ packet }) {
+    // 缓存版本标记，确保一些关键配置发生变更的时候能够及时清理缓存
+    identifier({ packet, uglifyOptions }) {
       return JSON.stringify([
         require('@cara/porter/package.json').version,
         packet.transpiler,
         packet.transpilerVersion,
         packet.transpilerOpts,
+        uglifyOptions,
       ]);
     },
+
+    // 初始化应用的时候是否清除缓存
+    clean: false,
   },
   
   // preload common dependencies, defaults to `[]`

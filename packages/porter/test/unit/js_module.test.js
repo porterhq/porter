@@ -16,8 +16,8 @@ describe('JsModule', function() {
       paths: ['components', 'browser_modules'],
       entries: ['home.js', 'test/suite.js'],
       transpile: { include: [ 'yen' ] },
+      cache: { clean: true },
     });
-    await fs.rm(porter.cache.path, { recursive: true, force: true });
     await porter.ready();
   });
 

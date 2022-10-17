@@ -184,13 +184,13 @@ function App() {
 
 支持 .less 模块，会调用 Less.js 将 Less 代码转换为 CSS，继而按照 CSS 模块来处理，因此 CSS 模块特性在 Less 模块中也全部支持。依赖解析方式和 JavaScript 模块一致，相比 CSS 模块，Less 模块的依赖解析多了一个 webpack 扩展的语法：
 
-```less
+```css
 @import '~cropper/dist/cropper.css';
 ```
 
 `~` 开头的依赖为 NPM 依赖，会直接去 node_modules 查找去除开头的 `~` 之后的依赖名；如果不写 `~`，下面这种代码的处理逻辑其实也是一样的：
 
-```less
+```css
 @import 'cropper/dist/cropper.css';
 ```
 

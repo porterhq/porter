@@ -16,8 +16,8 @@ describe('Bundle without preload', function() {
       paths: ['components', 'browser_modules'],
       lazyload: ['lazyload.js'],
       entries: ['home.css', 'home.js', 'test/suite.js', 'stylesheets/app.css'],
+      cache: { clean: true },
     });
-    await fs.rm(porter.cache.path, { recursive: true, force: true });
     await porter.ready();
   });
 

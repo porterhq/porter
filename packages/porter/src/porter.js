@@ -60,7 +60,7 @@ class Porter {
 
     const transpile = { include: [], ...opts.transpile };
     const cachePath = path.resolve(root, opts.cache && opts.cache.path || output.path);
-    const cache = new Cache({ path: cachePath });
+    const cache = new Cache({ ...opts.cache, path: cachePath });
 
     const bundle = { exclude: [], ...opts.bundle };
     const resolve = {
@@ -204,7 +204,7 @@ class Porter {
     if (!packet.browserify) packet.browserify = { transform: ['envify'] };
 
     await packet.prepare();
-    await cache.prepare({ packet });
+    await cache.prepare(this);
 
     debug('parse preload, entries, and lazyload');
     await Promise.all([
@@ -260,6 +260,7 @@ class Porter {
   }
 
   async compileAll({ entries = [] }) {
+    if (this.output.clean) await fs.rm(this.output.path, { recursive: true, force: true });
     await this.ready({ minify: true });
 
     debug('parse additional entries');
