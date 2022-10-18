@@ -2,7 +2,6 @@
 
 const { strict: assert } = require('assert');
 const path = require('path');
-const fs = require('fs/promises');
 const Porter = require('../..');
 const { MODULE_LOADED } = require('../../src/constants');
 
@@ -14,8 +13,8 @@ describe('WasmModule', function() {
     porter = new Porter({
       root,
       entries: [ 'home.js' ],
+      cache: { clean: true },
     });
-    await fs.rm(porter.cache.path, { recursive: true, force: true });
     await porter.ready();
   });
 

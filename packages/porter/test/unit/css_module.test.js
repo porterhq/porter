@@ -2,8 +2,6 @@
 
 const path = require('path');
 const assert = require('assert').strict;
-const fs = require('fs/promises');
-
 const Porter = require('../..');
 const { MODULE_LOADED } = require('../../src/constants');
 
@@ -16,8 +14,8 @@ describe('CssModule', function() {
       root,
       paths: ['components', 'browser_modules'],
       entries: ['home.js', 'stylesheets/app.css'],
+      cache: { clean: true },
     });
-    await fs.rm(porter.cache.path, { recursive: true, force: true });
     await porter.ready();
   });
 

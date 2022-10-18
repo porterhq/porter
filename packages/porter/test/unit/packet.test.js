@@ -30,9 +30,9 @@ describe('Packet', function() {
           const fpath = path.join(app.output.path, bundle.outputPath);
           return await fs.access(fpath).then(() => true).catch(() => false);
         }
-      }
+      },
+      cache: { clean: true },
     });
-    await fs.rm(porter.cache.path, { recursive: true, force: true });
     await porter.ready();
   });
 

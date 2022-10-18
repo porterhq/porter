@@ -144,6 +144,38 @@ describe('Porter with preload', function() {
       assert(!map.sources.includes('loader.js'));
     });
   });
+
+  describe('porter.compileAll() with ({ output: { clean: true } })', function() {
+    // compiling without cache could be time consuming
+    this.timeout(600000);
+    const root = path.resolve(__dirname, '../../../demo-app');
+    let porter;
+
+    before(async function() {
+      porter = new Porter({
+        root,
+        paths: ['components', 'browser_modules'],
+        preload: 'preload',
+        lazyload: ['lazyload.js'],
+        source: { root: 'http://localhost:3000/' },
+        bundle: { exclude: [ 'react', 'react-dom' ] },
+        output: { clean: true },
+        cache: { clean: true },
+      });
+      await porter.ready();
+      await fs.writeFile(path.join(porter.output.path, 'foo.js'), 'console.log("foo")');
+    });
+
+    after(async function() {
+      await porter.destroy();
+    });
+
+    it('should clean output directory', async function() {
+      await porter.compileAll({ clean: true });
+      const entries = await fs.readdir(porter.output.path);
+      assert(!entries.includes('foo.js'));
+    });
+  });
 });
 
 

@@ -21,7 +21,7 @@
   --color: #e5e5e5;
   --bg-color: #212229;
   --border-color: #505050;
-  --anchor-color: #6e95c0;
+  --anchor-color: #6cb9e1;
 }
 
 @mixin dark-theme-overrides {
@@ -32,6 +32,10 @@
       pre {
         background-color: inherit;
       }
+    }
+
+    > pre {
+      background-color: rgba(0, 0, 0, 0.05);
     }
 
     h1, h2 {

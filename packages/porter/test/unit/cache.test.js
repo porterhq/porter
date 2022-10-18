@@ -7,23 +7,22 @@ const Cache = require('../../src/cache');
 const root = path.join(__dirname, '../../../../packages/demo-app');
 
 describe('test/unit/cache.test.js', function() {
+  const packet = {
+    transpiler: 'babel',
+    transpilerVersion: '7.16.10',
+    transpilerOpts: {
+      presets: ['@babel/preset-env'],
+      plugins: [
+        '@babel/plugin-transform-runtime',
+        require.resolve('../../src/babel_plugin.js'),
+      ],
+    },
+  };
   let cache;
 
   before(async function() {
     cache = new Cache({ path: path.join(root, '.porter-cache') });
-    await cache.prepare({
-      packet: {
-        transpiler: 'babel',
-        transpilerVersion: '7.16.10',
-        transpilerOpts: {
-          presets: ['@babel/preset-env'],
-          plugins: [
-            '@babel/plugin-transform-runtime',
-            require.resolve('../../src/babel_plugin.js'),
-          ],
-        },
-      },
-    });
+    await cache.prepare({ packet });
   });
 
   describe('.identifier({ packet })', async function() {
@@ -35,18 +34,14 @@ describe('test/unit/cache.test.js', function() {
     });
 
     it('should not be interfered by package path', async function() {
-      const packet = {
-        transpiler: 'babel',
-        transpilerVersion: '7.16.10',
-        transpilerOpts: {
-          presets: ['@babel/preset-env'],
-          plugins: [
-            '@babel/plugin-transform-runtime',
-            '<porterDir>/src/babel_plugin.js',
-          ],
-        },
-      };
-      assert.equal(cache.salt, cache.identifier({ packet }));
+      const packet2 = JSON.parse(JSON.stringify(packet));
+      packet2.transpilerOpts.plugins[1] = '<porterDir>/src/babel_plugin.js';
+      assert.equal(cache.salt, cache.identifier({ packet: packet2 }));
+    });
+
+    it('should take uglifyOptions into consideration', async function() {
+      const uglifyOptions = { compress: { drop_console: true } };
+      assert.notEqual(cache.salt, cache.identifier({ packet, uglifyOptions }));
     });
   });
 
