@@ -4,7 +4,39 @@ const path = require('path');
 const JsModule = require('./js_module');
 
 module.exports = class TsModule extends JsModule {
-  async _transpile({ code, }) {
+  async load() {
+    const { packet } = this;
+    const { code } = await super.load();
+    const ts = packet.tryRequire('typescript');
+
+    if (!ts) return { code };
+
+    this.matchImport(code);
+    // remove imports of type definitions in advance, such as
+    // import { IModel } from './foo.d.ts';
+    // import { IOptions } from './bar.ts';
+    const result = await this._transpile({ code }, { 
+      target: ts.ScriptTarget.ES2022,
+      sourceMap: false,
+    });
+    // remove imports that are transformed from dynamic imports, such as
+    // import('./utils/math')
+    this.matchImport(result.code);
+    return result;
+  }
+
+  matchImport(code) {
+    const { dynamicImports = [] } = this;
+    super.matchImport(code);
+    if (dynamicImports.length > 0) {
+      this.dynamicImports = dynamicImports;
+      this.imports = this.imports.filter(specifier => {
+        return !dynamicImports.includes(specifier);
+      });
+    }
+  }
+
+  async _transpile({ code }, compilerOptions) {
     const { fpath, packet } = this;
     const ts = packet.tryRequire('typescript');
 
@@ -16,15 +48,15 @@ module.exports = class TsModule extends JsModule {
       : require(path.join(packet.dir, 'tsconfig.json'));
 
     // - https://github.com/Microsoft/TypeScript/wiki/Using-the-Compiler-API#a-simple-transform-function
-    const { compilerOptions } = tsconfig;
     const { outputText, diagnostics, sourceMapText } = ts.transpileModule(code, {
       fileName,
       compilerOptions: {
-        ...compilerOptions,
+        ...tsconfig.compilerOptions,
         module: ts.ModuleKind.CommonJS,
         sourceMap: true,
         // ts.transpileModule() needs source map not being inlined
         inlineSourceMap: false,
+        ...compilerOptions,
       },
     });
     let map;

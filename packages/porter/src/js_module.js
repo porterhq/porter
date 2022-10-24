@@ -148,13 +148,6 @@ module.exports = class JsModule extends Module {
         if (/\.(?:css|less|sass|scss)$/.test(dep)) {
           // import './baz.less';
           this.imports.push(dep);
-        } else {
-          // import './foo.d.ts';
-          // import './bar.ts';
-          const mod = await this.parseImport(dep);
-          for (let i = this.children.length - 1; i >= 0; i--) {
-            if (this.children[i] === mod) this.children.splice(i, 1);
-          }
         }
       }
     }

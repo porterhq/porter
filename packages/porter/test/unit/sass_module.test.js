@@ -5,7 +5,7 @@ const assert = require('assert').strict;
 
 const Porter = require('../..');
 
-describe('SassModuel', function() {
+describe('SassModule', function() {
   const root = path.resolve(__dirname, '../../../demo-complex');
   let porter;
 

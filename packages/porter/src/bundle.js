@@ -12,9 +12,6 @@ const { EXTENSION_MAP } = require('./constants');
 
 const rExt = /(\.\w+)?$/;
 
-const DEPTH_FIRST = 0;
-const BREATH_FIRST = 1;
-
 function getEntry(packet, entries) {
   return entries && (entries.length === 1 || !packet.parent) ? entries[0] : packet.main;
 }
@@ -142,10 +139,6 @@ module.exports = class Bundle {
    * - module is one of the bundle exceptions
    */
   * [Symbol.iterator]() {
-    return yield* this.iterate({ mode: DEPTH_FIRST });
-  }
-
-  * iterate({ mode = DEPTH_FIRST } = {}) {
     const { entries, packet, scope, format } = this;
     const extensions = EXTENSION_MAP[format];
     const done = {};
@@ -153,9 +146,7 @@ module.exports = class Bundle {
     function* iterate(entry, preload) {
       // remote modules don't have children locally
       if (!entry.children) return;
-      const children = [ ...entry.children ];
-      if (mode === BREATH_FIRST) children.reverse();
-      for (const mod of children) {
+      for (const mod of entry.children) {
         if (done[mod.id]) continue;
         if (entry.dynamicChildren?.includes(mod)) continue;
         if (format === '.js') {
@@ -172,7 +163,7 @@ module.exports = class Bundle {
 
     function* iterateEntry(entry, preload = null) {
       done[entry.id] = true;
-      if (mode === DEPTH_FIRST) yield* iterate(entry, preload);
+      yield* iterate(entry, preload);
       if (extensions.includes(path.extname(entry.file))) {
         if (!(entry.packet.isolated && preload && entry.packet !== preload?.packet)) {
           yield entry;
@@ -180,7 +171,6 @@ module.exports = class Bundle {
       } else if (format === '.js' && entry.exports) {
         yield entry.exports; // css modules
       }
-      if (mode === BREATH_FIRST) yield* iterate(entry, preload);
     }
 
     for (const name of entries.sort()) {
@@ -394,7 +384,7 @@ module.exports = class Bundle {
     const node = new SourceNode();
     const loaderConfig = Object.assign(packet.loaderConfig, this.loaderConfig);
 
-    for (const mod of this.iterate({ mode: BREATH_FIRST })) {
+    for (const mod of this) {
       const { code, map } = minify ? await mod.minify() : await mod.obtain();
       const subnode = await this.createSourceNode({
         source: `porter:///${path.relative(app.root, mod.fpath)}`,
@@ -402,7 +392,7 @@ module.exports = class Bundle {
         code,
         map,
       });
-      node.prepend(subnode);
+      node.add(subnode);
     }
 
     const mod = await this.getEntryModule({ minify });
@@ -445,9 +435,9 @@ module.exports = class Bundle {
     const loaderConfig = Object.assign(packet.loaderConfig, this.loaderConfig);
     const chunks = [];
 
-    for (const mod of this.iterate({ mode: BREATH_FIRST })) {
-      const { code } = minify ? await mod.minify() : await mod.obtain();
-      chunks.unshift(code);
+    for (const mod of this) {
+      const result = minify ? await mod.minify() : await mod.obtain();
+      chunks.push(result.code);
     }
 
     const mod = await this.getEntryModule({ minify });
