@@ -60,7 +60,7 @@ module.exports = class Bundle {
       const cssBundle = Bundle.create({ packet, entries, format: '.css' });
       // existing css bundle might not contain all of the css dependencies
       for (const file of entries) {
-        if (!cssBundle.entries.includes(file)) cssBundle.entries.push(file);
+        if (!cssBundle.entries.includes(file)) cssBundle.entries.unshift(file);
       }
       results.unshift(cssBundle);
     }
@@ -173,7 +173,10 @@ module.exports = class Bundle {
       }
     }
 
-    for (const name of entries.sort()) {
+    // css entries should not be sorted
+    if (format === '.js') entries.sort();
+
+    for (const name of entries) {
       const entry = packet.files[name];
       if (!entry) throw new Error(`unparsed entry ${name} (${packet.dir})`);
       // might be a mocked module from FakePacket

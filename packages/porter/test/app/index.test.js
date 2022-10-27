@@ -36,7 +36,7 @@ describe('test/app/index.test.js', function() {
   describe('packet.bundles', function() {
     it('should merge css bundles', async function() {
       const bundle = porter.packet.bundles['home.css'];
-      assert.deepEqual(bundle.entries, [ 'home.css', 'home.js' ]);
+      assert.deepEqual(bundle.entries, [ 'home.js', 'home.css' ]);
     });
   });
 
