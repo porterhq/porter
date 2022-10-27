@@ -178,7 +178,6 @@ describe('Porter with preload', function() {
   });
 });
 
-
 describe('Porter with preload', function() {
   describe('porter.compileAll()', function() {
     // compiling without cache could be time consuming
@@ -234,6 +233,51 @@ describe('Porter with preload', function() {
       const map = JSON.parse(await readFile(fpath, 'utf8'));
       // assert.equal(map.sourceRoot, porter.source.root);
       assert.equal(map.sourcesContent.filter(item => item).length, map.sources.length);
+    });
+  });
+});
+
+
+describe('Porter with preload', function() {
+  describe('porter.compileAll()', function() {
+    // compiling without cache could be time consuming
+    this.timeout(600000);
+    const root = path.resolve(__dirname, '../../../demo-app');
+    let porter;
+
+    before(async function() {
+      porter = new Porter({
+        root,
+        paths: ['components', 'browser_modules'],
+        preload: 'preload',
+        lazyload: ['lazyload.js'],
+        source: { inline: true },
+        bundle: { exclude: [ 'react', 'react-dom' ] },
+      });
+      await fs.rm(porter.cache.path, { recursive: true, force: true });
+      await porter.ready();
+
+      await porter.compileAll({
+        entries: ['home.css', 'home.js', 'about.js', 'stylesheets/app.css']
+      });
+      const fpath = path.join(root, 'manifest.json');
+      await assert.doesNotReject(async function() {
+        await fs.access(fpath);
+      });
+    });
+
+    after(async function() {
+      await porter.destroy();
+    });
+
+    it('should merge css bundles', async function() {
+      const bundle = porter.packet.bundles['home.css'];
+      assert.deepEqual(bundle.entries, [ 'home.js', 'home.css' ]);
+    });
+    
+    it('should handle css import in js', async function() {
+      const bundle = porter.packet.bundles['about.css'];
+      assert.deepEqual(bundle.entries, ['about.js']);
     });
   });
 });

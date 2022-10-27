@@ -164,7 +164,7 @@ describe('Porter', function() {
 
       await fs.writeFile(fpath, 'body { color: navy }');
       const res2 = await requestPath('/about.css');
-      assert.deepEqual(bundle.entries.sort(), [ 'about.css', 'about.js' ]);
+      assert.deepEqual(bundle.entries, [ 'about.js', 'about.css' ]);
       assert.notEqual(res.text, res2.text);
     });
   });

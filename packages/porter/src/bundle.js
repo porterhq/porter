@@ -30,19 +30,25 @@ module.exports = class Bundle {
     const { packet, entries } = options;
     // the default bundle
     const bundle = Bundle.create(options);
-    const results = [ bundle ];
+    const results = [bundle];
     const entry = packet.files[entries[0]];
 
     if (!entry) return results;
     if (bundle.format === '.css') {
       for (const mod of Object.values(packet.entries)) {
-        if (mod.file !== entry.file && mod.file.replace(rExt, '.css') === entry.file) {
+        if (!entries.includes(mod.file) && mod.file.replace(rExt, '.css') === entry.file) {
           entries.push(mod.file);
           break;
         }
       }
+      // if there are multiple entries, the returned bundle might not contain all of them
       for (const file of entries) {
-        if (!bundle.entries.includes(file)) bundle.entries.push(file);
+        if (bundle.entries.includes(file)) continue;
+        if (path.extname(file) === '.css') {
+          bundle.entries.push(file);
+        } else {
+          bundle.entries.unshift(file);
+        }
       }
       return results;
     }
