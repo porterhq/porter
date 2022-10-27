@@ -217,7 +217,7 @@ describe('Porter with preload', function() {
 
     it('should merge css bundles', async function() {
       const bundle = porter.packet.bundles['home.css'];
-      assert.deepEqual(bundle.entries, [ 'home.css', 'home.js' ]);
+      assert.deepEqual(bundle.entries, [ 'home.js', 'home.css' ]);
     });
 
     it('should set sourcesContent in components source map', async function() {
