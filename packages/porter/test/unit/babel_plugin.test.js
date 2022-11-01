@@ -69,6 +69,25 @@ const files = {
 };`);
   });
 
+  it('should hoist import.meta.glob() if nested', function() {
+    const result = babel.transform(`import assert from 'assert/strict';
+function foo() {
+  const files = import.meta.glob('./test/*.mjs', { eager: true });
+  assert.deepEqual(Object.keys(files), ['./test/hooks.mjs']);
+}`, { 
+      plugins: [ plugin ],
+      filename: path.join(__dirname, '../../loader.js'),
+    });
+    assert.equal(result.code, `import assert from 'assert/strict';
+import * as __glob_1_0 from "./test/hooks.mjs";
+function foo() {
+  const files = {
+    "./test/hooks.mjs": __glob_1_0
+  };
+  assert.deepEqual(Object.keys(files), ['./test/hooks.mjs']);
+}`);
+  });
+
   it('should remove import "./foo.css";', function() {
     const result = babel.transform('import "./foo.css"', { plugins: [ plugin ]});
     assert.equal(result.code, '');

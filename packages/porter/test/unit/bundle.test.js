@@ -133,6 +133,7 @@ describe('Bundle without preload', function() {
       const files = Array.from(bundle, mod => mod.file);
       assert.deepEqual(files.filter(file => file.startsWith('require-json')), [
         'require-json/foo.json',
+        'require-json/foo bar.json',
         'require-json/suite.js',
       ]);
     });

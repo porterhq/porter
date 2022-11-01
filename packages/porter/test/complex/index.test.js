@@ -1,7 +1,6 @@
 'use strict';
 
 const path = require('path');
-const fs = require('fs/promises');
 const assert = require('assert').strict;
 const Porter = require('../..');
 
@@ -23,8 +22,8 @@ describe('test/complex/index.test.js', function() {
         },
       },
       lessOptions: { javascriptEnabled: true },
+      cache: { clean: true },
     });
-    await fs.rm(porter.cache.path, { recursive: true, force: true });
     await porter.ready();
   });
 
@@ -196,6 +195,24 @@ describe('test/complex/index.test.js', function() {
         'app/web/about_broken.css',
         'node_modules/cropperjs/src/index.scss',
         'app/web/about_dep.scss',
+      ]);
+    });
+
+    it('should iterate through newly parsed children after transpile', async function() {
+      // incrementally parsed entry might have new children after transpile
+      await porter.parseId('test/suite.js');
+      const bundle = porter.packet.bundles['test/suite.js'];
+      assert.ok(bundle);
+      assert.equal(bundle.format, '.js');
+      // TODO: might be able to refactor this away with async iterator
+      await bundle.obtain();
+      assert.deepEqual(Array.from(bundle, mod => path.relative(root, mod.fpath)), [
+        'app/web/components/button.module.less',
+        'app/web/components/button.jsx',
+        'app/web/utils/string.mjs',
+        'app/web/test/foo bar.json',
+        'app/web/test/foo.json',
+        'app/web/test/suite.js',
       ]);
     });
   });

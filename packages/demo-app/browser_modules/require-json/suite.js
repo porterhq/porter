@@ -14,4 +14,11 @@ describe('require json', function() {
     const { name } = require('yen/package.json');
     expect(name).to.equal('yen');
   });
+
+  it('require("./foo bar.json")', function() {
+    expect(require('./foo bar.json')).to.eql({
+      foo: 2,
+      bar: false,
+    });
+  });
 });

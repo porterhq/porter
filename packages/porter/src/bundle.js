@@ -393,8 +393,11 @@ module.exports = class Bundle {
     const node = new SourceNode();
     const loaderConfig = Object.assign(packet.loaderConfig, this.loaderConfig);
 
-    for (const mod of this) {
-      const { code, map } = minify ? await mod.minify() : await mod.obtain();
+    // new descendents might be introduced during the first iteration
+    for (const mod of this) await (minify ? mod.minify() : mod.obtain());
+
+    for await (const mod of this) {
+      const { code, map } = await (minify ? mod.minify() : mod.obtain());
       const subnode = await this.createSourceNode({
         source: `porter:///${path.relative(app.root, mod.fpath)}`,
         sourceContent: mod.code || await fs.readFile(mod.fpath, 'utf-8'),
@@ -444,8 +447,11 @@ module.exports = class Bundle {
     const loaderConfig = Object.assign(packet.loaderConfig, this.loaderConfig);
     const chunks = [];
 
+    // new descendents might be introduced during the first iteration
+    for (const mod of this) await (minify ? mod.minify() : mod.obtain());
+
     for (const mod of this) {
-      const result = minify ? await mod.minify() : await mod.obtain();
+      const result = await (minify ? mod.minify() : mod.obtain());
       chunks.push(result.code);
     }
 
