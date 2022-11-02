@@ -136,7 +136,12 @@ module.exports = class CssModule extends Module {
   }
 
   async minify() {
+    if (this.cache && this.cache.minified) return this.cache;
     const { code, map } = await this.load();
-    return this.transpile({ code, map, minify: true });
+    this.setCache(code, {
+      ...await this.transpile({ code, map, minify: true }),
+      minified: true,
+    });
+    return this.cache;
   }
 };
