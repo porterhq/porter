@@ -83,7 +83,7 @@ module.exports = function({ types: t, template }) {
         if (opts.eager) {
           const properties = [];
           const buildImport = template('import * as %%local%% from %%source%%;', { sourceType: 'module' });
-          const statement = callExpression.getStatementParent();
+          const statement = callExpression.getAncestry().slice(-2)[0];
           for (let i = 0; i < files.length; i++) {
             const file = files[i];
             const local = `__glob_${globIndex++}_${i}`;

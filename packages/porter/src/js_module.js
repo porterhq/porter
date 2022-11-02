@@ -131,7 +131,7 @@ module.exports = class JsModule extends Module {
    * new dep to parse. Only the modules of the root packet are checked.
    * @param {Object} opts
    * @param {string} opts.code
-   * @returns {Array}
+   * @returns {Promise<void>}
    */
   async checkImports({ code, intermediate = false }) {
     const { imports = [], dynamicImports = [] } = this;
