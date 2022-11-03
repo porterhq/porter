@@ -2,7 +2,7 @@
 
 const crypto = require('crypto');
 const debug = require('debug')('porter');
-const { existsSync, promises: fs } = require('fs');
+const fs = require('fs/promises');
 const mime = require('mime');
 const path = require('path');
 const postcss = require('postcss');
@@ -123,11 +123,17 @@ class Porter {
     return readyCache.get(cacheKey);
   }
 
-  readFilePath(fpath) {
-    return Promise.all([
-      readFile(fpath),
-      lstat(fpath).then(stats => ({ 'Last-Modified': stats.mtime.toJSON() }))
-    ]);
+  async readFilePath(fpath) {
+    if (!fpath) return null;
+    try { 
+      return await Promise.all([
+        readFile(fpath),
+        lstat(fpath).then(stats => ({ 'Last-Modified': stats.mtime.toJSON() }))
+      ]);
+    } catch (err) {
+      if (err.code === 'ENOENT') return null;
+      throw err;
+    }
   }
 
   async readBuiltinJs(name) {
@@ -304,33 +310,24 @@ class Porter {
     return this.packet.compile(entry, opts);
   }
 
-  async isRawFile(file) {
-    if (!this.source.serve) return false;
+  async readRawFile(file) {
+    let fpath;
 
     if (file.startsWith('node_modules')) {
       // cnpm/npminstall rename packages to folders like _@babel_core@7.16.10@@babel/core
-      const [, name] = file.replace(/^node_modules\//, '').replace(/^_@?[^@]+@[^@]+@/, '').match(rModuleId);
-      // #1 cannot require('mocha') just yet
-      return this.packet.find({ name }) || name == 'mocha';
+      const [, name, , entry] = file.replace(/^node_modules\//, '').replace(/^_@?[^@]+@[^@]+@/, '').match(rModuleId);
+      const packet = this.packet.find({ name });
+      fpath = packet && path.join(packet.dir, entry);
+    } else {
+      fpath = path.join(this.root, file);
+      let found;
+      for (const dir of this.packet.paths) {
+        if (fpath.startsWith(dir)) found = true;
+      }
+      if (!found) fpath = null;
     }
 
-    // FIXME: packages/demo-component has package paths set to `.` which makes source serving error prone because the pathnames of source and the output are the same.
-    if (this.packet.paths.includes(this.root)) return false;
-
-    const fpath = path.join(this.root, file);
-    for (const dir of this.packet.paths) {
-      if (fpath.startsWith(dir) && existsSync(fpath)) return true;
-    }
-
-    return false;
-  }
-
-  async readRawFile(file) {
-    const fpath = path.join(this.root, file);
-
-    if (existsSync(fpath)) {
-      return this.readFilePath(fpath);
-    }
+    return await this.readFilePath(fpath);
   }
 
   async parseId(id, options) {
@@ -451,9 +448,6 @@ class Porter {
         { 'Last-Modified': (new Date()).toGMTString() }
       ];
     }
-    else if (await this.isRawFile(file)) {
-      result = await this.readRawFile(file);
-    }
     else if (ext === '.js') {
       result = await this.readJs(file, query);
     }
@@ -468,9 +462,11 @@ class Porter {
     }
     else if (rExt.test(ext)) {
       const [fpath] = await packet.resolve(file);
-      if (fpath) {
-        result = await this.readFilePath(fpath);
-      }
+      result = await this.readFilePath(fpath);
+    }
+
+    if (!result && this.source.serve) {
+      result = await this.readRawFile(file);
     }
 
     if (result) {

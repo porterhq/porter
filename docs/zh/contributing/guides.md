@@ -11,14 +11,20 @@ Porter 仓库是一个单仓库多个包的 monorepo，本地跑开发环境需�
 $ git clone git@github.com:erzu/porter.git
 $ cd porter
 $ npm install
-$ npx lerna bootstrap
-$ npx lerna link
 ```
 
 然后就可以开始开发了，编码完成后记得执行测试：
 
 ```bash
-$ npx lerna test
+$ npm run test
+```
+
+也可以执行单个仓库的测试：
+
+```bash
+# both commands work
+$ npm run test --workspace ./packages/porter
+$ cd packages/porter && npm run test
 ```
 
 ### 了解目录结构
@@ -30,7 +36,7 @@ packages 目录下都是 npm 包，真正会被发布到 npm 的只有 packaegs/
 单元测试和集成测试代码基本集中在 packages/porter 目录下，也是 Porter 的主题功能逻辑所在。前文提到了运行整个仓库的测试命令是在根目录执行：
 
 ```bash
-$ npx lerna test
+$ npm run test
 ```
 
 这个命令会去 packages 下的各个目录中执行对应的 `npm run coverage`，如果没有就跳过。

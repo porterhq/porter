@@ -34,7 +34,7 @@ jobs:
         export CHROMIUM_BIN=$(which chrome)
         npm install
         npm run build --if-present
-        npm test
+        npm run coverage
 
     - name: Codecov
       uses: codecov/codecov-action@v2

@@ -190,15 +190,27 @@ module.exports = class Packet {
   }
 
   async parseDepPaths() {
-    const { depPaths } = this;
+    const { app, depPaths } = this;
     let packet = this;
+    let parentDir;
 
     while (packet) {
       const depPath = path.join(packet.dir, 'node_modules');
       if (existsSync(depPath) && !depPaths.includes(depPath)) {
         depPaths.push(depPath);
       }
+      parentDir = path.join(packet.dir, '..');
       packet = packet.parent;
+    }
+
+    let count = 0;
+    // add global node_modules at root workspace
+    while (app.packet.name.startsWith('@cara/') && parentDir && ++count <= 2) {
+      const depPath = path.join(parentDir, 'node_modules');
+      if (existsSync(depPath) && !depPaths.includes(depPath)) {
+        depPaths.push(depPath);
+      }
+      parentDir = path.join(parentDir, '..');
     }
   }
 
@@ -461,6 +473,7 @@ module.exports = class Packet {
 
     for (const depPath of this.depPaths) {
       const dir = path.join(depPath, name);
+
       if (existsSync(dir)) {
         const { app } = this;
         const packet = await Packet.create({ dir, parent: this, app });

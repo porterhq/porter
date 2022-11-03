@@ -1,5 +1,8 @@
 'use strict';
 
+require('mocha/mocha');
+require('mocha/mocha.css');
+
 const opts = { ui: 'bdd' };
 const params = new URLSearchParams(location.search);
 

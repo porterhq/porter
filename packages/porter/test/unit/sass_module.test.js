@@ -26,7 +26,7 @@ describe('SassModule', function() {
   it('should resolve dependencies', async function() {
     const mod = porter.packet.files['about_dep.scss'];
     assert.deepEqual(mod.children.map(child => path.relative(root, child.fpath)), [
-      'node_modules/cropperjs/src/index.scss',
+      '../../node_modules/cropperjs/src/index.scss',
     ]);
   });
 });

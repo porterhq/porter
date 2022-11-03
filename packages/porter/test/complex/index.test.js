@@ -187,13 +187,13 @@ describe('test/complex/index.test.js', function() {
       assert.ok(bundle);
       assert.equal(bundle.format, '.css');
       assert.deepEqual(Array.from(bundle, mod => path.relative(root, mod.fpath)), [
-        'node_modules/antd/lib/style/default.less',
-        'node_modules/antd/lib/layout/style/index.less',
-        'node_modules/antd/lib/menu/style/index.less',
-        'node_modules/antd/lib/tooltip/style/index.less',
+        '../../node_modules/antd/lib/style/default.less',
+        '../../node_modules/antd/lib/layout/style/index.less',
+        '../../node_modules/antd/lib/menu/style/index.less',
+        '../../node_modules/antd/lib/tooltip/style/index.less',
         'app/web/about.less',
         'app/web/about_broken.css',
-        'node_modules/cropperjs/src/index.scss',
+        '../../node_modules/cropperjs/src/index.scss',
         'app/web/about_dep.scss',
       ]);
     });

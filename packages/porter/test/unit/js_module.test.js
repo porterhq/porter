@@ -29,7 +29,7 @@ describe('JsModule', function() {
     const pkg = porter.packet.find({ name: 'yen' });
     const mod = pkg.files['events.js'];
     const { map } = await mod.obtain();
-    assert.deepEqual(map.sources, [ 'porter:///node_modules/yen/events.js' ]);
+    assert.deepEqual(map.sources, [ 'porter:///../../node_modules/yen/events.js' ]);
   });
 
   it('should not stop at broken cache', async function() {
