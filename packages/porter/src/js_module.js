@@ -15,12 +15,13 @@ const { MODULE_LOADING, MODULE_LOADED } = require('./constants');
 module.exports = class JsModule extends Module {
   matchImport(code) {
     const { packet } = this;
-    const { imports, dynamicImports } = matchRequire.findAll(code);
+    const { imports, dynamicImports, __esModule } = matchRequire.findAll(code);
     function ignoreImport(specifier) {
       return packet.browser[specifier] !== false && specifier !== 'heredoc';
     }
     this.imports = imports.filter(ignoreImport);
     this.dynamicImports = dynamicImports.filter(ignoreImport);
+    if (this.__esModule == null) this.__esModule = __esModule;
   }
 
   /**
@@ -68,14 +69,21 @@ module.exports = class JsModule extends Module {
     if (this.status >= MODULE_LOADING) return;
     this.status = MODULE_LOADING;
 
-    const { app } = this;
+    const { app, packet } = this;
     const { code } = await this.load();
     this.cache = await app.cache.get(this.id, code);
+
     if (!this.imports && this.cache) {
       this.imports = this.cache.imports;
       this.dynamicImports = this.cache.dynamicImports;
+      this.__esModule = this.cache.__esModule;
     }
     if (!this.imports) this.matchImport(code);
+
+    if (this.__esModule && !packet.transpiler) {
+      packet.transpiler = app.packet.transpiler;
+      packet.transpilerOpts = app.packet.transpilerOpts;
+    }
 
     const [ children, dynamicChildren ] = await Promise.all([
       Promise.all(this.imports.map(this.parseImport, this)),

@@ -158,9 +158,9 @@ module.exports = class Module {
   }
 
   setCache(source, result) {
-    const { app, imports, dynamicImports } = this;
+    const { app, imports, dynamicImports, __esModule } = this;
     if (typeof result.map === 'string') result.map = JSON.parse(result.map);
-    const cache = { ...result, imports, dynamicImports };
+    const cache = { ...result, imports, dynamicImports, __esModule };
     app.cache.set(this.id, source, cache).catch(err => console.error(err));
     this.cache = cache;
   }
