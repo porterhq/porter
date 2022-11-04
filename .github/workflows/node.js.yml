@@ -32,9 +32,10 @@ jobs:
       run: |
         chrome --version
         export CHROMIUM_BIN=$(which chrome)
+        if [ $(npm --version | grep -Eo [0-9]+ | head -n 1) -lt 8 ]; then npm install npm@8 -g; fi
         npm install
         npm run build --if-present
-        npm test
+        npm run coverage
 
     - name: Codecov
       uses: codecov/codecov-action@v2

@@ -66,9 +66,9 @@ describe('Porter', function() {
       source: {
         serve: true,
         root: 'http://localhost:5000'
-      }
+      },
+      cache: { clean: true },
     });
-    await fs.rm(porter.cache.path, { recursive: true, force: true });
     await porter.ready();
 
     app = new Koa();
@@ -225,6 +225,8 @@ describe('Porter', function() {
     });
 
     it('should serve dependencies source', async function () {
+      // parse home.js and its dependencies, which includes yen
+      await requestPath('/home.js', 200);
       await requestPath('/node_modules/yen/index.js');
     });
 

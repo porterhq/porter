@@ -399,7 +399,9 @@ module.exports = class Bundle {
     for await (const mod of this) {
       const { code, map } = await (minify ? mod.minify() : mod.obtain());
       const subnode = await this.createSourceNode({
-        source: `porter:///${path.relative(app.root, mod.fpath)}`,
+        // relative path might start with ../../ if dependencies were found at workspace root
+        // ../../node_modules/react/index.js => node_modules/react/index.js
+        source: `porter:///${path.relative(app.root, mod.fpath).replace(/^(\.\.\/)+/, '')}`,
         sourceContent: mod.code || await fs.readFile(mod.fpath, 'utf-8'),
         code,
         map,

@@ -61,6 +61,12 @@ describe('porter-serve component', function() {
     expect(res.headers['content-type']).to.contain('text/html');
   });
 
+  it('should serve test runner entry', async function() {
+    const res = await new Promise(resolve => http.get('http://localhost:3000/runner.js?entry', resolve));
+    expect(res.statusCode).to.eql(200);
+    expect(res.headers['content-type']).to.contain('application/javascript');
+  });
+
   // require('mocha') does not work yet.
   it('should serve mocha', async function() {
     const res = await new Promise(resolve => http.get('http://localhost:3000/node_modules/mocha/mocha.js', resolve));

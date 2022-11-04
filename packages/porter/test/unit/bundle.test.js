@@ -56,7 +56,7 @@ describe('Bundle without preload', function() {
       });
       assert.deepEqual(files, [
         'browser_modules/mad-import/foo.js',
-        'node_modules/chart.js/dist/Chart.js',
+        '../../node_modules/chart.js/dist/Chart.js',
         'browser_modules/dynamic-import/sum.js',
         'browser_modules/dynamic-import/foo.js',
         'browser_modules/dynamic-import/foo.js', // { format: '.css' }
@@ -122,8 +122,8 @@ describe('Bundle without preload', function() {
       assert.deepEqual(modules.map(mod => path.relative(porter.root, mod.fpath)), [
         'components/stylesheets/common/reset.css',
         'components/stylesheets/common/base.css',
-        'node_modules/cropper/dist/cropper.css',
-        'node_modules/prismjs/themes/prism.css',
+        '../../node_modules/cropper/dist/cropper.css',
+        '../../node_modules/prismjs/themes/prism.css',
         'components/stylesheets/app.css',
       ]);
     });

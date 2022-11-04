@@ -27,8 +27,8 @@ describe('CssModule', function() {
     const mod = porter.packet.files['stylesheets/app.css'];
     assert.deepEqual(mod.children.map(child => path.relative(porter.root, child.fpath)), [
       'components/stylesheets/common/base.css',
-      'node_modules/cropper/dist/cropper.css',
-      'node_modules/prismjs/themes/prism.css',
+      '../../node_modules/cropper/dist/cropper.css',
+      '../../node_modules/prismjs/themes/prism.css',
     ]);
   });
 

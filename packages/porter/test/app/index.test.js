@@ -46,8 +46,8 @@ describe('test/app/index.test.js', function() {
       const packet = porter.packet.find({ name: 'react' });
       const bundle = packet.bundle;
       assert.deepEqual(Array.from(bundle, child => path.relative(root, child.fpath)), [
-        'node_modules/react/cjs/react.development.js',
-        'node_modules/react/index.js',
+        '../../node_modules/react/cjs/react.development.js',
+        '../../node_modules/react/index.js',
       ]);
     });
   });
@@ -65,8 +65,8 @@ describe('test/app/index.test.js', function() {
       const mod = porter.packet.files['stylesheets/app.css'];
       assert.deepEqual(Array.from(mod.children, child => path.relative(root, child.fpath)), [
         'components/stylesheets/common/base.css',
-        'node_modules/cropper/dist/cropper.css',
-        'node_modules/prismjs/themes/prism.css',
+        '../../node_modules/cropper/dist/cropper.css',
+        '../../node_modules/prismjs/themes/prism.css',
       ]);
     });
   });

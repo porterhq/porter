@@ -35,9 +35,10 @@ describe('test/typescript/index.test.js', function() {
     it('should neglect d.ts', async function() {
       const mod = porter.packet.files['app.tsx'];
       assert.deepEqual(mod.children.map(child => path.relative(root, child.fpath)), [
+        // react v17.x were installed, hence not resolved to workspace root
         'node_modules/react/index.js',
         'node_modules/react-dom/index.js',
-        'node_modules/prismjs/prism.js',
+        '../../node_modules/prismjs/prism.js',
         'components/home.tsx',
         'components/utils/math.js',
       ]);
