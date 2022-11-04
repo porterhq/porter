@@ -18,6 +18,7 @@ describe('test/app/index.test.js', function() {
       bundle: {
         exclude: ['react', 'react-dom', 'chart.js'],
       },
+      // cache: { clean: true },
     });
     await porter.ready();
   });
@@ -48,6 +49,14 @@ describe('test/app/index.test.js', function() {
         'node_modules/react/cjs/react.development.js',
         'node_modules/react/index.js',
       ]);
+    });
+  });
+
+  describe('module.matchImport()', function() {
+    it('should transpile packet if module is es module', async function() {
+      const packet = porter.packet.find({ name: 'jsencrypt' });
+      assert.equal(packet.transpiler, porter.packet.transpiler);
+      assert.equal(packet.transpiler, 'babel');
     });
   });
 

@@ -194,6 +194,7 @@ exports.findAll = function findAll(content) {
     }
   }
 
+  let __esModule = false;
   next();
   while (part) {
     if (part == 'if') {
@@ -207,13 +208,15 @@ exports.findAll = function findAll(content) {
     }
     else if (part == 'import') {
       findImport();
+      __esModule = true;
     }
     else if (part == 'export') {
       const nextPart = parts[i + 1];
       if (nextPart === '{' || nextPart === '*') findExportFrom();
+      __esModule = true;
     }
     next();
   }
 
-  return { imports, dynamicImports };
+  return { imports, dynamicImports, __esModule };
 };
