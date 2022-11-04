@@ -102,3 +102,10 @@ describe('neglect node.js core modules', function() {
     expect(fontkit.default.create).to.be.a(Function);
   });
 });
+
+describe('implicit es module should be transpiled as well', function() {
+  it('should transpile jsencrypt', function() {
+    const JSEncrypt = require('jsencrypt').default;
+    expect(JSEncrypt).to.be.a(Function);
+  });
+});
