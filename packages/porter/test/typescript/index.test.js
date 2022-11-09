@@ -2,7 +2,6 @@
 
 const path = require('path');
 const { strict: assert } = require('assert');
-const fs = require('fs/promises');
 const Porter = require('../..');
 
 describe('test/typescript/index.test.js', function() {
@@ -10,10 +9,10 @@ describe('test/typescript/index.test.js', function() {
   let porter;
 
   before(async function() {
-    await fs.rm(path.join(root, 'public'), { recursive: true, force: true });
     porter = new Porter({
       root,
       entries: [ 'app.tsx' ],
+      cache: { clean: true },
     });
     await porter.ready();
   });

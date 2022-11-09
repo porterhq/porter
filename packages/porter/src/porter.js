@@ -58,7 +58,7 @@ class Porter {
     const output = { path: 'public', ...opts.output };
     output.path = path.resolve(root, output.path);
 
-    const transpile = { include: [], ...opts.transpile };
+    const transpile = { include: [], typescript: 'tsc', ...opts.transpile };
     const cachePath = path.resolve(root, opts.cache && opts.cache.path || output.path);
     const cache = new Cache({ ...opts.cache, path: cachePath });
 
@@ -125,7 +125,7 @@ class Porter {
 
   async readFilePath(fpath) {
     if (!fpath) return null;
-    try { 
+    try {
       return await Promise.all([
         readFile(fpath),
         lstat(fpath).then(stats => ({ 'Last-Modified': stats.mtime.toJSON() }))
@@ -426,6 +426,7 @@ class Porter {
     }
 
     const mod = await packet.parseFile(file);
+    if (!mod) return;
     const { code } = await mod.obtain();
     const mtime = (await lstat(mod.fpath)).mtime.toJSON();
     return [code, { 'Last-Modified': mtime }];

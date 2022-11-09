@@ -7,18 +7,18 @@ module.exports = class TsModule extends JsModule {
   async load() {
     const { packet } = this;
     const { code } = await super.load();
-    const ts = packet.tryRequire('typescript');
-
-    if (!ts) return { code };
 
     this.matchImport(code);
+
+    const ts = packet.tryRequire('typescript');
+    const compilerOptions = ts && {
+      target: ts.ScriptTarget.ES2022,
+      sourceMap: false,
+    };
     // remove imports of type definitions in advance, such as
     // import { IModel } from './foo.d.ts';
     // import { IOptions } from './bar.ts';
-    const result = await this._transpile({ code }, { 
-      target: ts.ScriptTarget.ES2022,
-      sourceMap: false,
-    });
+    const result = await this._transpile({ code }, compilerOptions);
     // remove imports that are transformed from dynamic imports, such as
     // import('./utils/math')
     this.matchImport(result.code);
@@ -37,7 +37,13 @@ module.exports = class TsModule extends JsModule {
   }
 
   async _transpile({ code }, compilerOptions) {
-    const { fpath, packet } = this;
+    const { app, fpath, packet } = this;
+
+    // might transpile typescript with tools like babel or swc
+    if (app.transpile.typescript !== 'tsc') {
+      return super._transpile({ code });
+    }
+
     const ts = packet.tryRequire('typescript');
 
     if (!ts) return { code };
