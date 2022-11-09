@@ -39,6 +39,15 @@ describe('test/unit/babel_plugin.test.js', function() {
 }`);
   });
 
+  it('should replace import.meta', function() {
+    const result = babel.transform(`import('./dynamic/greet').then((greet) => {
+      greet(import.meta)
+    })`, { plugins: [ plugin ] });
+    assert.equal(result.code, `import('./dynamic/greet').then(greet => {
+  greet(__module.meta);
+});`);
+  });
+
   it('should replace import.meta.url', function() {
     const result = babel.transform(`import('./dynamic/greet').then((greet) => {
       greet(import.meta.url)
@@ -48,8 +57,13 @@ describe('test/unit/babel_plugin.test.js', function() {
 });`);
   });
 
+  it('should replace import.meta.resolve()', function() {
+    const result = babel.transform("import.meta.resolve('./foo')", { plugins: [ plugin ] });
+    assert.equal(result.code, "__module.meta.resolve('./foo');");
+  });
+
   it('should replace import.meta.glob()', function() {
-    const result = babel.transform("const files = import.meta.glob('./test/*.mjs')", { 
+    const result = babel.transform("const files = import.meta.glob('./test/*.mjs')", {
       plugins: [ plugin ],
       filename: path.join(__dirname, '../../loader.js'),
     });
@@ -59,7 +73,7 @@ describe('test/unit/babel_plugin.test.js', function() {
   });
 
   it('should replace import.meta.glob(pattern, { eager: true })', function() {
-    const result = babel.transform("const files = import.meta.glob('./test/*.mjs', { eager: true })", { 
+    const result = babel.transform("const files = import.meta.glob('./test/*.mjs', { eager: true })", {
       plugins: [ plugin ],
       filename: path.join(__dirname, '../../loader.js'),
     });
@@ -74,7 +88,7 @@ const files = {
 function foo() {
   const files = import.meta.glob('./test/*.mjs', { eager: true });
   assert.deepEqual(Object.keys(files), ['./test/hooks.mjs']);
-}`, { 
+}`, {
       plugins: [ plugin ],
       filename: path.join(__dirname, '../../loader.js'),
     });
