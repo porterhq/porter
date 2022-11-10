@@ -367,13 +367,20 @@
     if (mod.status < MODULE_FETCHING) {
       mod.status = MODULE_FETCHING;
       var uri = parseUri(mod.id);
-      if (fetching[uri]) return;
-      fetching[uri] = true;
-      request(uri, function(err) {
+      function onFetch(err) {
         if (err) mod.status = MODULE_ERROR;
         if (mod.status < MODULE_FETCHED) mod.status = MODULE_FETCHED;
         mod.uri = uri;
         mod.ignite();
+      }
+      if (fetching[uri]) {
+        fetching[uri].push(onFetch);
+        return;
+      }
+      fetching[uri] = [onFetch];
+      request(uri, function(err) {
+        var callbacks = fetching[uri];
+        for (var j = 0; j < callbacks.length; j++) callbacks[j](err);
         fetching[uri] = null;
       });
     }

@@ -1,10 +1,13 @@
 import React, { useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import Prism from 'prismjs';
+import { throttle } from 'lodash';
 import Home from './home';
 // check if d.ts is correctly handled
 import { Foo } from './types';
 import { IHome } from './store';
+
+console.log(throttle);
 
 const foo: Foo = { a: 1 };
 console.log(foo);

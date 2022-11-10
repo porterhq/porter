@@ -41,7 +41,7 @@ describe('packages/demo-typescript/test/babel.test.js', function() {
     it('need to neglect type imports in advance', async function() {
       const mod = porter.packet.files['app.tsx'];
       assert.deepEqual(mod.dynamicImports, ['./utils/math']);
-      assert.deepEqual(mod.imports, ['react', 'react-dom', 'prismjs', './home']);
+      assert.deepEqual(mod.imports, ['react', 'react-dom', 'prismjs', 'lodash', './home']);
     });
   });
 

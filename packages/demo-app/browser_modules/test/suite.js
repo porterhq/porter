@@ -84,6 +84,10 @@ describe('missing dep', function() {
   it('should still be accessible if requires missing dependency', function() {
     expect(require('./missing.js')).to.eql({});
   });
+
+  it('should still ignite if requires missing module in external bundle', function() {
+    expect(require('yen/missing.js')).to.eql({});
+  });
 });
 
 describe('worker from dependency', function() {
