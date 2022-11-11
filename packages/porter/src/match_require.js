@@ -7,6 +7,20 @@ const rNotEqualOp = /^!==?$/;
 const rSpace = /^\s+$/;
 const rString = /^(['"'])([^\1]+)\1$/;
 
+function decodeUnicodeLiteral(text) {
+  if (typeof text !== 'string') return text;
+  try {
+    return text.replace(/(\\u[0-9a-f]{4})/ig, (m, literal) => {
+      return String.fromCodePoint(parseInt(literal.slice(2), 16));
+    });
+  } catch (err) {
+    console.error(err);
+  }
+  return text;
+};
+
+exports.decodeUnicodeLiteral = decodeUnicodeLiteral;
+
 /**
  * Finds all of the dependencies `require`d or `import`ed in the code passed in.
  * @param {string} content
@@ -218,5 +232,8 @@ exports.findAll = function findAll(content) {
     next();
   }
 
-  return { imports, dynamicImports, __esModule };
+  return {
+    imports: imports.map(decodeUnicodeLiteral),
+    dynamicImports: dynamicImports.map(decodeUnicodeLiteral),
+    __esModule };
 };

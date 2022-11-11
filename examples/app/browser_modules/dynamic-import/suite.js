@@ -19,7 +19,7 @@ describe('dynamic import', function() {
 
   it('should fetch script when import(dynamic)', function(done) {
     import('chart.js').then(function(exports) {
-      expect(exports).to.be.a(Function);
+      expect(exports.default).to.be.a(Function);
       done();
     }).catch(err => done(err));
   });
@@ -33,8 +33,8 @@ describe('dynamic import', function() {
 
   it('should fetch relative dep when import(dynamic)', function(done) {
     import('./sum.js').then(function(exports) {
-      expect(exports).to.be.a(Function);
-      expect(exports(1, 2)).to.eql(3);
+      expect(exports.default).to.be.a(Function);
+      expect(exports.default(1, 2)).to.eql(3);
       done();
     }).catch(err => done(err));
   });

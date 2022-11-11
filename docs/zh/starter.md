@@ -89,7 +89,7 @@ ReactDOM.render(<App />, document.querySelector('#ReactApp'));
     └── index.html
 ```
 
-也可以克隆 [Porter 源码](https://github.com/erzu/porter)，访问 examples/cli 目录了解这个演示应用。
+也可以克隆 [Porter 源码](https://github.com/porterhq/porter)，访问 examples/cli 目录了解这个演示应用。
 
 ### 启动
 

@@ -42,6 +42,7 @@ describe('Module', function() {
       const result = Array.from(entry.dynamicFamily, mod => path.relative(root, mod.fpath));
       assert.deepEqual(result, [
         'browser_modules/mad-import/foo.js',
+        'browser_modules/require-json/测试数据 4.json',
         '../../node_modules/chart.js/dist/Chart.js',
         'browser_modules/dynamic-import/sum.js',
         'browser_modules/dynamic-import/foo.js',

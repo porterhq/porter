@@ -56,6 +56,7 @@ describe('Bundle without preload', function() {
       });
       assert.deepEqual(files, [
         'browser_modules/mad-import/foo.js',
+        'browser_modules/require-json/测试数据 4.json',
         '../../node_modules/chart.js/dist/Chart.js',
         'browser_modules/dynamic-import/sum.js',
         'browser_modules/dynamic-import/foo.js',
@@ -91,6 +92,7 @@ describe('Bundle without preload', function() {
         'lazyload.js',
         'lazyload_dep.js',
         'mad-import/foo.js',
+        'require-json/测试数据 4.json',
         'stylesheets/app.css',
         'test/suite.js',
       ]);
@@ -134,6 +136,8 @@ describe('Bundle without preload', function() {
       assert.deepEqual(files.filter(file => file.startsWith('require-json')), [
         'require-json/foo.json',
         'require-json/foo bar.json',
+        'require-json/测试数据 2.json',
+        'require-json/测试数据 3.json',
         'require-json/suite.js',
       ]);
     });

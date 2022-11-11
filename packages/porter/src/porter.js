@@ -433,6 +433,7 @@ class Porter {
   }
 
   async readFile(file, query) {
+    file = decodeURIComponent(file);
     await this.ready({ minify: process.env.NODE_ENV === 'production' });
 
     const { packet } = this;
