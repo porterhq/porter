@@ -64,9 +64,6 @@ module.exports = function({ types: t, template }) {
      * @param {import('@babel/core').PluginPass} state
      */
     MetaProperty(path, state) {
-      if (t.isMemberExpression(path.parent) && path.parent.property.name === 'url') {
-        path.replaceWith(t.memberExpression(t.identifier('__module'), t.identifier('meta')));
-      } 
       if (t.isCallExpression(path.parentPath.parent) && path.parent.property.name === 'glob') {
         const node = path.parentPath.parent;
         if (node.arguments.length === 0) {
@@ -100,6 +97,8 @@ module.exports = function({ types: t, template }) {
           }
           callExpression.replaceWith(t.objectExpression(properties));
         }
+      } else {
+        path.replaceWith(t.memberExpression(t.identifier('__module'), t.identifier('meta')));
       }
     },
 

@@ -318,7 +318,13 @@
     this.factory = opts.factory;
     this.exports = rWasm.test(id) ? { __esModule: true } : {};
     this.status = MODULE_INIT;
-    this.meta = { url: baseUrl + id };
+    this.meta = {
+      url: parseUri(baseUrl + id),
+      resolve: function(specifier) {
+        var result = Module.resolve(specifier, id);
+        return result ? parseUri(baseUrl + result) : '';
+      },
+    };
     registry[id] = this;
   }
 
