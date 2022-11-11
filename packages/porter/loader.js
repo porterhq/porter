@@ -28,13 +28,6 @@
     };
   }
 
-  if (!Date.now) {
-    Date.now = function() {
-      return +new Date();
-    };
-  }
-
-
   var system = { lock: {}, registry: {}, entries: {}, preload: [] };
   Object.assign(system, process.env.loaderConfig);
   var lock = system.lock;
@@ -115,14 +108,10 @@
       var el = doc.createElement('link');
       el.rel = 'stylesheet';
       el.href = uri;
-      el.onload = function() {
-        callback();
-      };
-      el.onerror = function(cause) {
-        var err = new Error('Failed to fetch ' + uri);
-        err.cause = cause;
+      onload(el, function(err) {
+        el = el.onload = el.onerror = el.onreadystatechange = null;
         callback(err);
-      };
+      });
       head.insertBefore(el, baseElement);
     };
   }
@@ -353,6 +342,19 @@
     }
   }
 
+  function importError(specifiers) {
+    var message = 'import(' + JSON.stringify(specifiers) + ') timeout';
+    var pendingModules = [];
+    for (var id in registry) {
+      var mod = registry[id];
+      if (mod.status < MODULE_FETCHED) pendingModules.push(id);
+    }
+    if (pendingModules.length > 0) {
+      message += ' for pending modules (' + JSON.stringify(pendingModules) + ')';
+    }
+    return new Error(message);
+  }
+
   Module.prototype.fetch = function() {
     var mod = this;
 
@@ -368,7 +370,10 @@
       mod.status = MODULE_FETCHING;
       var uri = parseUri(mod.id);
       function onFetch(err) {
-        if (err) mod.status = MODULE_ERROR;
+        if (err) {
+          mod.status = MODULE_ERROR;
+          if (!/^Failed to fetch/.test(err.message)) console.error(err);
+        }
         if (mod.status < MODULE_FETCHED) mod.status = MODULE_FETCHED;
         mod.uri = uri;
         mod.ignite();
@@ -457,7 +462,7 @@
           // foo.d41d8cd9.css might exists
           require.async([ specifier, id.replace(rExt, '.css') ], resolve);
           setTimeout(function() {
-            reject(new Error('import(' + JSON.stringify(specifier) + ') timeout'));
+            reject(importError(specifier));
           }, system.timeout);
         }), { __esModule: true });
       }
@@ -592,7 +597,7 @@
       });
       var entry = registry[entryId];
       entry.timeout = setTimeout(function() {
-        throw new Error('Ignition timeout ' + specifiers.join(', '));
+        throw importError(specifiers);
       }, system.timeout);
       // Try ignite at the first place, which is necessary when the script is inline.
       entry.ignite();
@@ -658,20 +663,6 @@
      * <script src="/loader.js" data-main="app"></script>
      */
     var currentScript = document.currentScript;
-
-    /**
-     * This works in IE 6-10
-     */
-    if (!currentScript) {
-      var scripts = document.getElementsByTagName('script');
-      for (var i = scripts.length - 1; i >= 0; i--) {
-        var script = scripts[i];
-        if (script.readyState == 'interactive') {
-          currentScript = script;
-          break;
-        }
-      }
-    }
 
     /**
      * This should only be necessary in IE 11 because it's the only browser that does
