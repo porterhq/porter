@@ -1,43 +1,49 @@
 'use strict';
 
 const path = require('path');
+// const fs = require('fs/promises');
 const JsModule = require('./js_module');
 
 module.exports = class TsModule extends JsModule {
   async load() {
     const { packet } = this;
     const { code } = await super.load();
-    const ts = packet.tryRequire('typescript');
-
-    if (!ts) return { code };
+    const { imports: oldImports } = this;
 
     this.matchImport(code);
+    const { dynamicImports } = this;
+    const ts = packet.tryRequire('typescript');
+    const compilerOptions = ts && {
+      target: ts.ScriptTarget.ES2022,
+      sourceMap: false,
+    };
     // remove imports of type definitions in advance, such as
     // import { IModel } from './foo.d.ts';
     // import { IOptions } from './bar.ts';
-    const result = await this._transpile({ code }, { 
-      target: ts.ScriptTarget.ES2022,
-      sourceMap: false,
-    });
+    const result = await this._transpile({ code }, compilerOptions);
+    this.matchImport(result.code);
+
     // remove imports that are transformed from dynamic imports, such as
     // import('./utils/math')
-    this.matchImport(result.code);
+    for (let i = this.imports.length - 1; i >= 0; i--) {
+      const specifier = this.imports[i];
+      if (dynamicImports.includes(specifier) || (oldImports && !oldImports.includes(specifier))) {
+        this.imports.splice(i, 1);
+      }
+    }
+    this.dynamicImports = dynamicImports;
+
     return result;
   }
 
-  matchImport(code) {
-    const { dynamicImports = [] } = this;
-    super.matchImport(code);
-    if (dynamicImports.length > 0) {
-      this.dynamicImports = dynamicImports;
-      this.imports = this.imports.filter(specifier => {
-        return !dynamicImports.includes(specifier);
-      });
-    }
-  }
-
   async _transpile({ code }, compilerOptions) {
-    const { fpath, packet } = this;
+    const { app, fpath, packet } = this;
+
+    // might transpile typescript with tools like babel or swc
+    if (app.transpile.typescript !== 'tsc') {
+      return super._transpile({ code });
+    }
+
     const ts = packet.tryRequire('typescript');
 
     if (!ts) return { code };

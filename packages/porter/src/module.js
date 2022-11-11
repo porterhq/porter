@@ -138,7 +138,7 @@ module.exports = class Module {
       if (mod !== this && mod.isRootEntry && !mod.isWorker) {
         const depBundle = bundles[mod.file];
         if (!children.includes(depBundle)) children.push(depBundle);
-      }    
+      }
     }
 
     if (children.length > 0) {
@@ -262,7 +262,7 @@ module.exports = class Module {
    * new dep to parse. Only the modules of the root packet are checked.
    * @param {Object} opts
    * @param {string} opts.code
-   * @returns {Array}
+   * @returns {Promise<Array>}
    */
   async checkImports({ code }) {
     const { imports } = this;
@@ -280,7 +280,7 @@ module.exports = class Module {
   async obtain() {
     if (!this.cache) {
       const { code, map } = await this.load();
-      this.matchImport(code);
+      if (!this.imports) this.matchImport(code);
       this.setCache(code, await this.transpile({ code, map }));
     }
     return this.cache;

@@ -2,18 +2,17 @@
 
 const path = require('path');
 const { strict: assert } = require('assert');
-const fs = require('fs/promises');
-const Porter = require('../..');
+const Porter = require('@cara/porter');
 
 describe('test/typescript/index.test.js', function() {
-  const root = path.resolve(__dirname, '../../../demo-typescript');
+  const root = path.resolve(__dirname, '..');
   let porter;
 
   before(async function() {
-    await fs.rm(path.join(root, 'public'), { recursive: true, force: true });
     porter = new Porter({
       root,
       entries: [ 'app.tsx' ],
+      cache: { clean: true },
     });
     await porter.ready();
   });
@@ -39,6 +38,7 @@ describe('test/typescript/index.test.js', function() {
         'node_modules/react/index.js',
         'node_modules/react-dom/index.js',
         '../../node_modules/prismjs/prism.js',
+        '../../node_modules/lodash/lodash.js',
         'components/home.tsx',
         'components/utils/math.js',
       ]);
@@ -66,7 +66,7 @@ describe('test/typescript/index.test.js', function() {
       assert(mod.cache);
       await mod.obtain();
       // should not contain './store.ts', './types/index.d.ts', or './utils/math.js'
-      assert.deepEqual(mod.imports, [ 'react', 'react-dom', 'prismjs', './home' ]);
+      assert.deepEqual(mod.imports, [ 'react', 'react-dom', 'prismjs', 'lodash', './home' ]);
     });
   });
 });
