@@ -2,7 +2,6 @@
 
 const { strict: assert } = require('assert');
 const path = require('path');
-const fs = require('fs/promises');
 const Porter = require('../..');
 
 describe('TsModule', function() {
@@ -10,10 +9,10 @@ describe('TsModule', function() {
   let porter;
 
   before(async function() {
-    await fs.rm(path.join(root, 'public'), { recursive: true, force: true });
     porter = new Porter({
       root,
       entries: [ 'app.tsx' ],
+      cache: { clean: true },
     });
     await porter.ready();
   });
@@ -26,7 +25,7 @@ describe('TsModule', function() {
     it('need to neglect type imports in advance', async function() {
       const mod = porter.packet.files['app.tsx'];
       assert.deepEqual(mod.dynamicImports, ['./utils/math']);
-      assert.deepEqual(mod.imports, ['react', 'react-dom', 'prismjs', './home']);
+      assert.deepEqual(mod.imports, ['react', 'react-dom', 'prismjs', 'lodash', './home']);
     });
   });
 });
