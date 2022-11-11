@@ -7,7 +7,7 @@ const Porter = require('../..');
 const { MODULE_LOADED } = require('../../src/constants');
 
 describe('JsModule', function() {
-  const root = path.resolve(__dirname, '../../../demo-app');
+  const root = path.resolve(__dirname, '../../../../examples/app');
   let porter;
 
   before(async function() {
@@ -76,7 +76,7 @@ describe('JsModule', function() {
 });
 
 describe('JsModule uglifyOptions', function() {
-  const root = path.resolve(__dirname, '../../../demo-app');
+  const root = path.resolve(__dirname, '../../../../examples/app');
   let porter;
 
   before(async function() {

@@ -4,7 +4,7 @@ const assert = require('assert').strict;
 const path = require('path');
 const Cache = require('../../src/cache');
 
-const root = path.join(__dirname, '../../../../packages/demo-app');
+const root = path.join(__dirname, '../../../../examples/app');
 
 describe('test/unit/cache.test.js', function() {
   const packet = {

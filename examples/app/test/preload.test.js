@@ -4,7 +4,7 @@ const assert = require('assert').strict;
 const Koa = require('koa');
 const request = require('supertest');
 
-const porter = require('../../../demo-app/lib/porter_preload');
+const porter = require('../lib/preload');
 const fs = require('fs/promises');
 
 const { readFile, writeFile } = fs;

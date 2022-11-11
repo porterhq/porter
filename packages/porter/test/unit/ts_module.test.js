@@ -5,7 +5,7 @@ const path = require('path');
 const Porter = require('../..');
 
 describe('TsModule', function() {
-  const root = path.resolve(__dirname, '../../../demo-typescript');
+  const root = path.resolve(__dirname, '../../../../examples/typescript');
   let porter;
 
   before(async function() {

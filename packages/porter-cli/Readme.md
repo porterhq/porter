@@ -56,10 +56,10 @@ Server started at 5000
 
 ## Developing Browser Modules
 
-Unlike web applications, when developing isolated browser modules (that is meant to be shared as an npm package), the code resides in package root rather than `./components`. Take [demo-component](https://github.com/erzu/porter/tree/master/packages/demo-component) for example.
+Unlike web applications, when developing isolated browser modules (that is meant to be shared as an npm package), the code resides in package root rather than `./components`. Take [examples/component](https://github.com/erzu/porter/tree/master/examples/component) for example.
 
 ```bash
-➜  demo-component git:(master) tree . -I node_modules
+➜  component git:(master) tree . -I node_modules
 .
 ├── index.js
 ├── package.json
@@ -81,7 +81,7 @@ To run the test cases automatically at command line, just pass the `--headless` 
 ```bash
 ➜  demo-component git:(master) npx porter serve --paths . --headless --suite test/suite.js
 
-> @cara/demo-component@2.0.0-3 test /Users/nil/Projects/erzu/porter/packages/demo-component
+> @cara/demo-component@2.0.0-3 test <path to>/examples/component
 > DEBUG=porter,$DEBUG porter serve --paths . --headless
 
 Server started at 50106
@@ -100,7 +100,7 @@ Porter CLI has [Mocha](http://mochajs.org/) opt-in, which means with the default
 3. `/runner.js` tries to load `test/suite.js`, which is the default entry of current package's test cases.
 4. `mocha.run()` at last.
 
-As the developer of current package, no matter it's web application or browser module, the only thing to worry about here is how to put down meaningful test cases into `test/suite.js`. Take the [test cases of demo-app](https://github.com/erzu/porter/tree/master/packages/demo-app/browser_modules/test/suite.js) for example, `test/suite.js` is just an entry of test cases.
+As the developer of current package, no matter it's web application or browser module, the only thing to worry about here is how to put down meaningful test cases into `test/suite.js`. Take the [test cases of examples/app](https://github.com/erzu/porter/tree/master/examples/app/browser_modules/test/suite.js) for example, `test/suite.js` is just an entry of test cases.
 
 We can override the default Mocha settings by search parameters, such as <http://localhost:5000/runner.html?ui=tdd&timeout=60000>.
 

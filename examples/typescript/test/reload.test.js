@@ -16,7 +16,7 @@ async function reload(porter, fpath) {
   await new Promise(resolve => setTimeout(resolve, 1000));
 }
 
-describe('packages/demo-typescript/test/reload.test.js', function() {
+describe('examplestypescript/test/reload.test.js', function() {
   const root = path.resolve(__dirname, '..');
   const sources = {};
   let porter;

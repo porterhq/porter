@@ -7,7 +7,7 @@ const Porter = require('../..');
 const Bundle = require('../../src/bundle');
 
 describe('Bundle without preload', function() {
-  const root = path.resolve(__dirname, '../../../demo-app');
+  const root = path.resolve(__dirname, '../../../../examples/app');
   let porter;
 
   before(async function() {
@@ -185,7 +185,7 @@ describe('Bundle without preload', function() {
 });
 
 describe('Bundle with preload', function() {
-  const root = path.resolve(__dirname, '../../../demo-app');
+  const root = path.resolve(__dirname, '../../../../examples/app');
   let porter;
 
   before(async function() {
@@ -296,7 +296,7 @@ describe('Bundle with preload', function() {
 });
 
 describe('Bundle with TypeScript', function() {
-  const root = path.resolve(__dirname, '../../../demo-typescript');
+  const root = path.resolve(__dirname, '../../../../examples/typescript');
   let porter;
 
   before(async function() {
@@ -331,7 +331,7 @@ describe('Bundle with TypeScript', function() {
 });
 
 describe('Bundle with WebAssembly', function() {
-  const root = path.resolve(__dirname, '../../../demo-wasm');
+  const root = path.resolve(__dirname, '../../../../examples/wasm');
   let porter;
 
   before(async function() {
@@ -370,7 +370,7 @@ describe('Bundle with WebAssembly', function() {
 });
 
 describe('Bundle with Web Worker', function() {
-  const root = path.resolve(__dirname, '../../../demo-worker');
+  const root = path.resolve(__dirname, '../../../../examples/worker');
   let porter;
 
   before(async function() {

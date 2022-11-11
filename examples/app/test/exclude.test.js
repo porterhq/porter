@@ -4,7 +4,7 @@ const { strict: assert } = require('assert');
 const expect = require('expect.js');
 const Koa = require('koa');
 const request = require('supertest');
-const porter = require('../../../demo-app/lib/porter_exclude');
+const porter = require('../lib/exclude');
 
 const app = new Koa();
 app.use(porter.async());

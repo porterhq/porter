@@ -33,6 +33,8 @@
     "build": "rm -rf public && node bin/build.js",
     "dev": "rm -rf public && DEBUG=porter,$DEBUG node-dev app.js",
     "start": "rm -rf public && DEBUG=porter,$DEBUG porter serve --paths app/web",
-    "test": "rm -rf public && DEBUG=porter,$DEBUG porter serve --paths app/web --headless"
+    "test:web": "rm -rf public && DEBUG=porter,$DEBUG porter serve --paths app/web --headless",
+    "test:node": "DEBUG=porter mocha --recursive --exit --timeout 30000",
+    "test": "npm run test:node && npm run test:web"
   }
 }

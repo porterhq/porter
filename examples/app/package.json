@@ -12,7 +12,10 @@
     "build": "rm -rf public && node bin/build.js",
     "dev": "rm -rf public && DEBUG=porter,$DEBUG node-dev app.js",
     "start": "rm -rf public && DEBUG=porter,$DEBUG porter serve --paths components --paths browser_modules --lazyload mad-import/foo.js",
-    "test": "rm -rf public && DEBUG=porter,$DEBUG porter serve --paths components --paths browser_modules --lazyload mad-import/foo.js --headless"
+    "test:web": "rm -rf public && DEBUG=porter,$DEBUG porter serve --paths components --paths browser_modules --lazyload mad-import/foo.js --headless",
+    "test:node": "DEBUG=porter mocha --recursive --exit --timeout 30000",
+    "test": "DEBUG=porter npm run test:node && npm run test:web",
+    "coverage": "DEBUG=porter nyc --no-clean --cwd ../.. mocha -- --recursive --exit --timeout 30000"
   },
   "license": "MIT",
   "devDependencies": {

@@ -15,12 +15,12 @@ It is recommended to first start with our [starter](https://porterhq.github.io/p
 
 Porter consists of two major packages, [@cara/porter](https://github.com/porterhq/porter/tree/master/packages/porter) the middleware and [@cara/porter-cli](https://github.com/porterhq/porter/tree/master/packages/porter-cli) the command line interface. These are the two packages we publish to NPM.
 
-The rest of the packages are mostly for demo or test purpose. For users interested in porter-cli,
+Packages for demo or test purposes now resides in the examples directory. For users interested in porter-cli,
 
-- demo-component may be referenced as a demo of using porter-cli to develop a browser module.
-- demo-cli may be referenced as a demo of using porter-cli to develop a web application.
+- examples/component may be referenced as a demo of using porter-cli to develop a browser module.
+- examples/cli may be referenced as a demo of using porter-cli to develop a web application.
 
-As of demo-app, users interested in porter the middleware may take the `app.js` in demo-app for example. Many options of porter the middleware, and edge cases of browser modules in NPM, are tested in demo-app. Pardon if you find the code within demo-app a bit messy.
+As of examples/app, users interested in porter the middleware may take the `app.js` in examples/app for example. Many options of porter the middleware, and edge cases of browser modules in NPM, are tested in examples/app. Pardon if you find the code within examples/app a bit messy.
 
 ## How to Contribute
 

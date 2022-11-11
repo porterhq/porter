@@ -15,6 +15,8 @@
     "node-dev": "^4.0.0"
   },
   "scripts": {
-    "start": "DEBUG=porter,$DEBUG node-dev proxy-app.js"
+    "start": "DEBUG=porter,$DEBUG node-dev proxy-app.js",
+    "test": "DEBUG=porter,$DEBUG mocha --recursive --exit --timeout 30000",
+    "coverage": "DEBUG=porter,$DEBUG nyc --no-clean --cwd ../.. mocha -- --recursive --exit --timeout 30000"
   }
 }

@@ -6,7 +6,7 @@ const assert = require('assert').strict;
 const Porter = require('../..');
 
 describe('SassModule', function() {
-  const root = path.resolve(__dirname, '../../../demo-complex');
+  const root = path.resolve(__dirname, '../../../../examples/complex');
   let porter;
 
   before(async function() {

@@ -14,8 +14,8 @@ Porter 维护两个 NPM 包，[@cara/porter](https://github.com/porterhq/porter/
 
 可以参考下面几个包来进一步了解命令行工具的使用方式：
 
-- packages/demo-component 演示如何使用 @cara/porter-cli 开发前端组件；
-- packages/demo-cli 演示如何使用 @cara/porter-cli 开发 Web 应用；
+- examplescomponent 演示如何使用 @cara/porter-cli 开发前端组件；
+- examplescli 演示如何使用 @cara/porter-cli 开发 Web 应用；
 
 其他包可能同时包含两种使用方式，目录中可能包含使用 @cara/porter 中间件的 app.js，也可能在 package.json 使用 @cara/porter-cli 来配置 `npm run dev` 命令。
 

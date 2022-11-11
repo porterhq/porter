@@ -14,8 +14,8 @@ title: 快速上手
 假设我们要开始编写一个前端项目，这个项目没有服务段逻辑，只需要完成前端 HTML/JavaScript/CSS 的编写，有前端依赖比如 React、PrismJS 等需要通过 npm 安装：
 
 ```bash
-$ mkdir demo-cli
-$ cd demo-cli
+$ mkdir examples/cli
+$ cd examples/cli
 $ npm install react prismjs @cara/porter-cli
 $ touch index.html
 ```
@@ -74,7 +74,7 @@ ReactDOM.render(<App />, document.querySelector('#ReactApp'));
 到这个步骤，我们这个演示应用的目录结构大致如下：
 
 ```bash
-➜  demo-cli git:(master) tree -L 2 -I node_modules
+➜  examples/cli git:(master) tree -L 2 -I node_modules
 .
 ├── components
 │   ├── app.css
@@ -89,14 +89,14 @@ ReactDOM.render(<App />, document.querySelector('#ReactApp'));
     └── index.html
 ```
 
-也可以克隆 [Porter 源码](https://github.com/erzu/porter)，访问 packages/demo-cli 目录了解这个演示应用。
+也可以克隆 [Porter 源码](https://github.com/erzu/porter)，访问 examplescli 目录了解这个演示应用。
 
 ### 启动
 
 运行 `@cara/porter-cli` 提供的 porter 命令，启动开发环境：
 
 ```bash
-➜  demo-cli git:(master) npx porter serve
+➜  examples/cli git:(master) npx porter serve
 Server started at 5000
 ```
 
@@ -107,15 +107,15 @@ Server started at 5000
 本地完成代码编写准备交付的时候，可以使用如下命令完成代码构建：
 
 ```bash
-➜  demo-cli git:(master) npx porter build --entry app.js
+➜  examples/cli git:(master) npx porter build --entry app.js
 ```
 
 将根据 `--entry` 参数指定的入口模块查找相关依赖、编译代码、合并依赖、以及压缩构建产物，默认将构建结果输出到 dist 目录。
 
 如果不指定 `--entry`，将使用当前目录的 package.json 配置的 module 或者 main 作为入口模块。
 
-也可以使用这个命令构建 npm 包，以 packages/demo-component 为例，开启 `--package` 参数即可：
+也可以使用这个命令构建 npm 包，以 examplescomponent 为例，开启 `--package` 参数即可：
 
 ```bash
-➜  demo-component git:(master) npx porter build --package
+➜  examples/component git:(master) npx porter build --package
 ```

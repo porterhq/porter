@@ -16,9 +16,9 @@ function requestPath(urlPath, status = 200, listener = proxyApp.callback()) {
   });
 }
 
-describe('Porter_readFile()', function() {
+describe('examples/proxy/test/proxy.test.js', function() {
   before(async function() {
-    const factory = require('../../../demo-proxy/proxy-app');
+    const factory = require('../proxy-app');
     proxyApp = await factory();
   });
 

@@ -5,8 +5,8 @@ const Koa = require('koa');
 const path = require('path');
 const fs = require('fs/promises');
 
-const Porter = require('../..');
-const root = path.resolve(__dirname, '../../../demo-app');
+const Porter = require('@cara/porter');
+const root = path.resolve(__dirname, '..');
 
 const app = new Koa();
 const porter = new Porter({

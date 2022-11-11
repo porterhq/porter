@@ -6,6 +6,6 @@
 
 set -e
 
-for file in $(ls packages | grep -v packages); do
-  npm run $1 --workspace ./packages/${file} --if-present
+for workspace in $(ls -d packages/* examples/*); do
+  npm run $1 --workspace ./${workspace} --if-present
 done

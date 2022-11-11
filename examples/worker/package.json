@@ -4,6 +4,7 @@
   "version": "4.3.4",
   "private": true,
   "dependencies": {
+    "@cara/porter": "^4.3.4",
     "regenerator-runtime": "^0.13.5"
   },
   "license": "MIT",
@@ -17,6 +18,9 @@
   },
   "scripts": {
     "start": "rm -rf public && DEBUG=porter,$DEBUG porter serve --include @cara/hello-worker",
-    "test": "rm -rf public && DEBUG=porter,$DEBUG porter serve --include @cara/hello-worker --headless"
+    "test:web": "rm -rf public && DEBUG=porter,$DEBUG porter serve --include @cara/hello-worker --headless",
+    "test:node": "DEBUG=porter mocha --recursive --exit --timeout 30000",
+    "test": "npm run test:node && npm run test:web",
+    "coverage": "DEBUG=porter,$DEBUG nyc --no-clean --cwd ../.. mocha -- --recursive --exit --timeout 30000"
   }
 }
