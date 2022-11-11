@@ -25,6 +25,24 @@
 }
 
 @mixin dark-theme-overrides {
+  #header {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.05);
+
+    .dropdown-list {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .logo:link,
+    .logo:visited {
+      color: inherit;
+    }
+
+    .nav-item > a:hover {
+      text-decoration: none;
+    }
+  }
+
   .markdown-body {
     div.highlight {
       background-color: rgba(0, 0, 0, 0.05);
@@ -123,6 +141,10 @@ a {
   .logo {
     display: inline-block;
     padding: 0.5em 0;
+
+    &:hover {
+      text-decoration: none;
+    }
   }
 
   a:link, a:visited {
@@ -146,7 +168,7 @@ a {
       }
     }
 
-    .dropdown-trigger {
+    .nav-item {
       &:after {
         content: '';
         position: absolute;
