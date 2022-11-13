@@ -16,7 +16,7 @@
 title: Porter
 description: >- # this means to ignore newlines until "baseurl:"
   A blazingly fast module transporter
-baseurl: "/porter" # the subpath of your site, e.g. /blog
+# baseurl: "/porter" # the subpath of your site, e.g. /blog
 github_username:  erzu
 
 # Build settings
