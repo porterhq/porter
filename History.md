@@ -1,3 +1,54 @@
+4.4.0 / 2022-11-11
+==================
+
+## What's Changed
+* fix: dependencies in es module format should be transpiled automatically by @cyjake in https://github.com/porterhq/porter/pull/186
+* refactor: replace lerna with npm workspaces by @cyjake in https://github.com/porterhq/porter/pull/185
+* feat: transpile typescript code with babel by @cyjake in https://github.com/porterhq/porter/pull/187
+* fix: ts module reloading should incrementally parse new dependencies by @cyjake in https://github.com/porterhq/porter/pull/189
+* fix: exceptions thrown during wasm loading should bubble up by @cyjake in https://github.com/porterhq/porter/pull/188
+* feat: support import.meta.resolve() by @cyjake in https://github.com/porterhq/porter/pull/190
+* docs: header style in dark mode with small viewport by @cyjake in https://github.com/porterhq/porter/pull/191
+* refactor: move packages/demo-* folders to examples/* by @cyjake in https://github.com/porterhq/porter/pull/192
+* fix: import('./中文 non ascii.json') by @cyjake in https://github.com/porterhq/porter/pull/193
+* fix: css imports in ts modules need to be restored by @cyjake in https://github.com/porterhq/porter/pull/194
+
+
+**Full Changelog**: https://github.com/porterhq/porter/compare/v4.3.4...v4.4.0
+
+4.3.0 / 2022-10-18
+==================
+
+## What's Changed
+* feat: support glob import by @cyjake in https://github.com/porterhq/porter/pull/174
+* docs: update packages/porter/Readme.md by @cyjake in https://github.com/porterhq/porter/pull/176
+* docs: 添加仓库的和 @cara/porter 包的中文 Readme by @cyjake in https://github.com/porterhq/porter/pull/177
+* docs: 完善中文使用文档，支持深色模式 by @cyjake in https://github.com/porterhq/porter/pull/178
+* feat: support cache.clean and output.clean by @cyjake in https://github.com/porterhq/porter/pull/179
+
+
+**Full Changelog**: https://github.com/porterhq/porter/compare/v4.2.14...v4.3.0
+
+4.2.0 / 2022-05-26
+==================
+
+## What's Changed
+* feat: support import sass & switch to parcel css by @cyjake in https://github.com/porterhq/porter/pull/156
+* fix: should reload css bundle when js bundle change by @cyjake in https://github.com/porterhq/porter/pull/157
+
+
+**Full Changelog**: https://github.com/porterhq/porter/compare/v4.1.1...v4.2.0
+
+4.1.0 / 2022-05-16
+==================
+
+## What's Changed
+* feat: support generating source maps with sourcesContent by @cyjake in https://github.com/porterhq/porter/pull/153
+* feat: support options.source.mappingURL by @cyjake in https://github.com/porterhq/porter/pull/154
+
+
+**Full Changelog**: https://github.com/porterhq/porter/compare/v4.0.13...v4.1.0
+
 4.0.10 / 2022-04-28
 ===================
 
