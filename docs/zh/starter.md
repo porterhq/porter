@@ -89,7 +89,7 @@ ReactDOM.render(<App />, document.querySelector('#ReactApp'));
     └── index.html
 ```
 
-也可以克隆 [Porter 源码](https://github.com/erzu/porter)，访问 examplescli 目录了解这个演示应用。
+也可以克隆 [Porter 源码](https://github.com/erzu/porter)，访问 examples/cli 目录了解这个演示应用。
 
 ### 启动
 
@@ -114,7 +114,7 @@ Server started at 5000
 
 如果不指定 `--entry`，将使用当前目录的 package.json 配置的 module 或者 main 作为入口模块。
 
-也可以使用这个命令构建 npm 包，以 examplescomponent 为例，开启 `--package` 参数即可：
+也可以使用这个命令构建 npm 包，以 examples/component 为例，开启 `--package` 参数即可：
 
 ```bash
 ➜  examples/component git:(master) npx porter build --package

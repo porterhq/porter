@@ -6,11 +6,11 @@ const { strict: assert } = require('assert');
 const fs = require('fs/promises');
 const Porter = require('@cara/porter');
 
-async function reload(porter, fpath) {
+async function reload(porter, file) {
   if (process.platform !== 'darwin' && process.platform !== 'win32') {
     // https://stackoverflow.com/questions/10468504/why-fs-watchfile-called-twice-in-node
     // recursive option not supported on linux platform, reload again to make sure test passes.
-    await porter.packet.reload('change', fpath);
+    await porter.packet.reload('change', file);
   }
   // {@link Package#watch} takes time to reload
   await new Promise(resolve => setTimeout(resolve, 1000));
@@ -55,7 +55,7 @@ describe('examplestypescript/test/reload.test.js', function() {
 ${source}
 console.log(debounce);
 /* ${mark} */`);
-    await reload(mod.fpath);
+    await reload(porter, mod.file);
     await mod.obtain();
     assert.deepEqual(Object.keys(lodash.entries), ['throttle.js', 'debounce.js']);
   });

@@ -35,6 +35,7 @@
     "start": "rm -rf public && DEBUG=porter,$DEBUG porter serve --paths app/web",
     "test:web": "rm -rf public && DEBUG=porter,$DEBUG porter serve --paths app/web --headless",
     "test:node": "DEBUG=porter mocha --recursive --exit --timeout 30000",
-    "test": "npm run test:node && npm run test:web"
+    "test": "npm run test:node && npm run test:web",
+    "coverage": "DEBUG=porter,$DEBUG nyc --no-clean --cwd ../.. mocha -- --recursive --exit --timeout 30000"
   }
 }

@@ -29,7 +29,7 @@ $ cd packages/porter && npm run test
 
 ### 了解目录结构
 
-packages 目录下都是 npm 包，真正会被发布到 npm 的只有 packaegs/porter 和 packages/porter-cli，examples* 格式的包都是演示或者测试验证用，不会被发布。
+packages 目录下都是 npm 包，真正会被发布到 npm 的只有 packaegs/porter 和 packages/porter-cli，examples/* 格式的包都是演示或者测试验证用，不会被发布。
 
 ### 执行测试
 

@@ -76,7 +76,7 @@ Porter 通过 `Packet` 来处理外部依赖查找、依赖入口模块管理、
 
 Porter 对 WebAssembly 的支持程度还比较有限，目前仅支持 [wasm-pack](https://github.com/rustwasm/wasm-pack) 的构建产物，要求依赖包的默认输出格式为 `export default function init(): Promise<exports>`。
 
-可以参考 packages/hello-wasm 和 exampleswasm 了解 WebAssembly 包的生产与使用方式。
+可以参考 packages/hello-wasm 和 examples/wasm 了解 WebAssembly 包的生产与使用方式。
 
 ### 构建工具
 
