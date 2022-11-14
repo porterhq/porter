@@ -11,13 +11,13 @@ describe('FakePacket', function() {
 
   before(async function() {
     target = new Porter({
-      root: path.join(__dirname, '../../../demo-app'),
+      root: path.join(__dirname, '../../../../examples/app'),
       entries: [ 'home.js' ],
     });
     await target.ready();
     const { loaderConfig, lock } = target.packet;
     porter = new Porter({
-      root: path.join(__dirname, '../../../demo-proxy'),
+      root: path.join(__dirname, '../../../../examples/proxy'),
       ...loaderConfig,
       lock,
     });

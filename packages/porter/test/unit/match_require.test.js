@@ -7,7 +7,7 @@ const assert = require('assert').strict;
 
 const matchRequire = require('../../src/match_require');
 
-const root = path.join(__dirname, '../../../demo-app');
+const root = path.join(__dirname, '../../../../examples/app');
 
 describe('matchRequire.findAll()', function() {
   it('match require call statement', async function () {

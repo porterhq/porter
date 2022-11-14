@@ -6,7 +6,7 @@ const expect = require('expect.js');
 const Porter = require('../..');
 
 describe('porter.compileEntry()', function() {
-  const root = path.resolve(__dirname, '../../../demo-app');
+  const root = path.resolve(__dirname, '../../../../examples/app');
   let porter;
 
   before(async function() {

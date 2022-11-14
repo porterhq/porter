@@ -26,13 +26,6 @@
 
 @mixin dark-theme-overrides {
   #header {
-    background: rgba(255, 255, 255, 0.15);
-    border-color: rgba(255, 255, 255, 0.05);
-
-    .dropdown-list {
-      background: rgba(255, 255, 255, 0.15);
-    }
-
     .logo:link,
     .logo:visited {
       color: inherit;
@@ -91,6 +84,17 @@
   .color-scheme {
     background: none;
     color: var(--color);
+  }
+
+  @media (max-width: 1400px) {
+    #header {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.05);
+
+      .dropdown-list {
+        background: rgba(255, 255, 255, 0.15);
+      }
+    }
   }
 }
 
@@ -168,7 +172,7 @@ a {
       }
     }
 
-    .nav-item {
+    .dropdown-trigger {
       &:after {
         content: '';
         position: absolute;

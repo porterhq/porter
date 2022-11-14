@@ -5,7 +5,7 @@ const path = require('path');
 const Porter = require('../..');
 
 describe('Module', function() {
-  const root = path.resolve(__dirname, '../../../demo-app');
+  const root = path.resolve(__dirname, '../../../../examples/app');
   let porter;
 
   before(async function() {

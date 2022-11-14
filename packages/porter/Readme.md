@@ -34,10 +34,10 @@ app.use(porter.func())
 
 ## Modules
 
-With the default setup, browser modules at `./components` folder is now accessible with `/path/to/file.js`. Take [demo-cli](https://github.com/porterhq/porter/tree/master/packages/demo-cli) for example, the file structure shall resemble that of below:
+With the default setup, browser modules at `./components` folder is now accessible with `/path/to/file.js`. Take [examples/cli](https://github.com/porterhq/porter/tree/master/examples/cli) for example, the file structure shall resemble that of below:
 
 ```bash
-➜  demo-cli git:(master) tree -L 2
+➜  cli git:(master) tree -L 2
 .
 ├── components        # browser modules
 │   ├── app.css
@@ -80,7 +80,7 @@ In `./public/index.html`, we can now add CSS and JavaScript entries:
 > <script src="/loader.js"></script>
 > <script>porter.import('app')</script>
 > ```
-> 
+>
 > Both formats are no longer recommended, please use `<script src="/app.js?main"></script>` directly.
 
 In JavaScript entry, all kinds of imports are supported:
@@ -96,7 +96,7 @@ import './foo.css';
 // will fetch the wasm file, instantiate it, and return the exports
 import wasm from './foo.wasm';
 
-// will bundle and fetch worker.js separately 
+// will bundle and fetch worker.js separately
 import Worker from 'worker-loader!./worker.js';
 ```
 
@@ -118,21 +118,21 @@ const Porter = require('@cara/porter');
 const porter = new Porter({
   // project root, defaults to `process.cwd()`
   root: process.cwd(),
-  
+
   // paths of browser modules, or components, defaults to `'components'`
   paths: 'components',
-  
+
   // output settings
   output: {
     // path of the compile output, defaults to `'public'`
     path: 'public',
   },
-  
+
   // cache settings
   cache: {
     // path of the cache store, defaults to `output.path`
     path: '.porter-cache',
-    
+
     // cache identifier to shortcut cache invalidation
     identifier({ packet }) {
       return JSON.stringify([
@@ -143,10 +143,10 @@ const porter = new Porter({
       ]);
     },
   },
-  
+
   // preload common dependencies, defaults to `[]`
   preload: [ 'preload', '@babel/runtime' ],
-  
+
   // the module resolution behaviour
   resolve: {
     // an alias at project level to simplify import specifier, such as
@@ -154,36 +154,36 @@ const porter = new Porter({
     alias: {
       '@': path.join(process.cwd(), 'components'),
     },
-    
+
     // supported extensions
     extensions: [ '*', '.js', '.jsx', '.ts', '.tsx', '.css' ],
-    
+
     // transform big libraries that support partial import by conventions
     import: [
       { libraryName: 'antd', style: 'css' },
-      { libraryName: 'lodash', 
-        libraryDirectory: '', 
+      { libraryName: 'lodash',
+        libraryDirectory: '',
         camel2DashComponentName: false },
     ],
   },
-  
+
   // transpile settings
   transpile: {
     // turn on transpilation on certain dependencies, defaults to `[]`
     include: [ 'antd' ],
   },
-  
+
   // bundle settings
   bundle: {
     // excluded dependencies will be bundled separately, defaults to `[]`
     exclude: [ 'antd' ],
   },
-  
+
   // source settings
   source: {
     // serve the source file if it's development mode, defaults to `false`
     serve: process.env.NODE_ENV !== 'production',
-    
+
     // the `sourceRoot` in the generated source map, defaults to `'/'`
     root: 'localhost:3000',
   },

@@ -6,7 +6,7 @@ const Porter = require('../..');
 const { MODULE_LOADED } = require('../../src/constants');
 
 describe('WasmModule', function() {
-  const root = path.resolve(__dirname, '../../../demo-app');
+  const root = path.resolve(__dirname, '../../../../examples/app');
   let porter;
 
   before(async function() {

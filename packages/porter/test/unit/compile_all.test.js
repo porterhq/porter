@@ -13,7 +13,7 @@ describe('Porter with preload', function() {
   describe('porter.compileAll()', function() {
     // compiling without cache could be time consuming
     this.timeout(600000);
-    const root = path.resolve(__dirname, '../../../demo-app');
+    const root = path.resolve(__dirname, '../../../../examples/app');
     let porter;
     let entries;
     let manifest;
@@ -148,7 +148,7 @@ describe('Porter with preload', function() {
   describe('porter.compileAll() with ({ output: { clean: true } })', function() {
     // compiling without cache could be time consuming
     this.timeout(600000);
-    const root = path.resolve(__dirname, '../../../demo-app');
+    const root = path.resolve(__dirname, '../../../../examples/app');
     let porter;
 
     before(async function() {
@@ -182,7 +182,7 @@ describe('Porter with preload', function() {
   describe('porter.compileAll()', function() {
     // compiling without cache could be time consuming
     this.timeout(600000);
-    const root = path.resolve(__dirname, '../../../demo-app');
+    const root = path.resolve(__dirname, '../../../../examples/app');
     let porter;
     // let entries;
     let manifest;
@@ -242,7 +242,7 @@ describe('Porter with preload', function() {
   describe('porter.compileAll()', function() {
     // compiling without cache could be time consuming
     this.timeout(600000);
-    const root = path.resolve(__dirname, '../../../demo-app');
+    const root = path.resolve(__dirname, '../../../../examples/app');
     let porter;
 
     before(async function() {
@@ -274,7 +274,7 @@ describe('Porter with preload', function() {
       const bundle = porter.packet.bundles['home.css'];
       assert.deepEqual(bundle.entries, [ 'home.js', 'home.css' ]);
     });
-    
+
     it('should handle css import in js', async function() {
       const bundle = porter.packet.bundles['about.css'];
       assert.deepEqual(bundle.entries, ['about.js']);

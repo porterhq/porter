@@ -37,7 +37,7 @@ Server started at http://localhost:3000
 默认配置的前端源码目录为 ./components，也就是下面这种目录结构：
 
 ```bash
-➜  demo-cli git:(master) tree -L 2
+➜  examples/cli git:(master) tree -L 2
 .
 ├── components        # browser modules
 │   ├── app.css
@@ -56,7 +56,7 @@ Server started at http://localhost:3000
 可以直接将当前目录作为源码目录，例如：
 
 ```bash
-➜  demo-component git:(master) tree . -I node_modules
+➜  examples/component git:(master) tree . -I node_modules
 .
 ├── index.js
 ├── package.json
@@ -71,7 +71,7 @@ $ porter serve --paths .
 Server started at http://localhost:3000
 ```
 
-详细使用方式可以参考 <https://github.com/porterhq/porter/tree/master/packages/demo-component>
+详细使用方式可以参考 <https://github.com/porterhq/porter/tree/master/examples/component>
 
 ### 打包构建
 

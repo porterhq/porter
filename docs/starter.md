@@ -48,7 +48,7 @@ In `app.css`, we can `@import` css dependencies:
 The files shall be organized like below.
 
 ```bash
-➜  demo-cli git:(master) tree -L 2 -I node_modules
+➜  examples/cli git:(master) tree -L 2 -I node_modules
 .
 ├── components
 │   ├── app.css
@@ -66,8 +66,8 @@ The files shall be organized like below.
 We can now start the app with Porter.
 
 ```bash
-➜  demo-cli git:(master) npm install @cara/porter-cli
-➜  demo-cli git:(master) npx porter serve
+➜  examples/cli git:(master) npm install @cara/porter-cli
+➜  examples/cli git:(master) npx porter serve
 Server started at 5000
 ```
 

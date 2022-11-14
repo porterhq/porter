@@ -4,7 +4,7 @@ const path = require('path');
 const { strict: assert } = require('assert');
 const Porter = require('@cara/porter');
 
-describe('packages/demo-typescript/test/babel.test.js', function() {
+describe('examplestypescript/test/babel.test.js', function() {
   const root = path.resolve(__dirname, '..');
   let porter;
   let packetFn;

@@ -2,10 +2,10 @@
 
 const path = require('path');
 const assert = require('assert').strict;
-const Porter = require('../..');
+const Porter = require('@cara/porter');
 
 describe('test/complex/index.test.js', function() {
-  const root = path.resolve(__dirname, '../../../demo-complex');
+  const root = path.resolve(__dirname, '..');
   let porter;
 
   before(async function() {

@@ -76,7 +76,7 @@ Porter 通过 `Packet` 来处理外部依赖查找、依赖入口模块管理、
 
 Porter 对 WebAssembly 的支持程度还比较有限，目前仅支持 [wasm-pack](https://github.com/rustwasm/wasm-pack) 的构建产物，要求依赖包的默认输出格式为 `export default function init(): Promise<exports>`。
 
-可以参考 packages/hello-wasm 和 packages/demo-wasm 了解 WebAssembly 包的生产与使用方式。
+可以参考 packages/hello-wasm 和 examples/wasm 了解 WebAssembly 包的生产与使用方式。
 
 ### 构建工具
 
@@ -85,13 +85,13 @@ Porter 对 WebAssembly 的支持程度还比较有限，目前仅支持 [wasm-pa
 使用 `@cara/porter-cli` 命令行工具的用户，可以通过 `porter build` 命令完成资源构建：
 
 ```bash
-➜  demo-cli git:(master) npx porter build --entry app.js
+➜  examples/cli git:(master) npx porter build --entry app.js
 ```
 
 相关构建产物默认生成到 `dist` 目录，也可以使用 `--dest` 参数配置：
 
 ```bash
-➜  demo-cli git:(master) npx porter build --entry app.js --dest public
+➜  examples/cli git:(master) npx porter build --entry app.js --dest public
 ```
 
 更多有关构建工具的使用说明，推荐阅读《[命令行工具]({{ '/zh/cli' | relative_url }})》一文。

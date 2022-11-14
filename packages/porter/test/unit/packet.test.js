@@ -11,7 +11,7 @@ const glob = util.promisify(require('glob'));
 const Porter = require('../..');
 
 describe('Packet', function() {
-  const root = path.resolve(__dirname, '../../../demo-app');
+  const root = path.resolve(__dirname, '../../../../examples/app');
   let porter;
 
   before(async function() {
@@ -300,7 +300,7 @@ describe('Packet', function() {
 });
 
 describe('Packet with WebAssembly', function() {
-  const root = path.resolve(__dirname, '../../../demo-wasm');
+  const root = path.resolve(__dirname, '../../../../examples/wasm');
   let porter;
 
   before(async function() {
