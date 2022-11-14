@@ -4,7 +4,7 @@ const path = require('path');
 const { strict: assert } = require('assert');
 const Porter = require('@cara/porter');
 
-describe('examplestypescript/test/babel.test.js', function() {
+describe('examples/typescript/test/babel.test.js', function() {
   const root = path.resolve(__dirname, '..');
   let porter;
   let packetFn;
@@ -43,12 +43,23 @@ describe('examplestypescript/test/babel.test.js', function() {
       assert.deepEqual(mod.dynamicImports, ['./utils/math']);
       assert.deepEqual(mod.imports, ['react', 'react-dom', 'prismjs', 'lodash', './home']);
     });
+
+    it('should keep css imports', async function() {
+      const mod = porter.packet.files['about.tsx'];
+      assert.deepEqual(mod.imports, ['react', 'react-dom', './about.css']);
+      assert.deepEqual(Array.from(mod.children, child => path.relative(porter.root, child.fpath)), [
+        'node_modules/react/index.js',
+        'node_modules/react-dom/index.js',
+        'components/about.css'
+      ]);
+    });
   });
 
   describe('module.transpile()', function() {
     it('should neglect dependencies excluded by babel plugin', async function() {
       const mod = porter.packet.files['about.tsx'];
-      assert.deepEqual(mod.imports, ['react', 'react-dom']);
+      // exclude heredoc
+      assert.deepEqual(mod.imports, ['react', 'react-dom', './about.css']);
     });
   });
 });

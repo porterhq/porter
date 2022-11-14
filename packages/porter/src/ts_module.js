@@ -11,7 +11,7 @@ module.exports = class TsModule extends JsModule {
     const { imports: oldImports } = this;
 
     this.matchImport(code);
-    const { dynamicImports } = this;
+    const { dynamicImports, imports } = this;
     const ts = packet.tryRequire('typescript');
     const compilerOptions = ts && {
       target: ts.ScriptTarget.ES2022,
@@ -24,11 +24,18 @@ module.exports = class TsModule extends JsModule {
     this.matchImport(result.code);
 
     // remove imports that are transformed from dynamic imports, such as
-    // import('./utils/math')
+    // import('./utils/math');
     for (let i = this.imports.length - 1; i >= 0; i--) {
       const specifier = this.imports[i];
       if (dynamicImports.includes(specifier) || (oldImports && !oldImports.includes(specifier))) {
         this.imports.splice(i, 1);
+      }
+    }
+    // restore css imports that might be removed when compiling with babel, such as
+    // import './foo.css';
+    for (const specifier of imports) {
+      if (specifier.endsWith('.css') && !this.imports.includes(specifier)) {
+        this.imports.push(specifier);
       }
     }
     this.dynamicImports = dynamicImports;
