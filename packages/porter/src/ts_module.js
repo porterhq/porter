@@ -40,7 +40,7 @@ module.exports = class TsModule extends JsModule {
     }
     this.dynamicImports = dynamicImports;
 
-    return result;
+    return { code };
   }
 
   async _transpile({ code }, compilerOptions) {
@@ -51,6 +51,9 @@ module.exports = class TsModule extends JsModule {
       return super._transpile({ code });
     }
 
+    /**
+     * @type import('typescript')
+     */
     const ts = packet.tryRequire('typescript');
 
     if (!ts) return { code };
@@ -76,6 +79,7 @@ module.exports = class TsModule extends JsModule {
 
     if (sourceMapText) {
       map = JSON.parse(sourceMapText);
+      // generated map.sources were fs.basename(fileName), which is not correct
       map.sources = [ `porter:///${fileName}` ];
     }
 
