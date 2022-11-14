@@ -68,6 +68,8 @@ module.exports = class Bundle {
       for (const file of entries) {
         if (!cssBundle.entries.includes(file)) cssBundle.entries.unshift(file);
       }
+      cssBundle.parent = bundle;
+      bundle.children.push(cssBundle);
       results.unshift(cssBundle);
     }
 

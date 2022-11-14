@@ -55,6 +55,7 @@ describe('Bundle without preload', function() {
         return path.relative(root, child.packet.files[child.entry].fpath);
       });
       assert.deepEqual(files, [
+        'browser_modules/test/suite.js',
         'browser_modules/mad-import/foo.js',
         'browser_modules/require-json/测试数据 4.json',
         '../../node_modules/chart.js/dist/Chart.js',
@@ -94,6 +95,7 @@ describe('Bundle without preload', function() {
         'mad-import/foo.js',
         'require-json/测试数据 4.json',
         'stylesheets/app.css',
+        'test/suite.css',
         'test/suite.js',
       ]);
       const bundle = porter.packet.bundles['home.js'];
