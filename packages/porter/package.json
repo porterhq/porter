@@ -1,11 +1,11 @@
 {
   "name": "@cara/porter",
   "description": "A middleware for web modules",
-  "version": "4.4.0",
+  "version": "4.4.1",
   "main": "src/porter.js",
   "repository": {
     "type": "git",
-    "url": "git@github.com:erzu/porter.git"
+    "url": "git@github.com:porterhq/porter.git"
   },
   "publishConfig": {
     "access": "public"

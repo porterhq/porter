@@ -1,3 +1,13 @@
+4.4.1 / 2022-11-14
+==================
+
+## What's Changed
+* fix: ts module source map by @cyjake in https://github.com/porterhq/porter/pull/195
+* fix: load css entry (if present) automatically by @cyjake in https://github.com/porterhq/porter/pull/196
+
+
+**Full Changelog**: https://github.com/porterhq/porter/compare/v4.4.0...v4.4.1
+
 4.4.0 / 2022-11-11
 ==================
 
