@@ -2,6 +2,8 @@ import React, { useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import heredoc from 'heredoc';
 
+import './about.css';
+
 function App() {
   const container = useRef<HTMLElement>();
   useEffect(function() {
