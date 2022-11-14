@@ -32,6 +32,7 @@ describe('test/app/index.test.js', function() {
       const { packet } = porter;
       assert.deepEqual(Object.keys(packet.copy.manifest), [ 'preload.js' ]);
     });
+
   });
 
   describe('packet.bundles', function() {
@@ -68,6 +69,15 @@ describe('test/app/index.test.js', function() {
         '../../node_modules/cropper/dist/cropper.css',
         '../../node_modules/prismjs/themes/prism.css',
       ]);
+    });
+  });
+
+  describe('module.lock', function() {
+    it('should manifest corresponding css entry if presetn', function() {
+      const mod = porter.packet.files['home.js'];
+      const { packet } = porter;
+      const { manifest } = mod.lock[packet.name][packet.version];
+      assert.equal(manifest['home.css'], packet.bundles['home.css'].output);
     });
   });
 });

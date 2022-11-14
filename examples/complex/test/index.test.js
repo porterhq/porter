@@ -98,6 +98,7 @@ describe('test/complex/index.test.js', function() {
       const mod = porter.packet.files['home.jsx'];
       const { manifest } = mod.lock[porter.packet.name][porter.packet.version];
       assert.deepEqual(Object.keys(manifest), [
+        'home.css',
         'editor.css',
         'editor.js',
         'notfound.js',

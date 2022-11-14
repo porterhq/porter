@@ -2,6 +2,9 @@
 
 window.Buffer = require('buffer').Buffer;
 const expect = require('expect.js');
+const assert = require('assert').strict;
+
+require('./suite.css');
 
 // #1 mocha cannot be required directly yet.
 // const mocha = require('mocha')
@@ -112,5 +115,12 @@ describe('implicit es module should be transpiled as well', function() {
   it('should transpile jsencrypt', function() {
     const JSEncrypt = require('jsencrypt').default;
     expect(JSEncrypt).to.be.a(Function);
+  });
+});
+
+describe('css entries', function() {
+  it('should load corresponding css entries automatically', function() {
+    const links = [...document.querySelectorAll('link[rel="stylesheet"]')];
+    assert.equal(links.filter(link => link.href.includes('test/suite')).length, 1);
   });
 });

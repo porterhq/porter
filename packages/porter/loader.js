@@ -466,11 +466,7 @@
       if (!dep && rDigest.test(parseUri(id)) && typeof Promise === 'function') {
         // eslint-disable-next-line no-shadow
         return Object.assign(new Promise(function(resolve, reject) {
-          // foo.d41d8cd9.css might exists
-          const specifiers = [specifier];
-          const cssEntry = id.replace(rExt, '.css');
-          if (rDigest.test(parseUri(cssEntry))) specifiers.push(cssEntry);
-          require.async(specifiers, function(exports) {
+          require.async(specifier, function(exports) {
             if (exports.__esModule) return resolve(exports);
             if (rJson.test(id)) return resolve({ default: exports });
             resolve(Object.assign({ default: exports }, exports));
@@ -602,8 +598,14 @@
   var importEntryId = 0;
   function importFactory(context) {
     return function(specifiers, fn) {
-      specifiers = [].concat(specifiers);
       var entryId = resolve(context, 'import-' + (importEntryId++) + '.js');
+      specifiers = [].concat(specifiers);
+      for (var i = 0, len = specifiers.length; i < len; i++) {
+        var specifier = specifiers[i];
+        // foo.d41d8cd9.css might exists
+        var cssEntry = Module.resolve(specifier, entryId).replace(rExt, '.css');
+        if (rDigest.test(parseUri(cssEntry))) specifiers.push(cssEntry);
+      }
       system.entries[entryId] = true;
       define(entryId, specifiers, function(require) {
         var mods = specifiers.map(require);

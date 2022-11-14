@@ -108,7 +108,8 @@ describe('Packet', function() {
         'home_dep.css',
         'stylesheets/app.css',
         'stylesheets/common/base.css',
-        'stylesheets/common/reset.css'
+        'stylesheets/common/reset.css',
+        'test/suite.css',
       ]);
     });
 
