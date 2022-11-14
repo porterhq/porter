@@ -62,4 +62,9 @@ describe('Porter_readFile()', function() {
       expect(reactIds).to.not.contain(id);
     }
   });
+
+  it('should be able to respond json module', async function() {
+    await requestPath('/test/suite.js?main');
+    await requestPath(`/require-json/${encodeURIComponent('测试数据 4')}.js?entry`);
+  });
 });

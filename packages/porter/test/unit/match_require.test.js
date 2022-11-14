@@ -235,4 +235,19 @@ describe('matchRequire.findAll()', function() {
     assert.deepEqual(imports, [ 'foo', 'bar' ]);
     assert.deepEqual(dynamicImports, [ 'some-big-package' ]);
   });
+
+  it('should match unicode literal', async function() {
+    const { imports } = matchRequire.findAll(`
+      import "./\\u6d4b\\u8bd5\\u6570\\u636e 3.json";
+    `);
+    assert.deepEqual(imports, [ './\u6d4b\u8bd5\u6570\u636e 3.json' ]);
+    assert.deepEqual(imports, [ './测试数据 3.json' ]);
+  });
+});
+
+describe('matchRequire.decodeUnicodeLiteral', function() {
+  it('should replace unicode literal', function() {
+    const result = matchRequire.decodeUnicodeLiteral('./\\u6d4b\\u8bd5\\u6570\\u636e 3.json');
+    assert.equal(result, './测试数据 3.json');
+  });
 });

@@ -64,6 +64,7 @@
   var requestStyle;
   var rCss = /\.css$/;
   var rWasm = /\.wasm$/;
+  var rJson = /\.json$/;
   var rExt = /(\.\w+)$/;
   var rDigest = /\.[0-9a-f]{8}(\.\w+)$/;
 
@@ -223,7 +224,7 @@
   function suffix(id) {
     if (id.slice(-1) == '/') return id + 'index.js';
     id = id.replace(/\.(?:jsx?|tsx?|mjs|cjs)$/, '.js').replace(/\.(?:less|sass|scss)$/, '.css');
-    return /\.(?:css|js|wasm)$/.test(id) ? id : id + '.js';
+    return /\.(?:css|js|json|wasm)$/.test(id) ? id : id + '.js';
   }
 
 
@@ -466,7 +467,14 @@
         // eslint-disable-next-line no-shadow
         return Object.assign(new Promise(function(resolve, reject) {
           // foo.d41d8cd9.css might exists
-          require.async([ specifier, id.replace(rExt, '.css') ], resolve);
+          const specifiers = [specifier];
+          const cssEntry = id.replace(rExt, '.css');
+          if (rDigest.test(parseUri(cssEntry))) specifiers.push(cssEntry);
+          require.async(specifiers, function(exports) {
+            if (exports.__esModule) return resolve(exports);
+            if (rJson.test(id)) return resolve({ default: exports });
+            resolve(Object.assign({ default: exports }, exports));
+          });
           setTimeout(function() {
             reject(importError(specifier));
           }, system.timeout);
