@@ -204,6 +204,15 @@ module.exports = class Module {
         for (const key of searchParams.keys()) result[key] = searchParams.get(key);
         loaders[loader] = result;
       }
+    } else if (dep.includes('?')) {
+      const [pathname, search] = dep.split('?');
+      dep = pathname;
+      const searchParams = new URLSearchParams(search);
+      if (searchParams.has('worker')) {
+        const result = {};
+        for (const key of searchParams.keys()) result[key] = searchParams.get(key);
+        loaders['worker-loader'] = result;
+      }
     }
 
     const { packet, app } = this;

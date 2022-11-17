@@ -73,6 +73,18 @@ module.exports = class Bundle {
       results.unshift(cssBundle);
     }
 
+    // import 'worker-loader!./foo.worker.js';
+    // import './bar.worker.js?worker';
+    if (!packet.parent) {
+      for (const mod of entry.immediateFamily) {
+        if (mod !== entry && mod.packet === packet && mod.isWorker) {
+          const depBundle = Bundle.create({ packet, entries: [mod.file] });
+          if (!depBundle.parent) depBundle.parent = bundle;
+          bundle.children.push(depBundle);
+        }
+      }
+    }
+
     for (const mod of entry.dynamicFamily) {
       // import(specifier);
       const depBundles = Bundle.wrap({

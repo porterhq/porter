@@ -213,6 +213,13 @@ describe('matchRequire.findAll()', function() {
     expect(imports).to.contain('worker-loader!./parserWorker.js');
   });
 
+  it('should match ./parserWorker.js?worker', async function() {
+    const { imports } = matchRequire.findAll(`
+      import worker from './parserWorker.js?worker&inline';
+    `);
+    assert.deepEqual(imports, ['./parserWorker.js?worker&inline']);
+  });
+
   it('should match require.async()', async function() {
     const { imports, dynamicImports } = matchRequire.findAll(`
       require('foo');
