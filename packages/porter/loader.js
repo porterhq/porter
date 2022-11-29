@@ -101,14 +101,17 @@
       // baseElement cannot be undefined in IE8-.
       head.insertBefore(el, baseElement);
     };
-    requestStyle = function loadStyle(uri, callback) {
-      if (typeof importScripts === 'function' || !rDigest.test(uri) || doc.querySelector('[href="' + uri + '"]')) {
+    requestStyle = function loadStyle(url, callback) {
+      // http://localhost:3000/foo/bar.e8572fb4.css -> /foo/bar.css
+      var localUrl = url.replace(baseUrl, system.baseUrl).replace(rDigest, '$1');
+      var selectors = '[href="' + url + '"], [href="' + localUrl + '"]';
+      if (typeof importScripts === 'function' || !rDigest.test(url) || doc.querySelector(selectors)) {
         callback();
         return;
       }
       var el = doc.createElement('link');
       el.rel = 'stylesheet';
-      el.href = uri;
+      el.href = url;
       onload(el, function(err) {
         el = el.onload = el.onerror = el.onreadystatechange = null;
         callback(err);
@@ -140,15 +143,15 @@
     return _loadWasm(module, imports);
   }
 
-  function requestWasm(uri, callback) {
-    var id = uri.replace(baseUrl, '').replace(rDigest, '$1');
+  function requestWasm(url, callback) {
+    var id = url.replace(baseUrl, '').replace(rDigest, '$1');
     var mod = registry[id];
     var contextId = id.replace(rWasm, '.js');
     var context = registry[contextId];
-    if (!context) throw new Error('context module of ' + uri + ' not found');
+    if (!context) throw new Error('context module of ' + url + ' not found');
 
     // loader.js might be required to run in legacy browser hence async/await not used
-    fetch(new URL(uri, location.origin))
+    fetch(new URL(url, location.origin))
       .then(function onResponse(module) {
         // execute context module factory for the first time to grab the imports
         // FIXME: context might not be ready to execute if the packet weren't bundled
@@ -171,13 +174,13 @@
       });
   }
 
-  function request(uri, callback) {
-    if (rWasm.test(uri)) {
-      requestWasm(uri, callback);
-    } else if (rCss.test(uri)) {
-      requestStyle(uri, callback);
+  function request(url, callback) {
+    if (rWasm.test(url)) {
+      requestWasm(url, callback);
+    } else if (rCss.test(url)) {
+      requestStyle(url, callback);
     } else {
-      requestScript(uri, callback);
+      requestScript(url, callback);
     }
   }
 
@@ -239,15 +242,15 @@
   }
 
 
-  function parseMap(uri) {
+  function parseMap(url) {
     var map = system.map;
-    var ret = uri;
+    var ret = url;
 
     if (map) {
       for (var pattern in map) {
-        ret = uri.replace(new RegExp('^' + pattern), map[pattern]);
+        ret = url.replace(new RegExp('^' + pattern), map[pattern]);
         // Only apply the first matched rule
-        if (ret !== uri) break;
+        if (ret !== url) break;
       }
     }
 
@@ -256,18 +259,18 @@
 
 
   /**
-   * To match against following uris:
+   * To match against following urls:
    * - https://example.com/foo.js
    * - http://example.com/bar.js
    * - //example.com/baz.js
    * - /qux/quux.js
    */
-  var rUri = /^(?:https?:)?\//;
+  var rUrl = /^(?:https?:)?\//;
 
-  function parseUri(id) {
+  function parseUrl(id) {
     var id = parseMap(id);
     // https://example.com/foo.js
-    if (rUri.test(id)) return id;
+    if (rUrl.test(id)) return id;
 
     var mod = registry[id];
     var isRootEntry = !mod || !mod.parent || (mod.parent.id in system.entries);
@@ -320,10 +323,10 @@
     this.exports = rWasm.test(id) ? { __esModule: true } : {};
     this.status = MODULE_INIT;
     this.meta = {
-      url: parseUri(baseUrl + id),
+      url: parseUrl(baseUrl + id),
       resolve: function(specifier) {
         var result = Module.resolve(specifier, id);
-        return result ? parseUri(baseUrl + result) : '';
+        return result ? parseUrl(baseUrl + result) : '';
       },
     };
     registry[id] = this;
@@ -375,25 +378,24 @@
 
     if (mod.status < MODULE_FETCHING) {
       mod.status = MODULE_FETCHING;
-      var uri = parseUri(mod.id);
+      var url = parseUrl(mod.id);
       function onFetch(err) {
-        if (err) {
-          mod.status = MODULE_ERROR;
-          if (!/^Failed to fetch/.test(err.message)) console.error(err);
-        }
+        if (err) mod.status = MODULE_ERROR;
         if (mod.status < MODULE_FETCHED) mod.status = MODULE_FETCHED;
-        mod.uri = uri;
+        mod.url = url;
         mod.ignite();
+        // throw fetch error anyway, which can be caught by web monitors with window.onerror
+        if (err) throw err;
       }
-      if (fetching[uri]) {
-        fetching[uri].push(onFetch);
+      if (fetching[url]) {
+        fetching[url].push(onFetch);
         return;
       }
-      fetching[uri] = [onFetch];
-      request(uri, function(err) {
-        var callbacks = fetching[uri];
+      fetching[url] = [onFetch];
+      request(url, function(err) {
+        var callbacks = fetching[url];
         for (var j = 0; j < callbacks.length; j++) callbacks[j](err);
-        fetching[uri] = null;
+        fetching[url] = null;
       });
     }
   };
@@ -463,7 +465,7 @@
       var dep = registry[id];
 
       // foo.e7b6121c.js
-      if (!dep && rDigest.test(parseUri(id)) && typeof Promise === 'function') {
+      if (!dep && rDigest.test(parseUrl(id)) && typeof Promise === 'function') {
         // eslint-disable-next-line no-shadow
         return Object.assign(new Promise(function(resolve, reject) {
           require.async(specifier, function(exports) {
@@ -516,7 +518,7 @@
    * Module.resolve('react', 'app/1.0.0')
    */
   Module.resolve = function(specifier, context) {
-    if (rUri.test(specifier)) return specifier;
+    if (rUrl.test(specifier)) return specifier;
 
     // if lock is not configured yet (which happens if the app is a work in progress)
     if (!lock[pkg.name]) return suffix(specifier);
@@ -604,7 +606,7 @@
         var specifier = specifiers[i];
         // foo.d41d8cd9.css might exists
         var cssEntry = Module.resolve(specifier, entryId).replace(rExt, '.css');
-        if (rDigest.test(parseUri(cssEntry))) specifiers.push(cssEntry);
+        if (rDigest.test(parseUrl(cssEntry))) specifiers.push(cssEntry);
       }
       system.entries[entryId] = true;
       define(entryId, specifiers, function(require) {
@@ -622,7 +624,7 @@
 
   function workerFactory(context) {
     return function(id) {
-      var url = new URL(parseUri(resolve(context, suffix(id))));
+      var url = new URL(parseUrl(resolve(context, suffix(id))));
       return function createWorker() {
         url.searchParams.set('main', '');
         var blob = new Blob([ 'importScripts("' + url.toString() + '")' ], {
