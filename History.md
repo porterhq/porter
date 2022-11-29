@@ -1,3 +1,13 @@
+4.4.2 / 2022-11-29
+==================
+
+## What's Changed
+* fix: worker entries in root packet should present in module manifest by @cyjake in https://github.com/porterhq/porter/pull/197
+* fix: local environment have different style urls by @cyjake in https://github.com/porterhq/porter/pull/198
+
+
+**Full Changelog**: https://github.com/porterhq/porter/compare/v4.4.1...v4.4.2
+
 4.4.1 / 2022-11-14
 ==================
 
