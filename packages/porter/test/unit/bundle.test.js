@@ -56,6 +56,7 @@ describe('Bundle without preload', function() {
       });
       assert.deepEqual(files, [
         'browser_modules/test/suite.js',
+        'browser_modules/test/worker.js',
         'browser_modules/mad-import/foo.js',
         'browser_modules/require-json/测试数据 4.json',
         '../../node_modules/chart.js/dist/Chart.js',
@@ -78,6 +79,28 @@ describe('Bundle without preload', function() {
       assert.equal(packet.bundles['dynamic-import/foo.js'].format, '.js');
       assert.equal(packet.bundles['dynamic-import/foo.css'].format, '.css');
     });
+
+    it('should create bundles for workers', async function() {
+      const { packet } = porter;
+      const bundle = packet.bundles['test/worker.js'];
+      assert.ok(bundle);
+      assert.equal(bundle.format, '.js');
+      assert.equal(bundle.parent, packet.bundles['test/suite.js']);
+      const entry = packet.files['test/suite.js'];
+      assert.deepEqual(Object.keys(entry.lock[packet.name][packet.version].manifest), [
+        'lazyload_dep.js',
+        'lazyload.js',
+        'test/suite.css',
+        'test/worker.js',
+        'mad-import/foo.js',
+        'require-json/测试数据 4.json',
+        'dynamic-import/sum.js',
+        'dynamic-import/foo.css',
+        'dynamic-import/foo.js',
+        'dynamic-import/bar.css',
+        'dynamic-import/bar.js',
+      ]);
+    });
   });
 
   describe('[Symbol.iterator]', function() {
@@ -97,6 +120,7 @@ describe('Bundle without preload', function() {
         'stylesheets/app.css',
         'test/suite.css',
         'test/suite.js',
+        'test/worker.js',
       ]);
       const bundle = porter.packet.bundles['home.js'];
       const modules = Array.from(bundle);

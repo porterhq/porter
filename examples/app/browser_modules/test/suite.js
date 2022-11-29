@@ -94,6 +94,26 @@ describe('missing dep', function() {
   });
 });
 
+describe('worker in app', function() {
+  it('should recognize worker-loader', function(done) {
+    const Worker = require('worker-loader!./worker.js');
+    const worker = new Worker();
+    worker.addEventListener('message', function(e) {
+      expect(e.data).to.eql('hello from worker');
+      done();
+    });
+  });
+
+  it('should recognize ?worker', function(done) {
+    const Worker = require('./worker.js?worker');
+    const worker = new Worker();
+    worker.addEventListener('message', function(e) {
+      expect(e.data).to.eql('hello from worker');
+      done();
+    });
+  });
+});
+
 describe('worker from dependency', function() {
   it('should be able to load dependencies that have web workers', async function() {
     const greeting = require('@cara/demo-worker/');
