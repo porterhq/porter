@@ -400,7 +400,7 @@
     }
   };
 
-  var rWorkerLoader = /^worker-loader[?!]/;
+  var rWorkerLoader = /(?:^worker-loader[?!]|[?&]worker\b)/;
 
   Module.prototype.resolve = function() {
     var mod = this;
@@ -457,7 +457,7 @@
 
     function require(specifier) {
       if (rWorkerLoader.test(specifier)) {
-        return workerFactory(context)(specifier.split('!').pop());
+        return workerFactory(context)(specifier.split('!').pop().split('?').shift());
       }
       var id = Module.resolve(specifier, mod.id);
       // module might be turned off on purpose with `{ foo: false }` in browser field.
