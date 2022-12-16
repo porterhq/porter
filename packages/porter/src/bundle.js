@@ -69,7 +69,7 @@ module.exports = class Bundle {
         if (!cssBundle.entries.includes(file)) cssBundle.entries.unshift(file);
       }
       cssBundle.parent = bundle;
-      bundle.children.push(cssBundle);
+      if (!bundle.children.includes(cssBundle)) bundle.children.push(cssBundle);
       results.unshift(cssBundle);
     }
 
@@ -80,7 +80,7 @@ module.exports = class Bundle {
         if (mod !== entry && mod.packet === packet && mod.isWorker) {
           const depBundle = Bundle.create({ packet, entries: [mod.file] });
           if (!depBundle.parent) depBundle.parent = bundle;
-          bundle.children.push(depBundle);
+          if (!bundle.children.includes(depBundle)) bundle.children.push(depBundle);
         }
       }
     }
@@ -94,7 +94,7 @@ module.exports = class Bundle {
       });
       for (const depBundle of depBundles) {
         depBundle.parent = bundle;
-        bundle.children.push(depBundle);
+        if (!bundle.children.includes(depBundle)) bundle.children.push(depBundle);
         results.unshift(depBundle);
       }
     }
@@ -410,6 +410,9 @@ module.exports = class Bundle {
     // new descendents might be introduced during the first iteration
     for (const mod of this) await (minify ? mod.minify() : mod.obtain());
 
+    // new bundles might be needed if new dynamic imports were generated
+    Bundle.wrap({ packet, entries });
+
     for await (const mod of this) {
       const { code, map } = await (minify ? mod.minify() : mod.obtain());
       const subnode = await this.createSourceNode({
@@ -459,12 +462,15 @@ module.exports = class Bundle {
    * @param {boolean} options.minify
    */
   async fuzzyObtain({ loader, minify = false } = {}) {
-    const { children, packet, format } = this;
+    const { children, packet, entries, format } = this;
     const loaderConfig = Object.assign(packet.loaderConfig, this.loaderConfig);
     const chunks = [];
 
     // new descendents might be introduced during the first iteration
     for (const mod of this) await (minify ? mod.minify() : mod.obtain());
+
+    // new bundles might be needed if new dynamic imports were generated
+    Bundle.wrap({ packet, entries });
 
     for (const mod of this) {
       const result = await (minify ? mod.minify() : mod.obtain());

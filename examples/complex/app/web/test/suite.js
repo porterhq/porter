@@ -1,6 +1,8 @@
 import expect from 'expect.js';
 import Button from '../components/button';
 import { lowerCase } from '../utils/string.mjs';
+import './glob-import/suite';
+import './glob-import-eager/suite';
 
 describe('import js extensions', function() {
   it('import "../components/button.jsx"', function() {
@@ -20,10 +22,3 @@ describe('dynamic imports', function() {
     }).catch(err => done(err));
   });
 });
-
-describe('import.meta.glob()', function() {
-  it('import.meta.glob("./*.json", { eager: true }', function() {
-    const files = import.meta.glob('./*.json', { eager: true });
-    expect(Object.keys(files)).to.eql(['./foo bar.json', './foo.json']);
-  });
-})

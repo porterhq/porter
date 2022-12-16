@@ -244,7 +244,7 @@ module.exports = class Module {
       mod.packet.entries[mod.file] = mod;
     } else {
       if (!mod.parent) mod.parent = this;
-      this.children.push(mod);
+      if (!this.children.includes(mod)) this.children.push(mod);
     }
 
     return mod;
