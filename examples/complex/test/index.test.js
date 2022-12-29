@@ -12,7 +12,7 @@ describe('test/complex/index.test.js', function() {
     porter = new Porter({
       root,
       paths: 'app/web',
-      entries: ['home.jsx', 'about.jsx', 'notfound.jsx'],
+      entries: ['home.jsx', 'about.jsx', 'notfound.jsx', 'test/suite.js'],
       resolve: {
         alias: { '@/': '' },
         extensions: [ '*', '.js', '.jsx', '.css', '.less' ],
@@ -141,6 +141,25 @@ describe('test/complex/index.test.js', function() {
     });
   });
 
+  describe.only('module.checkImports()', function() {
+    it('should replenish dynamic imports', async function() {
+      const mod = porter.packet.files['test/glob-import/suite.js'];
+      assert.deepEqual(Array.from(mod.dynamicFamily, child => child.file), [
+        'test/glob-import/egg ham.json',
+        'test/glob-import/egg.json',
+      ]);
+    });
+
+    it('should accumulate dynamic imports', async function() {
+      const mod = porter.packet.files['test/suite.js'];
+      assert.deepEqual(Array.from(mod.dynamicFamily, child => child.file), [
+        'test/glob-import/egg ham.json',
+        'test/glob-import/egg.json',
+        'test/foo.jsx',
+      ]);
+    });
+  });
+
   describe('packet.copy', function() {
     it('should not manifest css entry', async function() {
       const { packet } = porter;
@@ -211,8 +230,10 @@ describe('test/complex/index.test.js', function() {
         'app/web/components/button.module.less',
         'app/web/components/button.jsx',
         'app/web/utils/string.mjs',
-        'app/web/test/foo bar.json',
-        'app/web/test/foo.json',
+        'app/web/test/glob-import/suite.js',
+        'app/web/test/glob-import-eager/foo bar.json',
+        'app/web/test/glob-import-eager/foo.json',
+        'app/web/test/glob-import-eager/suite.js',
         'app/web/test/suite.js',
       ]);
     });
@@ -245,6 +266,18 @@ describe('test/complex/index.test.js', function() {
     it('should work', async function() {
       const bundle = porter.packet.bundles['home.css'];
       assert.equal(bundle.outputPath, `home.${bundle.contenthash}.css`);
+    });
+  });
+
+  describe('Bundle.wrap()', function() {
+    it('should wrap dynamic imported json as bundle dependencies', async function() {
+      const bundle = porter.packet.bundles['test/suite.js'];
+      assert.deepEqual(Array.from(bundle.children, depBundle => depBundle.entry), [
+        'test/suite.js',
+        'test/foo.jsx',
+        'test/glob-import/egg ham.json',
+        'test/glob-import/egg.json',
+      ]);
     });
   });
 });
