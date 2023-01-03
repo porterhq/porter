@@ -1,3 +1,12 @@
+4.4.3 / 2023-01-03
+==================
+
+## What's Changed
+* fix: dynamic glob imports should not be bundled by default by @cyjake in https://github.com/porterhq/porter/pull/199
+
+
+**Full Changelog**: https://github.com/porterhq/porter/compare/v4.4.2...v4.4.3
+
 4.4.2 / 2022-11-29
 ==================
 
