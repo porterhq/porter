@@ -242,10 +242,11 @@ module.exports = class Packet {
       for (const configObj of configMappers) {
         const configPath = path.join(dir, configObj.config);
         if (!existsSync(configPath)) continue;
-        if (path.extname(configObj.config) === '.js') {
+        if (['.js', '.cjs'].includes(path.extname(configObj.config))) {
+          const exports = require(configPath);
           this.transpiler = configObj.transpiler;
           // cache 用于兼容 babel.config.js 中 api.cache 调用
-          this.transpilerOpts = require(configPath)({ cache: () => {} });
+          this.transpilerOpts = typeof exports === 'function' ? exports({ cache: () => {} }) : exports;
         } else {
           const content = await fs.readFile(configPath, 'utf8').catch(() => '');
           if (!content) continue;
