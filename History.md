@@ -1,3 +1,12 @@
+4.4.4 / 2023-01-05
+==================
+
+## What's Changed
+* fix: should be able to handle babel.config.cjs by @cyjake in https://github.com/porterhq/porter/pull/200
+
+
+**Full Changelog**: https://github.com/porterhq/porter/compare/v4.4.3...v4.4.4
+
 4.4.3 / 2023-01-03
 ==================
 
