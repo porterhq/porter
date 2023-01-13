@@ -4,7 +4,7 @@ const path = require('path');
 const { strict: assert } = require('assert');
 const Porter = require('@cara/porter');
 
-describe('test/typescript/index.test.js', function() {
+describe('examples/typescript/test/tsc.test.js', function() {
   const root = path.resolve(__dirname, '..');
   let porter;
 

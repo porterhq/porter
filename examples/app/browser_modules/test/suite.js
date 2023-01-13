@@ -144,3 +144,16 @@ describe('css entries', function() {
     assert.equal(links.filter(link => link.href.includes('test/suite')).length, 1);
   });
 });
+
+describe('package alias', function() {
+  it('should not be mixed with original package', function() {
+    assert.equal(typeof require('jquery'), 'function');
+    assert.equal(require('jquery/package.json').version.split('.').shift(), '3');
+  });
+
+  it('should be able to require package alias', function() {
+    assert.equal(typeof require('jquery2'), 'function');
+    assert.equal(require('jquery2/package.json').name, 'jquery');
+    assert.equal(require('jquery2/package.json').version.split('.').shift(), '2');
+  });
+});
