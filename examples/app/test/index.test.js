@@ -42,6 +42,14 @@ describe('test/app/index.test.js', function() {
     });
   });
 
+  describe('packet.parsePacket', function() {
+    it('should replace package name with alias if present', async function() {
+      const packet = porter.packet.find({ name: 'jquery2' });
+      assert.ok(packet);
+      assert.equal(packet.name, 'jquery2');
+    });
+  });
+
   describe('bundle[Symbol.iterator]', function() {
     it('should include itself when bundling isolated packet', async function() {
       const packet = porter.packet.find({ name: 'react' });

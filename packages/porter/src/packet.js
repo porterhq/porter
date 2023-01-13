@@ -110,7 +110,7 @@ module.exports = class Packet {
     if (this.name == 'brotli') this.browser.fs = false;
   }
 
-  static async create({ dir, parent, app }) {
+  static async create({ name, dir, parent, app }) {
     // cnpm (npminstall) dedupes dependencies with symbolic links
     dir = await fs.realpath(dir);
     const content = await fs.readFile(path.join(dir, 'package.json'), 'utf8');
@@ -118,12 +118,12 @@ module.exports = class Packet {
 
     // prefer existing packet to de-duplicate packets
     if (app.packet) {
-      const { name, version } = data;
+      const { version } = data;
       const packet = app.packet.find({ name, version });
       if (packet) return packet;
     }
 
-    const packet = new Packet({ dir, parent, app, packet: data });
+    const packet = new Packet({ dir, parent, app, packet: { ...data, name } });
     await packet.prepare();
     return packet;
   }
@@ -477,7 +477,7 @@ module.exports = class Packet {
 
       if (existsSync(dir)) {
         const { app } = this;
-        const packet = await Packet.create({ dir, parent: this, app });
+        const packet = await Packet.create({ name, dir, parent: this, app });
         this.dependencies[packet.name] = packet;
         return await packet.parseEntry(entry);
       }
