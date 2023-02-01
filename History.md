@@ -1,3 +1,21 @@
+4.4.6 / 2023-02-01
+==================
+
+## What's Changed
+* chore: deprecate window.define(id, deps, factory) by @cyjake in https://github.com/porterhq/porter/pull/202
+
+
+**Full Changelog**: https://github.com/porterhq/porter/compare/v4.4.5...v4.4.6
+
+4.4.5 / 2023-01-13
+==================
+
+## What's Changed
+* fix: handle package alias properly by @cyjake in https://github.com/porterhq/porter/pull/201
+
+
+**Full Changelog**: https://github.com/porterhq/porter/compare/v4.4.4...v4.4.5
+
 4.4.4 / 2023-01-05
 ==================
 
