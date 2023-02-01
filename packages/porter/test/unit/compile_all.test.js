@@ -62,7 +62,7 @@ describe('Porter with preload', function() {
     it('should compile entries with same-packet dependencies bundled', async function () {
       const fpath = path.join(porter.output.path, manifest['home.js']);
       const content = await readFile(fpath, 'utf8');
-      assert(content.includes('define("home_dep.js",'));
+      assert(content.includes('porter.define("home_dep.js",'));
       assert(content.includes('porter.lock'));
     });
 
@@ -127,7 +127,7 @@ describe('Porter with preload', function() {
       const react = porter.packet.find({ name: 'react' });
       const fpath = path.join(porter.output.path, react.bundle.outputPath);
       const content = await fs.readFile(fpath, 'utf-8');
-      assert.ok(content.split('\n').every(line => /^(?:define\(|\/\/#)/.test(line)));
+      assert.ok(content.split('\n').every(line => /^(?:porter.define\(|\/\/#)/.test(line)));
     });
 
     it('should compile stylesheets', async function() {

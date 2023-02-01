@@ -136,7 +136,7 @@ module.exports = class JsModule extends Module {
     const { id, imports } = this;
     return {
       code: [
-        `define(${JSON.stringify(id)}, ${JSON.stringify(imports)}, function(require, exports, module, __module) {${code}`,
+        `porter.define(${JSON.stringify(id)}, ${JSON.stringify(imports)}, function(require, exports, module, __module) {${code}`,
         '})'
       ].join('\n'),
       map
