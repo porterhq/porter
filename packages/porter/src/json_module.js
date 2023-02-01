@@ -31,7 +31,7 @@ module.exports = class JsonModule extends Module {
     const { code } = await this.load();
 
     return {
-      code: `define(${JSON.stringify(id)}, ${code.trim()})`,
+      code: `porter.define(${JSON.stringify(id)}, ${code.trim()})`,
     };
   }
 

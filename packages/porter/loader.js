@@ -344,7 +344,8 @@
       define.apply(null, predefineModules[i]);
     }
     predefineModules = [];
-    global.define = define;
+    system.define = define;
+    if (global.define === cacheDefine) global.define = define;
     for (var name in system.entries) {
       var mod = registry[name];
       mod.status = MODULE_FETCHED;
@@ -660,9 +661,15 @@
       }
       return target;
     },
+    define: preload.length > 0 ? cacheDefine : define,
   });
 
-  global.define = preload.length > 0 ? cacheDefine : define;
+  /**
+   * @deprecated
+   * future modules should not rely on global define because it might interfere with other module systems
+   */
+  if (!global.define) global.define = system.define;
+
   global.porter = system;
 
   global.process = {
