@@ -14,5 +14,3 @@ package-lock.json
 docs/Gemfile.lock
 docs/.bundle
 docs/vendor
-
-packages/swc-plugin-*
