@@ -141,7 +141,7 @@ describe('test/complex/index.test.js', function() {
     });
   });
 
-  describe.only('module.checkImports()', function() {
+  describe('module.checkImports()', function() {
     it('should replenish dynamic imports', async function() {
       const mod = porter.packet.files['test/glob-import/suite.js'];
       assert.deepEqual(Array.from(mod.dynamicFamily, child => child.file), [
@@ -245,9 +245,7 @@ describe('test/complex/index.test.js', function() {
       const result = await bundle.obtain();
       assert.ok(result.code.includes('.cropper'));
       assert.ok(result.code.includes('.page'));
-
-      const map = result.map.toJSON();
-      assert.deepEqual(map.sources.map(source => source.replace(/^\//, '')), [
+      assert.deepEqual(result.map.sources.map(source => source.replace(/^\//, '')), [
         'porter:///node_modules/cropper/dist/cropper.css',
         'porter:///app/web/stylesheets/app.less',
         'porter:///app/web/components/button.module.less',

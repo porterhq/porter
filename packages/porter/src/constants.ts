@@ -1,18 +1,16 @@
-'use strict';
-
 const MODULE_INIT = 0;
 const MODULE_LOADING = 1;
 const MODULE_LOADED = 2;
 
 const rModuleId = /^((?:@[^\/]+\/)?[^\/]+)(?:\/(\d+\.\d+\.\d+[^\/]*))?(?:\/(.*))?$/;
 
-const EXTENSION_MAP ={
+const EXTENSION_MAP = {
   '.js': [ '.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs', '.json' ],
   '.wasm': [ '.wasm' ],
   '.css': [ '.css', '.less', '.scss', '.sass' ],
 };
 
-module.exports = {
+export {
   MODULE_INIT,
   MODULE_LOADING,
   MODULE_LOADED,

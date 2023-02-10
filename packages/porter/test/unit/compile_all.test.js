@@ -6,7 +6,7 @@ const util = require('util');
 const fs = require('fs/promises');
 const glob = util.promisify(require('glob'));
 
-const Porter = require('../..');
+const Porter = require('../..').default;
 const { readFile } = fs;
 
 describe('Porter with preload', function() {

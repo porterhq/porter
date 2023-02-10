@@ -22,7 +22,7 @@
     "porter-serve": "./bin/porter-serve.js"
   },
   "engines": {
-    "node": ">= 8.6.0"
+    "node": ">= 16.19.0"
   },
   "license": "MIT",
   "devDependencies": {

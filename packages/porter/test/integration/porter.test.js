@@ -8,7 +8,7 @@ const fs = require('fs/promises');
 
 const { readFile, writeFile } = fs;
 
-const Porter = require('../..');
+const Porter = require('../..').default;
 const root = path.resolve(__dirname, '../../../../examples/app');
 
 let app;

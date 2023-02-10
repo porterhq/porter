@@ -1,12 +1,11 @@
 'use strict';
 
-const { promises: { readFile } } = require('fs');
+import { readFile } from 'fs/promises';
+import Module, { ModuleOptions } from './module';
+import { MODULE_LOADED } from './constants';
 
-const Module = require('./module');
-const { MODULE_LOADED } = require('./constants');
-
-module.exports = class JsonModule extends Module {
-  constructor(options) {
+export default class JsonModule extends Module {
+  constructor(options: ModuleOptions) {
     super(options);
     this.code = options.code;
   }

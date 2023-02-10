@@ -1,19 +1,25 @@
-'use strict';
+import Debug from 'debug';
+import path from 'path';
+import UglifyJS from 'uglify-js';
+import { readFile } from 'fs/promises';
+import merge from 'lodash/merge';
 
-const debug = require('debug')('porter');
-const path = require('path');
-const UglifyJS = require('uglify-js');
-const { promises: { readFile } } = require('fs');
-const merge = require('lodash/merge');
+import Module, { ModuleCache, SourceOptions, TranspileOptions } from './module';
+import * as matchRequire from './match_require';
+import * as namedImport from './named_import';
 
-const Module = require('./module');
-const matchRequire = require('./match_require');
-const namedImport = require('./named_import');
+import { MODULE_LOADING, MODULE_LOADED } from './constants';
+import { RawSourceMap } from 'source-map';
 
-const { MODULE_LOADING, MODULE_LOADED } = require('./constants');
+const debug = Debug('porter');
 
-module.exports = class JsModule extends Module {
-  matchImport(code) {
+interface Stream {
+  on: <T extends Stream>(this: T, event: string, callback: (chunk: string) => {}) => T;
+  pipe: (stream: Stream) => Stream;
+}
+
+export default class JsModule extends Module {
+  matchImport(code: string) {
     const { packet } = this;
     const { imports, dynamicImports, __esModule } = matchRequire.findAll(code);
     // FIXME
@@ -25,7 +31,7 @@ module.exports = class JsModule extends Module {
         if (!dynamicImports.includes(specifier)) dynamicImports.push(specifier);
       }
     }
-    function ignoreImport(specifier) {
+    function ignoreImport(specifier: string) {
       return packet.browser[specifier] !== false && specifier !== 'heredoc';
     }
     this.imports = imports.filter(ignoreImport);
@@ -38,7 +44,7 @@ module.exports = class JsModule extends Module {
    * @param {string} fpath
    * @param {string} code
    */
-  async browserify(fpath, code) {
+  async browserify(fpath: string, code: string): Promise<string> {
     const { packet } = this;
     const transforms = (packet.browserify && packet.browserify.transform) || [];
     const env = {
@@ -46,7 +52,7 @@ module.exports = class JsModule extends Module {
       NODE_ENV: process.env.NODE_ENV || 'development',
     };
     const whitelist = ['envify', 'loose-envify', 'brfs'];
-    let stream;
+    let stream: Stream | null = null;
 
     for (const key in env) {
       if (code.includes(key) && !transforms.length) transforms.push('loose-envify');
@@ -59,15 +65,18 @@ module.exports = class JsModule extends Module {
           : packet.tryRequire(name);
         const transform = factory(fpath, env);
         // normally `transform.end()` should return itself but brfs doesn't yet
-        stream = stream ? stream.pipe(transform) : transform.end(code) || transform;
+        stream = stream != null ? stream.pipe(transform) : transform.end(code) || transform;
       }
     }
 
-    if (!stream) return code;
     return new Promise(resolve => {
-      let buf = '';
-      stream.on('data', chunk => buf += chunk);
-      stream.on('end', () => resolve(buf));
+      if (stream) {
+        let buf = '';
+        stream.on('data', (chunk: string) => buf += chunk);
+        stream.on('end', async () => resolve(buf));
+      } else {
+        resolve(code);
+      }
     });
   }
 
@@ -80,7 +89,8 @@ module.exports = class JsModule extends Module {
 
     const { app, packet } = this;
     const { code } = await this.load();
-    this.cache = await app.cache.get(this.id, code);
+
+    this.cache = await app.cache.get(this.id, code) as ModuleCache;
 
     if (!this.imports && this.cache) {
       this.imports = this.cache.imports;
@@ -95,32 +105,33 @@ module.exports = class JsModule extends Module {
     }
 
     const [ children, dynamicChildren ] = await Promise.all([
-      Promise.all(this.imports.map(this.parseImport, this)),
+      Promise.all(this.imports!.map(this.parseImport, this)),
       Promise.all((this.dynamicImports || []).map(this.parseImport, this)),
     ]);
-    this.children = children.concat(dynamicChildren).filter(mod => !!mod);
-    this.dynamicChildren = dynamicChildren.filter(mod => !!mod);
+
+    this.children = children.concat(dynamicChildren).filter(mod => !!mod) as Module[];
+    this.dynamicChildren = dynamicChildren.filter(mod => !!mod) as Module[];
     this.status = MODULE_LOADED;
   }
 
-  async load() {
+  async load(): Promise<{ code: string, map?: RawSourceMap}> {
     const { fpath, app } = this;
     // fake entries will provide code directly
     const source = this.code || await readFile(fpath, 'utf8');
     let code = await this.browserify(fpath, source);
     if (app.resolve.import) {
-      for (const options of [].concat(app.resolve.import)) {
+      for (const options of app.resolve.import) {
         code = namedImport.replaceAll(code, options);
       }
     }
     return { code };
   }
 
-  async transpile({ code, map }) {
+  async transpile(options: TranspileOptions) {
     let result;
 
     try {
-      result = await this._transpile({ code, map });
+      result = await this._transpile(options);
     } catch (err) {
       debug('unable to transpile %s', this.fpath);
       throw err;
@@ -129,43 +140,38 @@ module.exports = class JsModule extends Module {
     // if fpath is ignored, @babel/core returns nothing
     if (result) {
       await this.checkImports({ code: result.code, intermediate: true });
-      code = result.code;
-      map = result.map;
     }
 
     const { id, imports } = this;
     return {
+      ...result,
       code: [
-        `porter.define(${JSON.stringify(id)}, ${JSON.stringify(imports)}, function(require, exports, module, __module) {${code}`,
+        `porter.define(${JSON.stringify(id)}, ${JSON.stringify(imports)}, function(require, exports, module, __module) {${result.code}`,
         '})'
       ].join('\n'),
-      map
     };
   }
 
   /**
    * Find deps of code and compare them with existing `this.deps` to see if there's
    * new dep to parse. Only the modules of the root packet are checked.
-   * @param {Object} opts
-   * @param {string} opts.code
-   * @returns {Promise<void>}
    */
-  async checkImports({ code, intermediate = false }) {
+  async checkImports({ code, intermediate = false }: SourceOptions & { intermediate: boolean }) {
     const { imports = [], dynamicImports = [] } = this;
     this.matchImport(code);
 
-    for (const dep of this.imports) {
+    for (const dep of this.imports!) {
       if (!imports.includes(dep) && !dynamicImports.includes(dep)) {
         const child = await this.parseImport(dep);
-        if (this.dynamicImports.includes(dep)) this.dynamicChildren.push(child);
+        if (child && this.dynamicImports!.includes(dep)) this.dynamicChildren.push(child);
       }
     }
 
     for (const dep of imports) {
-      if (!this.fake && !this.imports.includes(dep)) {
+      if (!this.fake && !this.imports!.includes(dep)) {
         if (/\.(?:css|less|sass|scss)$/.test(dep)) {
           // import './baz.less';
-          this.imports.push(dep);
+          this.imports!.push(dep);
         }
       }
     }
@@ -174,11 +180,11 @@ module.exports = class JsModule extends Module {
     // import(specifier) -> Promise.resolve(require(specifier))
     if (intermediate) {
       for (const specifier of dynamicImports) {
-        if (!this.dynamicImports.includes(specifier)) this.dynamicImports.push(specifier);
+        if (!this.dynamicImports!.includes(specifier)) this.dynamicImports!.push(specifier);
       }
-      for (let i = this.imports.length; i >= 0; i--) {
-        const specifier = this.imports[i];
-        if (this.dynamicImports.includes(specifier)) this.imports.splice(i, 1);
+      for (let i = this.imports!.length; i >= 0; i--) {
+        const specifier = this.imports![i];
+        if (this.dynamicImports!.includes(specifier)) this.imports!.splice(i, 1);
       }
     }
   }
@@ -193,10 +199,10 @@ module.exports = class JsModule extends Module {
       minified: true
     });
 
-    return this.cache;
+    return this.cache!;
   }
 
-  async _transpile({ code, map }) {
+  async _transpile({ code, map }: TranspileOptions) {
     const { fpath, packet, app } = this;
     const babel = packet.transpiler === 'babel' && packet.tryRequire('@babel/core');
     if (!babel) return { code, map };
@@ -206,7 +212,7 @@ module.exports = class JsModule extends Module {
      * doesn't start with packet.dir, it's quite possible that the needed presets or
      * plugins might not be found.
      */
-    if (!fpath.startsWith(packet.dir)) return;
+    if (!fpath.startsWith(packet.dir)) return { code, map };
 
     const filenameRelative = path.relative(app.root, fpath);
     const transpilerOptions = {
@@ -222,7 +228,7 @@ module.exports = class JsModule extends Module {
     return await babel.transform(code, transpilerOptions);
   }
 
-  uglify({ code, map }) {
+  uglify({ code, map }: SourceOptions) {
     const { fpath, app } = this;
     const source = `porter:///${path.relative(app.root, fpath)}`;
     const { uglifyOptions = {} } = app;
@@ -242,10 +248,11 @@ module.exports = class JsModule extends Module {
       },
       keep_fnames: keep_fnames instanceof RegExp ? keep_fnames.test(source) : keep_fnames,
       output: { ascii_only: true },
-      sourceMap: { content: map },
+      sourceMap: { content: map as any },
     }));
 
     if (result.error) {
+      // @ts-ignore
       throw new Error(`failed to minify: ${path.relative(app.root, fpath)}`, {
         cause: result.error,
       });

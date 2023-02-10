@@ -3,7 +3,7 @@
 const path = require('path');
 const assert = require('assert').strict;
 
-const Porter = require('../..');
+const Porter = require('../..').default;
 
 describe('SassModule', function() {
   const root = path.resolve(__dirname, '../../../../examples/complex');
@@ -24,6 +24,7 @@ describe('SassModule', function() {
   });
 
   it('should resolve dependencies', async function() {
+    console.log(Object.keys(porter.packet.files));
     const mod = porter.packet.files['about_dep.scss'];
     assert.deepEqual(mod.children.map(child => path.relative(root, child.fpath)), [
       '../../node_modules/cropperjs/src/index.scss',

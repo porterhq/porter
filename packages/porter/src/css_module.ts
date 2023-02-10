@@ -1,17 +1,17 @@
-'use strict';
+import fs from 'fs/promises';
+import path from 'path';
+import css from '@parcel/css';
 
-const fs = require('fs/promises');
-const path = require('path');
-const css = require('@parcel/css');
-
-const Module = require('./module');
-const JsonModule = require('./json_module');
-const { MODULE_LOADING, MODULE_LOADED } = require('./constants');
+import Module, { TranspileOptions } from './module';
+import JsonModule from './json_module';
+import { MODULE_LOADING, MODULE_LOADED } from './constants';
 
 const rAtImport = /(?:^|\n)\s*@import\s+(['"])([^'"]+)\1;/g;
 
-module.exports = class CssModule extends Module {
-  matchImport(code) {
+export default class CssModule extends Module {
+  exports?: JsonModule;
+
+  matchImport(code: string) {
     const imports = [];
     let m;
 
@@ -35,8 +35,8 @@ module.exports = class CssModule extends Module {
     if (!this.imports) this.matchImport(code);
 
     // precedence matters in css modules
-    const result = await Promise.all(this.imports.map(this.parseImport, this));
-    this.children = result.filter(mod => mod != null);
+    const result = await Promise.all(this.imports!.map(this.parseImport, this));
+    this.children = result.filter(mod => mod != null) as Module[];
     this.status = MODULE_LOADED;
   }
 
@@ -46,8 +46,7 @@ module.exports = class CssModule extends Module {
     return { code };
   }
 
-  async _transpile(options) {
-    let { code, map } = options;
+  async _transpile(options: TranspileOptions) {
     const { fpath, app } = this;
     const { cssTranspiler } = app;
 
@@ -55,34 +54,33 @@ module.exports = class CssModule extends Module {
      * PostCSS doesn't support sourceRoot yet
      * https://github.com/postcss/postcss/blob/master/docs/source-maps.md
      */
-    const result = await cssTranspiler.process(code, {
+    const result = await cssTranspiler.process(options.code, {
       from: fpath,
-      path: this.app.paths,
       map: {
         // https://postcss.org/api/#sourcemapoptions
         inline: false,
         annotation: false,
         absolute: true,
-        prev: map,
+        prev: options.map,
       }
     });
 
-    map = JSON.parse(result.map);
-    map.sources = map.sources.map(source => {
+    const map = 'toJSON' in result.map ? result.map.toJSON() : JSON.parse(result.map);
+    map.sources = map.sources.map((source: string) => {
       return `porter:///${path.relative(app.root, source.replace(/^file:/, ''))}`;
     });
 
     return { code: result.css, map };
   }
 
-  async transpile(options) {
+  async transpile(options: TranspileOptions) {
     const { file, fpath, packet, app } = this;
     const cssModules = /\.module\.(?:css|scss|sass|less)$/.test(fpath);
     // parcel css doesn't transpile nesting rules against targets correctly yet
     if (!cssModules) return await this._transpile(options);
 
     const { code, map, minify = false } = options;
-    if (!app.targets) app.targets = css.browserslistToTargets(app.browsers);
+    if (!app.targets) app.targets = css.browserslistToTargets(app.browsers) as Record<string, number>;
 
     let result;
     try {
@@ -100,7 +98,7 @@ module.exports = class CssModule extends Module {
         targets: app.targets,
       });
     } catch (err) {
-      const { data, source, loc } = err;
+      const { data, source, loc } = err as (Error & { data: Record<string, any>, source: string, loc: { line: number, column: number } });
       let line = source.split('\n')[loc.line - 1];
       let column = loc.column;
       if (line.length > 2058) {
@@ -117,7 +115,7 @@ module.exports = class CssModule extends Module {
     const { exports, dependencies = [] } = result;
 
     if (exports) {
-      const mapping = {};
+      const mapping: Record<string, string> = {};
       for (const key in exports) mapping[key] = exports[key].name;
       this.exports = new JsonModule({ file, fpath, packet, code: JSON.stringify(mapping) });
     }
@@ -131,17 +129,17 @@ module.exports = class CssModule extends Module {
 
     return {
       code: resultCode,
-      map: JSON.parse(result.map),
+      map: JSON.parse(result.map!.toString()),
     };
   }
 
   async minify() {
     if (this.cache && this.cache.minified) return this.cache;
-    const { code, map } = await this.load();
+    const { code, } = await this.load();
     this.setCache(code, {
-      ...await this.transpile({ code, map, minify: true }),
+      ...await this.transpile({ code, minify: true }),
       minified: true,
     });
-    return this.cache;
+    return this.cache!;
   }
 };

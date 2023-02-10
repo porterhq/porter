@@ -2,7 +2,7 @@
 
 const { strict: assert } = require('assert');
 const postcss = require('postcss');
-const plugin = require('../../src/at_import');
+const plugin = require('../../src/at_import').default;
 
 async function run(input, output, opts = { }) {
   let result = await postcss([plugin(opts)]).process(input, { from: undefined });

@@ -6,6 +6,7 @@
 
 set -e
 
+npm run pretest
 for workspace in $(ls -d packages/* examples/*); do
   npm run $1 --workspace ./${workspace} --if-present
 done

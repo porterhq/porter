@@ -1,13 +1,25 @@
-'use strict';
+import Module from './module';
+import Packet, { PacketMeta } from './packet';
+import Porter from './porter';
 
-const Packet = require('./packet');
+interface FakePacketConstrutor {
+  app: Porter;
+  dir: string;
+  paths: string[];
+  lock: Record<string, any>;
+  packet: PacketMeta;
+}
 
 /**
  * FakePacket is used to anticipate a Porter project. With FakePacket we can
  * create Porter instances that maps existing Porter setup.
  */
-module.exports = class FakePacket extends Packet {
-  constructor(opts) {
+export default class FakePacket extends Packet {
+  fake: boolean = true;
+  _lock: Record<string, any>;
+  _packet: PacketMeta;
+
+  constructor(opts: FakePacketConstrutor) {
     const { app, dir, paths, packet, lock } = opts;
     super({ app, dir, paths, packet });
 
@@ -16,10 +28,6 @@ module.exports = class FakePacket extends Packet {
 
     const { name, version } = packet;
     Object.assign(this, { name, version });
-  }
-
-  get fake() {
-    return true;
   }
 
   /**
@@ -38,9 +46,8 @@ module.exports = class FakePacket extends Packet {
 
   /**
    * To eliminate "unmet dependency" warnings.
-   * @param {Object} opts
    */
-  async parsePacket({ name, entry }) {
+  async parsePacket({ name, entry }: { name: string, entry: string }) {
     const mod = await super.parsePacket({ name, entry });
     if (mod) return mod;
 
@@ -53,13 +60,13 @@ module.exports = class FakePacket extends Packet {
         name,
         version,
         file: entry || lock[name][version].main || 'index.js'
-      };
+      } as Module;
     }
 
     return {
       name: this.name,
       version: this.version,
       file: entry
-    };
+    } as Module;
   }
 };

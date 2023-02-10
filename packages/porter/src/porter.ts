@@ -1,33 +1,35 @@
-'use strict';
 
-const crypto = require('crypto');
-const debug = require('debug')('porter');
-const fs = require('fs/promises');
-const mime = require('mime');
-const path = require('path');
-const postcss = require('postcss');
-const { SourceMapGenerator } = require('source-map');
-const browserslist = require('browserslist');
+import crypto from 'crypto';
+import Debug from 'debug';
+import fs from 'fs/promises';
+import mime from 'mime';
+import path from 'path';
+import postcss, { AcceptedPlugin, Processor } from 'postcss';
+import { SourceMapGenerator } from 'source-map';
+import browserslist from 'browserslist';
+
+import FakePacket from './fake_packet';
+import Packet, { PacketMeta } from './packet';
+import Module from './module';
+import Bundle, { CompileOptions } from './bundle';
+import { MODULE_LOADED, rModuleId } from './constants';
+import AtImport from './at_import';
+import Cache from './cache';
+import { EXTENSION_MAP } from './constants';
+import { MinifyOptions } from 'uglify-js';
+import { ImportOption } from './named_import';
 
 const { lstat, readFile } = fs;
-
-const FakePacket = require('./fake_packet');
-const Packet = require('./packet');
-
+const debug = Debug('porter');
 const rExt = /\.(?:css|gif|jpg|jpeg|js|png|svg|swf|ico)$/i;
-const Bundle = require('./bundle');
-const { MODULE_LOADED, rModuleId } = require('./constants');
-const AtImport = require('./at_import');
-const Cache = require('./cache');
-const { EXTENSION_MAP } = require('./constants');
 
-function waitFor(mod) {
-  return new Promise((resolve, reject) => {
+function waitFor(mod: Module) {
+  return new Promise<void>((resolve, reject) => {
     const { app } = mod;
 
     (function poll() {
       if (mod.status >= MODULE_LOADED) return resolve();
-      const blockers = [];
+      const blockers: string[] = [];
       for (const child of mod.family) {
         if (child.status < MODULE_LOADED) {
           blockers.push(path.relative(app.root, child.fpath));
@@ -39,23 +41,114 @@ function waitFor(mod) {
   });
 }
 
+interface FallbackOptions {
+  [key: string]: string | false;
+}
+
+type ReadResult = [Buffer | Record<string, any> | string, Record<string, any>] | null | undefined;
+
 /**
  * - https://webpack.js.org/configuration/resolve/#resolvefallback
  */
-const fallback = {
+const fallback: FallbackOptions = {
   fs: false,
   stream: 'readable-stream',
 };
 
+interface ParseOptions {
+  loader: boolean;
+}
+
+interface PorterOptions {
+  root?: string;
+  paths?: string | string[];
+  entries?: string[];
+  preload?: string[];
+  lazyload?: string[];
+  cache?: {
+    path: string;
+    clean: boolean;
+  };
+  output?: {
+    path?: string;
+  };
+  transpile?: {
+    include?: string[];
+    typescript?: 'tsc' | 'babel' | 'swc';
+  };
+  bundle?: {
+    exclude?: string[];
+  };
+  resolve?: {
+    import?: ImportOption[];
+    alias?: Record<string, boolean | string>;
+    fallback?: FallbackOptions;
+    suffixes?: string[];
+  };
+  source?: {
+    serve?: boolean;
+    inline?: boolean;
+    root?: string;
+  };
+  map?: Record<string, string>;
+  lessOptions?: Record<string, any>;
+  uglifyOptions?: MinifyOptions & { keep_fnames: RegExp };
+  postcssPlugins?: AcceptedPlugin[];
+  baseUrl?: string;
+  lock: Record<string, any>;
+  package: PacketMeta;
+}
+
 class Porter {
   #readyCache = new Map();
+  moduleCache: Record<string, Module> = {};
+  packetCache: Record<string, Packet> = {};
+  parseCache: Record<string, Promise<Bundle | null> | null> = {};
+  packet: Packet;
+  root: string;
+  baseUrl: string;
+  map?: Record<string, string>;
+  timeout: number;
+  entries: string[];
+  preload: string[];
+  lazyload: string[];
+  source: {
+    serve: boolean;
+    inline: boolean;
+    root: string;
+    mappingURL?: string;
+  };
+  cache: Cache;
+  output: {
+    clean: boolean;
+    path: string;
+  };
+  bundle: {
+    exclude: string[];
+    exists?: (bundle: Bundle) => Promise<boolean>;
+  };
+  transpile: {
+    include: string[];
+    typescript: string;
+  };
+  resolve: {
+    import?: ImportOption[];
+    fallback: FallbackOptions;
+    suffixes: string[];
+  };
+  cssTranspiler: Processor;
+  lessOptions?: Record<string, any>;
+  uglifyOptions?: Record<string, any>;
+  browsers: string[];
+  targets?: { [key: string]: number };
+  lock?: Record<string, any>;
 
-  constructor(opts) {
+  constructor(opts: PorterOptions) {
     const root = opts.root || process.cwd();
-    const paths = [].concat(opts.paths == null ? 'components' : opts.paths).map(loadPath => {
+    const paths = ([] as string[]).concat(opts.paths == null ? 'components' : opts.paths).map(loadPath => {
       return path.resolve(root, loadPath);
     });
-    const output = { path: 'public', ...opts.output };
+    const output = { path: 'public', clean: false, ...opts.output };
     output.path = path.resolve(root, output.path);
 
     const transpile = { include: [], typescript: 'tsc', ...opts.transpile };
@@ -67,35 +160,26 @@ class Porter {
       extensions: [ '*', '.js', '.jsx', '.ts', '.tsx', '.d.ts', '.json', '.css' ],
       alias: {},
       ...opts.resolve,
+      import: opts.resolve?.import ? ([] as ImportOption[]).concat(opts.resolve.import) : [],
       fallback: { ...fallback, ...(opts.resolve && opts.resolve.fallback) },
     };
-    resolve.suffixes = resolve.extensions.reduce((result, ext) => {
+    const suffixes = resolve.extensions.reduce((result: string[], ext) => {
       if (ext === '*') return result.concat('');
       return result.concat(ext, `/index${ext}`);
     }, []);
 
-    Object.assign(this, { root, output, cache, transpile, bundle, resolve });
-    Object.defineProperties(this, {
-      moduleCache: {
-        value: {},
-        configurable: true,
-        enumerable: false,
-      },
-      packetCache: {
-        value: {},
-        configurable: true,
-        enumerable: false,
-      },
-      parseCache: {
-        value: {},
-        configurable: true,
-        enumerable: false,
-      },
-    });
+    this.root = root;
+    this.output = output;
+    this.bundle = bundle;
+    this.cache = cache;
+    this.transpile = transpile;
+    this.bundle = bundle;
+    this.resolve = { ...resolve, suffixes };
 
     const packet = opts.package || require(path.join(root, 'package.json'));
     const packetOptions = { alias: resolve.alias, dir: root, paths, app: this, packet };
 
+    // @ts-ignore
     this.packet = opts.package
       ? new FakePacket({ ...packetOptions, lock: opts.lock })
       : new Packet(packetOptions);
@@ -105,12 +189,12 @@ class Porter {
     // Ignition timeout
     this.timeout = 30000;
 
-    this.entries = [].concat(opts.entries || []);
-    this.preload = [].concat(opts.preload || []);
-    this.lazyload = [].concat(opts.lazyload || []);
+    this.entries = ([] as string[]).concat(opts.entries || []);
+    this.preload = ([] as string[]).concat(opts.preload || []);
+    this.lazyload = ([] as string[]).concat(opts.lazyload || []);
 
     this.source = { serve: false, inline: false, root: 'http://localhost/', ...opts.source };
-    this.cssTranspiler = postcss([ AtImport ].concat(opts.postcssPlugins || []));
+    this.cssTranspiler = postcss(([ AtImport ] as AcceptedPlugin[]).concat(opts.postcssPlugins || []));
     this.lessOptions = opts.lessOptions;
     this.uglifyOptions = opts.uglifyOptions;
     this.browsers = browserslist();
@@ -123,26 +207,26 @@ class Porter {
     return readyCache.get(cacheKey);
   }
 
-  async readFilePath(fpath) {
-    if (!fpath) return null;
+  async readFilePath(fpath: string | null): Promise<[string | Buffer, Record<string, any>] | undefined> {
+    if (!fpath) return;
     try {
       return await Promise.all([
         readFile(fpath),
         lstat(fpath).then(stats => ({ 'Last-Modified': stats.mtime.toJSON() }))
       ]);
     } catch (err) {
-      if (err.code === 'ENOENT') return null;
+      if (err instanceof Error && 'code' in err && err.code === 'ENOENT') return;
       throw err;
     }
   }
 
-  async readBuiltinJs(name) {
+  async readBuiltinJs(name: string) {
     const fpath = path.join(__dirname, '..', name);
     const result = await this.readFilePath(fpath);
 
     if (name == 'loader.js') {
       const { code } = await this.packet.parseLoader(this.packet.loaderConfig);
-      result[0] = code;
+      result![0] = code;
     }
 
     return result;
@@ -186,7 +270,7 @@ class Porter {
     await this.pack({ minify: false });
   }
 
-  prepareFiles(files, isEntry = false) {
+  prepareFiles(files: string[], isEntry = false) {
     const { packet } = this;
     return files.map(async function prepareFile(file, i) {
       const mod = isEntry ? await packet.parseEntry(file) : await packet.parseFile(file);
@@ -196,7 +280,7 @@ class Porter {
   }
 
   get lazyloads() {
-    return this.lazyload.reduce((result, file) => {
+    return this.lazyload.reduce((result: Set<Module>, file: string) => {
       for (const mod of this.packet.files[file].family) result.add(mod);
       return result;
     }, new Set());
@@ -209,8 +293,8 @@ class Porter {
     // enable envify for root packet by default
     if (!packet.browserify) packet.browserify = { transform: ['envify'] };
 
-    await packet.prepare();
     await cache.prepare(this);
+    await packet.prepare();
 
     debug('parse preload, entries, and lazyload');
     await Promise.all([
@@ -220,7 +304,7 @@ class Porter {
     ]);
 
     for (const file of preload) {
-      const entry = await packet.files[file];
+      const entry = packet.files[file];
       entry.isPreload = true;
       for (const mod of entry.family) mod.preloaded = !mod.packet.isolated;
     }
@@ -242,7 +326,7 @@ class Porter {
     }
   }
 
-  async compilePackets(opts) {
+  async compilePackets(opts: CompileOptions) {
     for (const packet of this.packet.all) {
       if (packet.parent) {
         await packet.compileAll(opts);
@@ -250,7 +334,7 @@ class Porter {
     }
   }
 
-  async compileExclusivePackets(opts) {
+  async compileExclusivePackets(opts: CompileOptions) {
     const { bundle, packet } = this;
     const exclusives = new Set(bundle.exclude);
 
@@ -265,7 +349,7 @@ class Porter {
     }
   }
 
-  async compileAll({ entries = [] }) {
+  async compileAll({ entries = [] }: { entries: string[] }) {
     if (this.output.clean) await fs.rm(this.output.path, { recursive: true, force: true });
     await this.ready({ minify: true });
 
@@ -283,7 +367,7 @@ class Porter {
     if (this.preload.length > 0) {
       await this.compileExclusivePackets({ all: true });
     } else {
-      await this.compilePackets();
+      await this.compilePackets({});
     }
 
     const manifest = {};
@@ -305,17 +389,17 @@ class Porter {
     debug('done');
   }
 
-  async compileEntry(entry, opts) {
+  async compileEntry(entry: string, opts: CompileOptions) {
     await this.ready({ minify: true });
     return this.packet.compile(entry, opts);
   }
 
-  async readRawFile(file) {
+  async readRawFile(file: string) {
     let fpath;
 
     if (file.startsWith('node_modules')) {
       // cnpm/npminstall rename packages to folders like _@babel_core@7.16.10@@babel/core
-      const [, name, , entry] = file.replace(/^node_modules\//, '').replace(/^_@?[^@]+@[^@]+@/, '').match(rModuleId);
+      const [, name, , entry] = file.replace(/^node_modules\//, '').replace(/^_@?[^@]+@[^@]+@/, '').match(rModuleId)!;
       const packet = this.packet.find({ name });
       fpath = packet && path.join(packet.dir, entry);
     } else {
@@ -330,13 +414,13 @@ class Porter {
     return await this.readFilePath(fpath);
   }
 
-  async parseId(id, options) {
+  async parseId(id: string, options?: ParseOptions) {
     const { parseCache } = this;
     return parseCache[id] || (parseCache[id] = this._parseId(id, options));
   }
 
-  async _parseId(id, { loader = false } = {}) {
-    let [, name, version, file] = id.match(rModuleId);
+  async _parseId(id: string, { loader = false } = {}): Promise<Bundle | null> {
+    let [, name, version, file] = id.match(rModuleId)!;
 
     if (!version) {
       const { packet } = this;
@@ -349,10 +433,14 @@ class Porter {
     if (!packet) throw new Error(`unknown dependency ${id}`);
 
     const format = path.extname(file);
+    if (format !== '.js' && format !== '.css' && format !== '.wasm') {
+      console.warn(new Error(`invalid id: ${id}`));
+      return null;
+    }
     const extensions = EXTENSION_MAP[format] || [];
     // lazyloads should not go through `packet.parseEntry(file)`
-    let mod = packet.files[file];
-    let bundle;
+    let mod: Module | false | undefined = packet.files[file];
+    let bundle = null;
     for (const ext of extensions) {
       const key = (mod ? mod.file : file).replace(rExt, ext);
       if ((bundle = packet.bundles[key])) break;
@@ -375,7 +463,7 @@ class Porter {
     return bundle;
   }
 
-  async readCss(outputPath, query) {
+  async readCss(outputPath: string): Promise<ReadResult> {
     const id = outputPath.replace(/\.[a-f0-9]{8}\.css$/, '.css');
 
     const bundle = await this.parseId(id);
@@ -383,10 +471,10 @@ class Porter {
 
     const result = await bundle.obtain();
     const code = `${result.code}\n/*# sourceMappingURL=${path.basename(bundle.output)}.map */`;
-    return [ code, { 'Last-Modified': bundle.updatedAt.toGMTString() }];
+    return [ code, { 'Last-Modified': bundle.updatedAt!.toUTCString() }];
   }
 
-  async readJs(outputPath, query) {
+  async readJs(outputPath: string, query: Record<string, any>): Promise<ReadResult> {
     const loader = outputPath.endsWith('.js') && 'main' in query;
     const id = outputPath.replace(/\.[a-f0-9]{8}\.js$/, '.js');
 
@@ -395,10 +483,10 @@ class Porter {
 
     const result = await bundle.obtain();
     const code = `${result.code}\n//# sourceMappingURL=${path.basename(bundle.output)}.map`;
-    return [ code, { 'Last-Modified': bundle.updatedAt.toGMTString() } ];
+    return [ code, { 'Last-Modified': bundle.updatedAt!.toUTCString() } ];
   }
 
-  async readMap(mapPath) {
+  async readMap(mapPath: string): Promise<ReadResult> {
     const id = mapPath.replace(/(?:\.[a-f0-9]{8})?(\.(?:css|js)).map$/, '$1');
     const bundle = await this.parseId(id);
     if (!bundle) return;
@@ -407,13 +495,12 @@ class Porter {
     if (map instanceof SourceMapGenerator) {
       map = map.toJSON();
     }
-
-    return [ map, { 'Last-Modified': bundle.updatedAt.toGMTString() } ];
+    if (map) return [ map, { 'Last-Modified': bundle.updatedAt!.toUTCString() } ];
   }
 
-  async readWasm(outputPath) {
+  async readWasm(outputPath: string): Promise<ReadResult> {
     const id = outputPath.replace(/\.[a-f0-9]{8}\.wasm$/, '.wasm');
-    let [, name, version, file] = id.match(rModuleId);
+    let [, name, version, file] = id.match(rModuleId)!;
     let packet;
 
     if (!version) {
@@ -425,6 +512,7 @@ class Porter {
       packet = this.packet.find({ name, version });
     }
 
+    if (!packet) return;
     const mod = await packet.parseFile(file);
     if (!mod) return;
     const { code } = await mod.obtain();
@@ -432,13 +520,13 @@ class Porter {
     return [code, { 'Last-Modified': mtime }];
   }
 
-  async readFile(file, query) {
+  async readFile(file: string, query: Record<string, any>) {
     file = decodeURIComponent(file);
     await this.ready({ minify: process.env.NODE_ENV === 'production' });
 
     const { packet } = this;
     const ext = path.extname(file);
-    let result = null;
+    let result: ReadResult | null = null;
 
     if (file === 'loader.js') {
       result = await this.readBuiltinJs(file);
@@ -447,14 +535,14 @@ class Porter {
       const { loaderConfig, lock } = packet;
       result = [
         JSON.stringify({ ...loaderConfig, lock }),
-        { 'Last-Modified': (new Date()).toGMTString() }
+        { 'Last-Modified': (new Date()).toUTCString() }
       ];
     }
     else if (ext === '.js') {
       result = await this.readJs(file, query);
     }
     else if (ext === '.css') {
-      result = await this.readCss(file, query);
+      result = await this.readCss(file);
     }
     else if (ext === '.map') {
       result = await this.readMap(file);
@@ -476,7 +564,7 @@ class Porter {
       const content = typeof body === 'string' ? body : JSON.stringify(body);
       result[1] = {
         'Cache-Control': 'max-age=0',
-        'Content-Type': mime.lookup(ext),
+        'Content-Type': mime.getType(ext),
         ETag: crypto.createHash('md5').update(content).digest('hex'),
         ...result[1]
       };
@@ -492,10 +580,10 @@ class Porter {
   func() {
     const Porter_readFile = this.readFile.bind(this);
 
-    return function Porter_func(req, res, next) {
+    return function Porter_func(req: any, res: any, next: () => {}) {
       if (res.headerSent) return next();
 
-      function response(result) {
+      function response(result?: ReadResult) {
         if (result) {
           res.statusCode = 200;
           res.set(result[1]);
@@ -516,7 +604,7 @@ class Porter {
   gen() {
     const Porter_readFile = this.readFile.bind(this);
 
-    return function* Porter_generator(next) {
+    return function* Porter_generator(this: any, next: GeneratorFunction): any {
       const ctx = this;
       if (ctx.headerSent) return yield next;
 
@@ -540,7 +628,7 @@ class Porter {
   async() {
     const Porter_readFile = this.readFile.bind(this);
 
-    return async function Porter_async(ctx, next) {
+    return async function Porter_async(ctx: any, next: () => Promise<any>) {
       if (ctx.headerSent) return await next();
 
       const id = ctx.path.slice(1);
@@ -561,4 +649,4 @@ class Porter {
   }
 }
 
-module.exports = Porter;
+export default Porter;

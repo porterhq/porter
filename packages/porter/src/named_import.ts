@@ -1,10 +1,25 @@
-'use strict';
+import path from 'path';
+// @ts-ignore
+import jsTokens from 'js-tokens';
 
-const path = require('path');
-const jsTokens = require('js-tokens').default;
+type ComponentCase = 'camel' | 'kebab' | 'snake';
 
-function getImports(names) {
-  const tokens = names.match(jsTokens);
+export interface ImportOption {
+  libraryName?: string;
+  libraryDirectory?: string;
+  camel2DashComponentName?: boolean;
+  componentCase?: ComponentCase;
+  style?: boolean;
+  cjs?: boolean;
+}
+
+interface Declaration {
+  name: string;
+  alias?: string;
+}
+
+function getImports(names: string) {
+  const tokens = names.match(jsTokens)!;
   const imports = [];
   const rSpace = /\s/;
   let i = 0;
@@ -45,7 +60,7 @@ function getImports(names) {
   return imports;
 }
 
-function formatImport({ name, specifier, cjs = false } = {}) {
+function formatImport({ name, specifier, cjs = false }: { name?: string, specifier: string, cjs?: boolean }) {
   if (typeof name === 'string') {
     return cjs
       ? `const ${name} = require(${JSON.stringify(specifier)}).default;`
@@ -56,7 +71,7 @@ function formatImport({ name, specifier, cjs = false } = {}) {
     : `import ${JSON.stringify(specifier)};`;
 }
 
-function formatImports(declarations, options = {}) {
+function formatImports(declarations: Declaration[], options: ImportOption = {}) {
   if (options.camel2DashComponentName === false && options.componentCase == null) {
     options.componentCase = 'camel';
   }
@@ -87,11 +102,11 @@ function formatImports(declarations, options = {}) {
   return scripts.concat(styles).join('');
 }
 
-function formatRequires(declarations, options = {}) {
+function formatRequires(declarations: Declaration[], options = {}) {
   return formatImports(declarations, { ...options, cjs: true });
 }
 
-function decamelize(_str, componentCase) {
+function decamelize(_str: string, componentCase: ComponentCase) {
   const str = _str[0].toLowerCase() + _str.substr(1);
 
   switch (componentCase) {
@@ -106,8 +121,8 @@ function decamelize(_str, componentCase) {
   }
 }
 
-function getRequires(names) {
-  const tokens = names.match(jsTokens);
+function getRequires(names: string) {
+  const tokens = names.match(jsTokens)!;
   const requires = [];
   const rSpace = /\s/;
   let i = 0;
@@ -142,7 +157,7 @@ function getRequires(names) {
   return requires;
 }
 
-exports.replaceAll = function replaceAll(content, options = {}) {
+export function replaceAll(content: string, options: { libraryName?: string} = {}) {
   const { libraryName = 'antd' } = options;
   const pattern = new RegExp(`import\\s*\\{([^{}]+?)\\}\\s*from\\s*(['"])${libraryName}\\2;?`, 'g');
   const cjsPattern = new RegExp(`const\\s*\\{([^{}]+?)\\}\\s*=\\s*require\\((['"])${libraryName}\\2\\);`, 'g');
