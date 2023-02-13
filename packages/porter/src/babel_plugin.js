@@ -22,7 +22,6 @@ const cssExtensions = [ '.css', '.less', '.sass', '.scss' ];
  * @param {Object} options
  * @param { import("@babel/types")} options.types
  * @param { import("@babel/template")} options.template
- * @returns {Object}
  */
 module.exports = function({ types: t, template }) {
   let globIndex = 0;
@@ -73,7 +72,7 @@ module.exports = function({ types: t, template }) {
         if (!t.isStringLiteral(pattern)) {
           throw new Error('import.meta.glob first argument must be a string literal');
         }
-        const opts = { cwd: require('path').dirname(state.filename) };
+        const opts = { cwd: require('path').dirname(state.filename), eager: false };
         for (const prop of options.properties || []) opts[prop.key.name] = prop.value.value;
         const files = glob.sync(pattern.value, opts);
         const callExpression = path.find(p => p.isCallExpression());

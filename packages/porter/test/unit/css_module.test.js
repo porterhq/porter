@@ -2,7 +2,7 @@
 
 const path = require('path');
 const assert = require('assert').strict;
-const Porter = require('../..');
+const Porter = require('../..').default;
 const { MODULE_LOADED } = require('../../src/constants');
 
 describe('CssModule', function() {

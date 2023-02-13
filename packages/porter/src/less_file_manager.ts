@@ -1,13 +1,13 @@
-'use strict';
 
-const path = require('path');
-const { rModuleId } = require('./constants');
+import path from 'path';
+import { rModuleId } from './constants';
+import type Packet from './packet';
 
-module.exports = function getFileManager(less, packet) {
+export default function getFileManager(less: any, packet: Packet) {
   const { FileManager } = less;
 
   return class CustomFileManager extends FileManager {
-    async resolve(specifier = '', context) {
+    async resolve(specifier = '', context: string) {
       if (specifier.startsWith('/')) return specifier;
 
       if (specifier.startsWith('./')) return path.join(context, specifier);
@@ -24,7 +24,7 @@ module.exports = function getFileManager(less, packet) {
         if (result.length > 0) return result[0];
       }
 
-      const [, name, file ] = specifier.match(rModuleId);
+      const [, name, file ] = specifier.match(rModuleId)!;
       const dep = name && packet.find({ name });
       if (dep) {
         const result = await dep.resolve(file);
@@ -34,7 +34,7 @@ module.exports = function getFileManager(less, packet) {
       throw new Error(`unable to solve '${specifier}' (${context})`);
     }
 
-    async loadFile(specifier, context, options, env) {
+    async loadFile(specifier: string, context: string, options: any, env: any) {
       const fpath = await this.resolve(specifier, context);
       return super.loadFile(fpath, context, options, env);
     }

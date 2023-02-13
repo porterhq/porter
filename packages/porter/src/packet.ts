@@ -1,29 +1,33 @@
-'use strict';
+import Debug from 'debug';
+import { existsSync, watch, FSWatcher, promises as fs } from 'fs';
+// @ts-ignore
+import looseEnvify from 'loose-envify';
+import path from 'path';
+import util from 'util';
+import Glob from 'glob';
+import Module, { ModuleOptions } from './module';
+import CssModule from './css_module';
+import LessModule from './less_module';
+import JsModule from './js_module';
+import TsModule from './ts_module';
+import JsonModule from './json_module';
+import WasmModule from './wasm_module';
+import SassModule from './sass_module';
+import Stub from './stub';
+import Bundle, { CompileOptions } from './bundle';
+import { MODULE_LOADED } from './constants';
+import Porter from './porter';
+import { LoaderConfig } from '../defs/loader';
+import { PartiallyRequired } from '../defs/common';
 
-const debug = require('debug')('porter');
-const { existsSync, watch, promises: fs } = require('fs');
-const looseEnvify = require('loose-envify');
-const path = require('path');
-const util = require('util');
+const debug = Debug('porter');
+const glob = util.promisify(Glob);
 
-const glob = util.promisify(require('glob'));
-const Module = require('./module');
-const CssModule = require('./css_module');
-const LessModule = require('./less_module');
-const JsModule = require('./js_module');
-const TsModule = require('./ts_module');
-const JsonModule = require('./json_module');
-const WasmModule = require('./wasm_module');
-const SassModule = require('./sass_module');
-const Stub = require('./stub');
-const Bundle = require('./bundle');
-const { MODULE_LOADED } = require('./constants');
-
-function createModule(opts) {
+function createModule(opts: ModuleOptions) {
   const { fpath, packet } = opts;
   const { moduleCache } = packet.app;
   if (moduleCache[fpath]) return moduleCache[fpath];
-  return (moduleCache[fpath] = Module.create(opts));
+  return (moduleCache[fpath] = _createModule(opts));
 }
 
 /**
@@ -31,7 +35,7 @@ function createModule(opts) {
  * @param {Object} opts
  * @returns {Module}
  */
-Module.create = function(opts) {
+function _createModule(opts: ModuleOptions): Module {
   switch (path.extname(opts.file)) {
     case '.css':
       return new CssModule(opts);
@@ -58,25 +62,89 @@ Module.create = function(opts) {
   }
 };
 
-module.exports = class Packet {
-  constructor({ app, dir, paths, parent, packet, alias } = {}) {
+export interface PacketMeta {
+  name: string;
+  version: string;
+  main: string;
+  module: string;
+  browserify: Record<string, any>;
+  browser: string | Record<string, string | boolean>;
+  babel: Record<string, any>;
+}
+
+interface PacketOptions {
+  app: Porter;
+  dir: string;
+  name?: string;
+  paths?: string[];
+  parent?: Packet;
+  packet?: PacketMeta;
+  alias?: Record<string, string | boolean>;
+}
+
+type PacketConstructor = PartiallyRequired<PacketOptions, 'packet'>;
+
+interface FakeEntryOptions {
+  entry: string;
+  deps?: string[];
+  imports?: string[];
+  code: string;
+}
+
+export default class Packet {
+  app: Porter;
+  dir: string;
+  name: string;
+  version: string;
+  paths: string[];
+  parent?: Packet;
+  dependencies: Record<string, Packet>;
+  entries: Record<string, Module>;
+  bundles: Record<string, Bundle>;
+  files: Record<string, Module>;
+  folder: Record<string, true>;
+  browser: Record< string, string | false>;
+  browserify: Record<string, any>;
+  depPaths: string[];
+  isolated: boolean;
+  alias: Record<string, string | boolean>;
+  transpiler: string = '';
+  transpilerVersion: string = '';
+  transpilerOpts: Record<string, any> = {};
+  lessPlugin?: { install: (less: any, pluginManager: any) => {}, minVersion: number[] };
+  main: string = 'index.js';
+  watchers?: FSWatcher[];
+  lazyloaded?: boolean;
+  fake: boolean = false;
+
+  static create(options: PacketConstructor) {
+    const { app, dir } = options;
     // packetCache is necessary because there might be multiple asynchronous parsing tasks on the same packet, such as `a => b` and `a => c => b`, which might return multiple packet instance of `b` since neither one can find the other during the `packet.create()` call.
     const { packetCache } = app;
     if (packetCache[dir]) return packetCache[dir];
-    packetCache[dir] = this;
+    return (packetCache[dir] = new Packet(options));
+  }
 
-    Object.defineProperties(this, {
-      app: {
-        value: app,
-        configurable: true,
-        enumerable: false,
-      },
-      loaderCache: {
-        value: {},
-        configurable: true,
-        enumerable: false,
-      },
-    });
+  static async findOrCreate({ name, dir, parent, app }: PacketOptions) {
+    // cnpm (npminstall) dedupes dependencies with symbolic links
+    dir = await fs.realpath(dir);
+    const content = await fs.readFile(path.join(dir, 'package.json'), 'utf8');
+    const data = JSON.parse(content);
+
+    // prefer existing packet to de-duplicate packets
+    if (app.packet) {
+      const { version } = data;
+      const packet = app.packet.find({ name, version });
+      if (packet) return packet;
+    }
+
+    const packet = Packet.create({ dir, parent, app, packet: { ...data, name } });
+    await packet.prepare();
+    return packet;
+  }
+
+  constructor({ app, dir, paths, parent, packet, alias }: PacketConstructor) {
+    this.app = app;
     this.dir = dir;
     this.name = packet.name;
     this.version = packet.version;
@@ -110,26 +178,8 @@ module.exports = class Packet {
     if (this.name == 'brotli') this.browser.fs = false;
   }
 
-  static async create({ name, dir, parent, app }) {
-    // cnpm (npminstall) dedupes dependencies with symbolic links
-    dir = await fs.realpath(dir);
-    const content = await fs.readFile(path.join(dir, 'package.json'), 'utf8');
-    const data = JSON.parse(content);
-
-    // prefer existing packet to de-duplicate packets
-    if (app.packet) {
-      const { version } = data;
-      const packet = app.packet.find({ name, version });
-      if (packet) return packet;
-    }
-
-    const packet = new Packet({ dir, parent, app, packet: { ...data, name } });
-    await packet.prepare();
-    return packet;
-  }
-
   get rootPacket() {
-    let packet = this;
+    let packet: Packet = this;
     while (packet.parent) packet = packet.parent;
     return packet;
   }
@@ -141,23 +191,25 @@ module.exports = class Packet {
 
   /**
    * check if packet should be bundled and were not bundled yet
-   * @returns {boolean}
    */
-  get bundleable() {
+  get bundleable(): boolean {
     const { app, bundles, isolated } = this;
     return (app.preload.length === 0 || isolated) && Object.keys(bundles).length === 0;
   }
 
-  get all() {
-    const iterable = { done: new WeakMap() };
-    iterable[Symbol.iterator] = function * () {
-      if (!iterable.done.has(this)) yield this;
-      iterable.done.set(this, true);
-      for (const dep of Object.values(this.dependencies)) {
-        if (iterable.done.has(dep)) continue;
-        yield* Object.assign(dep.all, { done: iterable.done });
-      }
-    }.bind(this);
+  get all(): Iterable<Packet> {
+    const packet = this;
+    const iterable = {
+      done: new WeakMap(),
+      [Symbol.iterator]: function * () {
+        if (!iterable.done.has(packet)) yield packet;
+        iterable.done.set(packet, true);
+        for (const dep of Object.values(packet.dependencies)) {
+          if (iterable.done.has(dep)) continue;
+          yield* Object.assign(dep.all, { done: iterable.done });
+        }
+      },
+    };
     return iterable;
   }
 
@@ -166,9 +218,8 @@ module.exports = class Packet {
    * @param {Object} opts
    * @param {string} opts.name
    * @param {string} opts.version
-   * @returns {Packet}
    */
-  find({ name, version }) {
+  find({ name, version }: { name?: string, version?: string }): Packet | null {
     if (!name) return this;
 
     for (const packet of this.all) {
@@ -176,10 +227,12 @@ module.exports = class Packet {
         if (!version || packet.version == version) return packet;
       }
     }
+
+    return null;
   }
 
-  findAll({ name }) {
-    const result = [];
+  findAll({ name }: { name: string }) {
+    const result: Packet[] = [];
 
     if (!name) return result;
     for (const packet of this.all) {
@@ -191,7 +244,7 @@ module.exports = class Packet {
 
   async parseDepPaths() {
     const { app, depPaths } = this;
-    let packet = this;
+    let packet: Packet | undefined = this;
     let parentDir;
 
     while (packet) {
@@ -220,8 +273,8 @@ module.exports = class Packet {
       babel: ['babel.config.js', 'babel.config.cjs', '.babelrc'],
       typescript: 'tsconfig.json',
     };
-    const configMappers = [];
-    for (const key in obj) {
+    const configMappers: { transpiler: string, config: any }[] = [];
+    for (const key of Object.keys(obj) as Array<keyof typeof obj>) {
       const value = obj[key];
       if (Array.isArray(value)) {
         for (const config of value) {
@@ -254,7 +307,7 @@ module.exports = class Packet {
             this.transpiler = configObj.transpiler;
             this.transpilerOpts = JSON.parse(content);
           } catch (err) {
-            throw new Error(`${err.message} (${configPath})`);
+            if (err instanceof Error) throw new Error(`${err.message} (${configPath})`);
           }
         }
         break outer;
@@ -294,7 +347,10 @@ module.exports = class Packet {
       this.transpilerOpts = app.packet.transpilerOpts;
     }
 
-    const [ fpath ] = await this.resolve(this.normalizeFile(main));
+    const normalizedFile = this.normalizeFile(main);
+    if (!normalizedFile) return;
+
+    const [ fpath ] = await this.resolve(normalizedFile);
     if (fpath) this.main = path.relative(this.dir, fpath);
 
     if (process.env.NODE_ENV !== 'production' && (!this.parent || this.transpiler)) {
@@ -320,15 +376,15 @@ module.exports = class Packet {
     });
   }
 
-  async onChange(eventType, filename) {
+  async onChange(eventType: string, filename: string) {
     if (filename && filename in this.files) await this.reload(eventType, filename);
   }
 
-  async reload(eventType, filename) {
+  async reload(eventType: string, filename: string) {
     const { files, app } = this;
     const mod = files[filename];
     const { mtime } = await fs.stat(mod.fpath).catch(() => ({ mtime: null }));
-    if (mtime === null || mod.reloaded >= mtime) return;
+    if (mtime === null || mod.reloaded && mod.reloaded >= mtime) return;
     mod.reloaded = mtime;
     await mod.reload();
 
@@ -350,7 +406,7 @@ module.exports = class Packet {
     }
   }
 
-  tryRequire(name) {
+  tryRequire(name: string) {
     for (const depPath of this.depPaths) {
       try {
         return require(path.join(depPath, name));
@@ -361,7 +417,7 @@ module.exports = class Packet {
     console.error(new Error(`Cannot find dependency ${name} (${this.dir})`));
   }
 
-  normalizeFile(file) {
+  normalizeFile(file: string) {
     const { browser } = this;
 
     // "browser" mapping in package.json
@@ -376,7 +432,7 @@ module.exports = class Packet {
     return file.replace(/^[\.\/]+/, '');
   }
 
-  async parseModule(file) {
+  async parseModule(file: string) {
     const { files, folder, name, alias } = this;
 
     // alias takes precedence over original specifier
@@ -388,10 +444,11 @@ module.exports = class Packet {
     }
 
     const originFile = file;
-    file = this.normalizeFile(file);
-
+    const normalizedFile = this.normalizeFile(file);
     // if neglected in browser field
-    if (file === false) return false;
+    if (normalizedFile === false) return false;
+
+    file = normalizedFile;
     // if parsed already
     if (files.hasOwnProperty(file)) return files[file];
 
@@ -417,9 +474,9 @@ module.exports = class Packet {
     }
   }
 
-  async parseEntry(entry) {
+  async parseEntry(entry: string) {
     // entry is '' when `require('foo/')`, should fallback to `this.main`
-    if (!entry) entry = this.module || this.main;
+    if (!entry) entry = this.main;
     const { app, entries, files } = this;
     const mod = await this.parseModule(entry);
 
@@ -433,7 +490,7 @@ module.exports = class Packet {
     return mod;
   }
 
-  async parseFile(file) {
+  async parseFile(file: string) {
     const { files } = this;
     const mod = await this.parseModule(file);
 
@@ -447,12 +504,8 @@ module.exports = class Packet {
 
   /**
    * Parse an entry that has code or deps (or both) specified already.
-   * @param {Object} options
-   * @param {string} options.entry
-   * @param {string[]} options.imports
-   * @param {string} options.code
    */
-  async parseFakeEntry(options = {}) {
+  async parseFakeEntry(options: FakeEntryOptions) {
     const { entry, imports = options.deps, code } = options;
     const { entries, files, paths } = this;
     const { moduleCache } = this.app;
@@ -466,7 +519,7 @@ module.exports = class Packet {
     return mod;
   }
 
-  async parsePacket({ name, entry }) {
+  async parsePacket({ name, entry }: { name: string, entry: string }) {
     if (this.dependencies[name]) {
       const packet = this.dependencies[name];
       return await packet.parseEntry(entry);
@@ -477,14 +530,14 @@ module.exports = class Packet {
 
       if (existsSync(dir)) {
         const { app } = this;
-        const packet = await Packet.create({ name, dir, parent: this, app });
+        const packet = await Packet.findOrCreate({ name, dir, parent: this, app });
         this.dependencies[packet.name] = packet;
         return await packet.parseEntry(entry);
       }
     }
   }
 
-  async resolve(file) {
+  async resolve(file: string) {
     const { app, paths } = this;
     const { suffixes } = app.resolve;
 
@@ -514,8 +567,8 @@ module.exports = class Packet {
   }
 
   get copy() {
-    const copy = {};
-    const manifest = {};
+    const copy: Record<string, any> = {};
+    const manifest: Record<string, any> = {};
     const { dependencies, main, bundles, parent, entries, isolated } = this;
 
     for (const file in bundles) {
@@ -536,8 +589,8 @@ module.exports = class Packet {
     if (!/^(?:\.\/)?index(?:.js)?$/.test(main)) copy.main = main;
 
     for (const name of ['folder', 'browser']) {
-      const obj = this[name];
-      const sorted = Object.keys(obj).sort().reduce((result, key) => {
+      const obj = this[name as 'folder' | 'browser'];
+      const sorted = Object.keys(obj).sort().reduce((result: Record<string, any>, key) => {
         result[key] = obj[key];
         return result;
       }, {});
@@ -547,7 +600,7 @@ module.exports = class Packet {
     }
 
     if (dependencies && Object.keys(dependencies).length > 0) {
-      copy.dependencies = Object.keys(dependencies).sort().reduce((result, key) => {
+      copy.dependencies = Object.keys(dependencies).sort().reduce((result: Record<string, any>, key) => {
         result[key] = dependencies[key].version;
         return result;
       }, {});
@@ -571,17 +624,17 @@ module.exports = class Packet {
     };
   }
 
-  async parseLoader(loaderConfig) {
+  async parseLoader(loaderConfig: LoaderConfig): Promise<{ sourceContent: string, code: string }> {
     const fpath = path.join(__dirname, '..', 'loader.js');
     const sourceContent = await fs.readFile(fpath, 'utf8');
-    const code = await new Promise(resolve => {
+    const code = await new Promise<string>(resolve => {
       const stream = looseEnvify(fpath, {
         BROWSER: true,
         NODE_ENV: process.env.NODE_ENV || 'development',
         loaderConfig
       });
       let buf = '';
-      stream.on('data', chunk => buf += chunk);
+      stream.on('data', (chunk: string) => buf += chunk);
       stream.on('end', () => resolve(buf));
       stream.end(sourceContent);
     });
@@ -593,7 +646,7 @@ module.exports = class Packet {
     const { app, isolated, lazyloaded, main, files, bundles } = this;
 
     // the modules might not be fully parsed yet, the process returns early when parsing multiple times.
-    await new Promise(resolve => {
+    await new Promise<void>(resolve => {
       (function poll() {
         if (Object.values(files).every(mod => mod.status >= MODULE_LOADED)) {
           resolve();
@@ -618,7 +671,7 @@ module.exports = class Packet {
     for (const entry of new Set(entries)) {
       Bundle.create({
         packet: this,
-        entries: entry === main ? null : [ entry ],
+        entries: entry === main ? undefined : [ entry ],
       });
     }
 
@@ -629,12 +682,12 @@ module.exports = class Packet {
     }
   }
 
-  async compileAll(opts) {
+  async compileAll(opts: CompileOptions) {
     const { bundles } = this;
     for (const bundle of Object.values(bundles)) await bundle.compile(opts);
   }
 
-  async compile(entries, opts) {
+  async compile(entries: string | string[], opts: CompileOptions) {
     if (!Array.isArray(entries)) entries = [entries];
     opts = { package: true, ...opts };
     const { manifest = {}, writeFile = true } = opts;
@@ -643,7 +696,7 @@ module.exports = class Packet {
     if (typeof entries[0] === 'object') {
       const [{ entry }] = entries;
       // clear bundle cache, fake entries should always start from scratch
-      this.bundles[entry] = null;
+      delete this.bundles[entry];
       delete this.files[entry];
       delete this.entries[entry];
       await this.parseFakeEntry(entries[0]);

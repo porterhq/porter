@@ -1,32 +1,82 @@
-'use strict';
+import crypto from 'crypto';
+import fs from 'fs/promises';
+import path from 'path';
+import util from 'util';
+import UglifyJS from 'uglify-js';
+import { RawSourceMap, SourceMapConsumer, SourceMapGenerator, SourceNode } from 'source-map';
+import Debug from 'debug';
+import Module from './module';
+import Packet from './packet';
+import { EXTENSION_MAP } from './constants';
+import Porter from './porter';
+import { LoaderConfig } from '../defs/loader';
+import { PartiallyRequired } from '../defs/common';
 
-const crypto = require('crypto');
-const fs = require('fs/promises');
-const path = require('path');
-const util = require('util');
-const UglifyJS = require('uglify-js');
-const { SourceMapConsumer, SourceMapGenerator, SourceNode } = require('source-map');
-const debug = require('debug')('porter');
-const Module = require('./module');
-const { EXTENSION_MAP } = require('./constants');
-
+const debug = Debug('porter');
 const rExt = /(\.\w+)?$/;
 
-function getEntry(packet, entries) {
+function getEntry(packet: Packet, entries?: string[]) {
   return entries && (entries.length === 1 || !packet.parent) ? entries[0] : packet.main;
 }
 
-module.exports = class Bundle {
-  #entries = null;
-  #code = null;
-  #map = null;
-  #cacheKey = null;
-  #contenthash = null;
-  #reloading = null;
-  #loaderCache = {};
-  #obtainCache = {};
+type WrapOptions = PartiallyRequired<BundleOptions, 'entries'>;
 
-  static wrap(options = {}) {
+interface BundleOptions {
+  packet: Packet;
+  entries?: string[];
+  loader?: boolean;
+  format?: '.js' | '.css' | '.wasm';
+  package?: boolean;
+  all?: boolean;
+  loaderConfig?: LoaderConfig;
+}
+
+interface ObtainOptions {
+  loader?: boolean;
+  minify?: boolean;
+}
+
+export interface CompileOptions {
+  all?: boolean;
+  manifest?: Record<string, string>;
+  package?: boolean;
+  writeFile?: boolean;
+}
+
+interface ReloadOptions {
+  cause?: Bundle;
+}
+
+interface SourceNodeOptions {
+  source: string;
+  sourceContent: string;
+  code: string;
+  map?: RawSourceMap;
+}
+
+type ScopeType = 'module' | 'packet' | 'all';
+
+export default class Bundle {
+  #entries: string[] | null = null;
+  #code?: string;
+  #map?: RawSourceMap;
+  #cacheKey: string | null = null;
+  #contenthash: string | null = null;
+  #reloading: ReturnType<typeof setTimeout> | null = null;
+  #loaderCache: Record<string, any> = {};
+  #obtainCache: Record<string, Promise<{ code: string, map?: RawSourceMap}>> = {};
+
+  app: Porter;
+  packet: Packet;
+  parent: Bundle | null;
+  children: Bundle[];
+  format: '.js' | '.css' | '.wasm';
+  scope: ScopeType;
+  loader: boolean;
+  loaderConfig?: LoaderConfig;
+  updatedAt: Date | null = null;
+
+  static wrap(options: WrapOptions) {
     const { packet, entries } = options;
     // the default bundle
     const bundle = Bundle.create(options);
@@ -102,14 +152,14 @@ module.exports = class Bundle {
     return results;
   }
 
-  static create(options = {}) {
+  static create(options: BundleOptions) {
     const { packet, entries } = options;
     const ext = entries && path.extname(entries[0] || '');
 
     let { format } = options;
     if (!format && ext) {
       for (const [ key, extensions ] of Object.entries(EXTENSION_MAP)) {
-        if (extensions.includes(ext)) format = key;
+        if (extensions.includes(ext)) format = key as '.js' | '.css' | '.wasm';
       }
     }
 
@@ -126,7 +176,7 @@ module.exports = class Bundle {
     return bundle;
   }
 
-  constructor(options = {}) {
+  constructor(options: BundleOptions) {
     const { packet, entries, format = '.js' } = options;
     const { app } = packet;
 
@@ -134,10 +184,10 @@ module.exports = class Bundle {
     this.children = [];
     this.app = app;
     this.packet = packet;
-    this.#entries = entries && entries.length > 0 ? [].concat(entries) : null;
+    this.#entries = entries && entries.length > 0 ? ([] as string[]).concat(entries) : null;
     this.#loaderCache = {};
 
-    let scope = 'packet';
+    let scope: ScopeType = 'packet';
     if (options.package === false) {
       scope = 'module';
     } else if (app.preload.length > 0 || options.all || format === '.css') {
@@ -146,7 +196,7 @@ module.exports = class Bundle {
     this.scope = scope;
     this.format = format;
 
-    const mod = entries && entries.length > 0 ? packet.files[entries] : null;
+    const mod = entries && entries.length > 0 ? packet.files[entries[0]] : null;
     const { loader, loaderConfig } = options;
     this.loaderConfig = loaderConfig;
     this.loader = loader == null && mod ? mod.isRootEntry : loader === true;
@@ -158,12 +208,12 @@ module.exports = class Bundle {
    * - module is preloaded but the ancestor isn't one of the preload entry
    * - module is one of the bundle exceptions
    */
-  * [Symbol.iterator]() {
+  * [Symbol.iterator](): Generator<Module, void> {
     const { entries, packet, scope, format } = this;
     const extensions = EXTENSION_MAP[format];
-    const done = {};
+    const done: Record<string, boolean> = {};
 
-    function* iterate(entry, preload) {
+    function* iterate(entry: Module, preload: Module | null): Generator<Module, void> {
       // remote modules don't have children locally
       if (!entry.children) return;
       for (const mod of entry.children) {
@@ -181,15 +231,15 @@ module.exports = class Bundle {
       }
     }
 
-    function* iterateEntry(entry, preload = null) {
+    function* iterateEntry(entry: Module, preload: Module | null = null): Generator<Module, void> {
       done[entry.id] = true;
       yield* iterate(entry, preload);
       if (extensions.includes(path.extname(entry.file))) {
         if (!(entry.packet.isolated && preload && entry.packet !== preload?.packet)) {
           yield entry;
         }
-      } else if (format === '.js' && entry.exports) {
-        yield entry.exports; // css modules
+      } else if (format === '.js' && 'exports' in entry) {
+        yield entry.exports as Module; // css modules
       }
     }
 
@@ -202,7 +252,10 @@ module.exports = class Bundle {
       // might be a mocked module from FakePacket
       if (!(entry instanceof Module)) continue;
       // lazyloaded module
-      if (scope === 'module') return yield entry;
+      if (scope === 'module') {
+        yield entry;
+        break;
+      }
 
       /**
        * preloaded modules should be included in following scenarios:
@@ -231,7 +284,7 @@ module.exports = class Bundle {
 
   get entry() {
     const { packet } = this;
-    return getEntry(packet, this.#entries);
+    return getEntry(packet, this.#entries!);
   }
 
   get entryPath() {
@@ -268,13 +321,13 @@ module.exports = class Bundle {
     return packet.parent ? path.join(name, version, output) : output;
   }
 
-  async createSourceNode({ source, sourceContent, code, map }) {
+  async createSourceNode({ source, sourceContent, code, map }: SourceNodeOptions) {
     if (map instanceof SourceMapGenerator) {
       map = map.toJSON();
     }
 
     if (map) {
-      const consumer = await new SourceMapConsumer(map);
+      const consumer = await new SourceMapConsumer(map as RawSourceMap);
       const node = SourceNode.fromStringWithSourceMap(code, consumer);
       if (sourceContent) node.setSourceContent(source, sourceContent);
       return node;
@@ -291,7 +344,7 @@ module.exports = class Bundle {
     return node.join('\n');
   }
 
-  async obtainLoader(loaderConfig) {
+  async obtainLoader(loaderConfig: LoaderConfig) {
     const { code, sourceContent } = await this.packet.parseLoader(loaderConfig);
     return {
       source: 'porter:///loader.js',
@@ -312,9 +365,7 @@ module.exports = class Bundle {
       ie8: true
     });
     if (result.error) throw result.error;
-    result.source = source;
-    result.sourceContent = sourceContent;
-    return (loaderCache[cacheKey] = result);
+    return (loaderCache[cacheKey] = {...result, source, sourceContent });
   }
 
   /**
@@ -332,19 +383,19 @@ module.exports = class Bundle {
     return false;
   }
 
-  async reload(options) {
+  async reload(options?: ReloadOptions) {
     if (this.#reloading) clearTimeout(this.#reloading);
     this.#reloading = setTimeout(() => this._reload(options), 100);
   }
 
-  async _reload({ cause } = {}) {
+  async _reload({ cause }: ReloadOptions = {}) {
     const { app, entryPath, outputPath } = this;
     if (!outputPath) return;
     const reason = cause ? `(${cause.entryPath})` : '';
     debug(`reloading ${entryPath} -> ${outputPath}`, reason);
     await fs.unlink(path.join(app.cache.path, outputPath)).catch(() => {});
-    this.#code = null;
-    this.#map = null;
+    this.#code = undefined;
+    this.#map = undefined;
     this.#cacheKey = null;
     this.#contenthash = null;
     this.#obtainCache = {};
@@ -369,12 +420,12 @@ module.exports = class Bundle {
     return mod;
   }
 
-  async obtain(options = {}) {
+  async obtain(options?: ObtainOptions) {
     const { entries } = this;
-    const { minify } = options;
+    const { minify } = options || {};
     const cacheKey  = JSON.stringify({ entries, minify });
 
-    if (this.#cacheKey === cacheKey) {
+    if (this.#cacheKey === cacheKey && this.#code) {
       return { code: this.#code, map: this.#map };
     }
 
@@ -384,12 +435,8 @@ module.exports = class Bundle {
 
   /**
    * Create a bundle from specified entries
-   * @param {string[]} entries
-   * @param {Object} opts
-   * @param {boolean} opts.loader   include the loader when entry is root entry, set to false to explicitly exclude the loader
-   * @param {Object} opts.loaderConfig overrides {@link Packet#loaderConfig}
    */
-  async _obtain({ minify = false } = {}) {
+  async _obtain({ minify = false }: ObtainOptions = {}) {
     const { app, entries, children, packet, format, loader } = this;
     const cacheKey = JSON.stringify({ entries, minify });
 
@@ -413,7 +460,7 @@ module.exports = class Bundle {
     // new bundles might be needed if new dynamic imports were generated
     Bundle.wrap({ packet, entries });
 
-    for await (const mod of this) {
+    for (const mod of this) {
       const { code, map } = await (minify ? mod.minify() : mod.obtain());
       const subnode = await this.createSourceNode({
         // relative path might start with ../../ if dependencies were found at workspace root
@@ -443,16 +490,17 @@ module.exports = class Bundle {
     }
 
     const result = node.join('\n').toStringWithSourceMap();
+    const map = 'toJSON' in result.map ? result.map.toJSON() : result.map;
     this.#code = result.code;
-    this.#map = result.map;
+    this.#map = map;
     this.#cacheKey = cacheKey;
     this.#contenthash = null;
-    this.#obtainCache[cacheKey] = null;
+    delete this.#obtainCache[cacheKey];
     this.updatedAt = new Date();
 
     const { entryPath, outputPath } = this;
     debug('bundle complete %s -> %s', entryPath, outputPath, entries, { loader, minify });
-    return result;
+    return { ...result, map };
   }
 
   /**
@@ -461,7 +509,7 @@ module.exports = class Bundle {
    * @param {boolean} options.loader
    * @param {boolean} options.minify
    */
-  async fuzzyObtain({ loader, minify = false } = {}) {
+  async fuzzyObtain({ loader, minify = false }: ObtainOptions = {}) {
     const { children, packet, entries, format } = this;
     const loaderConfig = Object.assign(packet.loaderConfig, this.loaderConfig);
     const chunks = [];
@@ -510,21 +558,14 @@ module.exports = class Bundle {
 
   /**
    * Fix source map related settings in both code and map.
-   * @param {Object} result
-   * @param {string} result.code
-   * @param {Object|SourceMapGenerator} result.map
-   * @param {Bundle} bundle
-   * @param {string} bundle.outputPath
    */
-   setSourceMap({ code, map }, bundle) {
+   setSourceMap({ code, map }: { code: string, map?: RawSourceMap }, bundle: Bundle) {
     if (!map) return { code, map };
 
-    // normalize map
-    if (map instanceof SourceMapGenerator) map = map.toJSON();
     if (typeof map == 'string') map = JSON.parse(map);
 
     const { app } = this;
-    if (app.source.inline !== true) {
+    if (map && app.source.inline !== true) {
       map.sourceRoot = app.source.root;
       map.sources = map.sources.map(source => source.replace(/^porter:\/\/\//, ''));
       map.sourcesContent = undefined;
@@ -540,8 +581,8 @@ module.exports = class Bundle {
     return { code, map };
   }
 
-  async compile(options = {}) {
-    const { manifest = {}, writeFile = true } = options;
+  async compile(options: CompileOptions) {
+    const { manifest = {}, writeFile = true } = options || {};
     if (await this.exists()) {
       const { entryPath, outputPath } = this;
       manifest[this.outkey] = this.output;

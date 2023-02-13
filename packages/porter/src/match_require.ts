@@ -1,13 +1,12 @@
-'use strict';
-
-const jsTokens = require('js-tokens').default;
+// @ts-ignore
+import jsTokens from 'js-tokens';
 
 const rEqualOp = /^===?$/;
 const rNotEqualOp = /^!==?$/;
 const rSpace = /^\s+$/;
 const rString = /^(['"'])([^\1]+)\1$/;
 
-function decodeUnicodeLiteral(text) {
+export function decodeUnicodeLiteral(text: string) {
   if (typeof text !== 'string') return text;
   try {
     return text.replace(/(\\u[0-9a-f]{4})/ig, (m, literal) => {
@@ -19,19 +18,15 @@ function decodeUnicodeLiteral(text) {
   return text;
 };
 
-exports.decodeUnicodeLiteral = decodeUnicodeLiteral;
-
 /**
  * Finds all of the dependencies `require`d or `import`ed in the code passed in.
- * @param {string} content
- * @returns {Array}
  */
-exports.findAll = function findAll(content) {
-  const parts = content.match(jsTokens);
-  const imports = [];
-  const dynamicImports = [];
+export function findAll(content: string): { imports: string[], dynamicImports: string[], __esModule: boolean } {
+  const parts = content.match(jsTokens)!;
+  const imports: string[] = [];
+  const dynamicImports: string[] = [];
   let i = 0;
-  let part;
+  let part: string;
 
   function next() {
     part = parts[i++];
@@ -52,6 +47,7 @@ exports.findAll = function findAll(content) {
       space();
       const m = part.match(rString);
       space();
+      // @ts-ignore
       if (m && part == ')') {
         imports.push(m[2]);
       }
@@ -103,7 +99,9 @@ exports.findAll = function findAll(content) {
 
   function findRequireInBlock() {
     if (part == '{') {
+      // @ts-ignore
       while (part && part != '}') {
+        // @ts-ignore
         if (part == 'require') findRequire();
         next();
       }
@@ -130,10 +128,10 @@ exports.findAll = function findAll(content) {
    * sillyEval(['true'])
    * sillyEval(['false', '!=', 'true'])
    */
-  function sillyEval(temp) {
+  function sillyEval(temp: string[]) {
     if (temp.length == 3 && (rEqualOp.test(temp[1]) || rNotEqualOp.test(temp[1]))) {
       if (rString.test(temp[0]) && rString.test(temp[2])) {
-        return (temp[0].match(rString)[2] == temp[2].match(rString)[2]) == rEqualOp.test(temp[1]);
+        return (temp[0].match(rString)![2] == temp[2].match(rString)![2]) == rEqualOp.test(temp[1]);
       }
       else if (temp[0] == 'true' || temp[0] == 'false') {
         return temp[0] == temp[2];
@@ -147,6 +145,7 @@ exports.findAll = function findAll(content) {
   function skipBlock() {
     if (part == '{') {
       space();
+      // @ts-ignore
       while (part != '}') next();
     } else {
       space();
@@ -159,7 +158,8 @@ exports.findAll = function findAll(content) {
     if (part != '(') return;
 
     space();
-    const temp = [];
+    const temp: string[] = [];
+    // @ts-ignore
     while (part != ')') {
       if (!rSpace.test(part)) temp.push(part);
       next();
@@ -210,6 +210,7 @@ exports.findAll = function findAll(content) {
 
   let __esModule = false;
   next();
+  // @ts-ignore
   while (part) {
     if (part == 'if') {
       findConditionalRequire();
@@ -235,5 +236,6 @@ exports.findAll = function findAll(content) {
   return {
     imports: imports.map(decodeUnicodeLiteral),
     dynamicImports: dynamicImports.map(decodeUnicodeLiteral),
-    __esModule };
+    __esModule,
+  };
 };

@@ -1,17 +1,15 @@
-'use strict';
+import sass from 'sass';
+import { pathToFileURL } from 'url';
+import CssModule from './css_module';
+import { TranspileOptions } from './module';
 
-// const path = require('path');
-const sass = require('sass');
-const { pathToFileURL } = require('url');
-const CssModule = require('./css_module');
-
-module.exports = class SassModule extends CssModule {
-  matchImport(code) {
+export default class SassModule extends CssModule {
+  matchImport(code: string) {
     // leave imports to sass compiler
     this.imports = [];
   }
 
-  async transpile({ code, map, minify }) {
+  async transpile({ code, map, minify }: TranspileOptions) {
     const { fpath, packet } = this;
     const loadPaths = packet.paths || [ packet.dir ];
 
@@ -26,6 +24,7 @@ module.exports = class SassModule extends CssModule {
       }],
     });
 
+    // @ts-ignore
     return super.transpile({ code: result.css, map: result.sourceMap, minify });
   }
 };

@@ -3,7 +3,7 @@
 const { strict: assert } = require('assert');
 const path = require('path');
 // const fs = require('fs/promises');
-const Porter = require('../..');
+const Porter = require('../..').default;
 const { SourceMapConsumer } = require('source-map');
 
 describe('TsModule', function() {

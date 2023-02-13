@@ -1,10 +1,13 @@
-'use strict';
+import path from 'path';
+import JsModule from './js_module';
+import { TranspileOptions } from './module';
 
-const path = require('path');
-// const fs = require('fs/promises');
-const JsModule = require('./js_module');
+// tsc compiler options
+interface CompilerOptions {
+  [key: string]: any;
+}
 
-module.exports = class TsModule extends JsModule {
+export default class TsModule extends JsModule {
   async load() {
     const { packet } = this;
     const { code } = await super.load();
@@ -25,17 +28,21 @@ module.exports = class TsModule extends JsModule {
 
     // remove imports that are transformed from dynamic imports, such as
     // import('./utils/math');
-    for (let i = this.imports.length - 1; i >= 0; i--) {
-      const specifier = this.imports[i];
-      if (dynamicImports.includes(specifier) || (oldImports && !oldImports.includes(specifier))) {
-        this.imports.splice(i, 1);
+    if (this.imports && dynamicImports) {
+      for (let i = this.imports.length - 1; i >= 0; i--) {
+        const specifier = this.imports[i];
+        if (dynamicImports.includes(specifier) || (oldImports && !oldImports.includes(specifier))) {
+          this.imports.splice(i, 1);
+        }
       }
     }
     // restore css imports that might be removed when compiling with babel, such as
     // import './foo.css';
-    for (const specifier of imports) {
-      if (specifier.endsWith('.css') && !this.imports.includes(specifier)) {
-        this.imports.push(specifier);
+    if (this.imports && imports) {
+      for (const specifier of imports) {
+        if (specifier.endsWith('.css') && !this.imports.includes(specifier)) {
+          this.imports.push(specifier);
+        }
       }
     }
     this.dynamicImports = dynamicImports;
@@ -43,7 +50,7 @@ module.exports = class TsModule extends JsModule {
     return { code };
   }
 
-  async _transpile({ code }, compilerOptions) {
+  async _transpile({ code }: TranspileOptions, compilerOptions?: CompilerOptions) {
     const { app, fpath, packet } = this;
 
     // might transpile typescript with tools like babel or swc

@@ -2,7 +2,7 @@
 
 const assert = require('assert').strict;
 const path = require('path');
-const Cache = require('../../src/cache');
+const Cache = require('../../src/cache').default;
 
 const root = path.join(__dirname, '../../../../examples/app');
 

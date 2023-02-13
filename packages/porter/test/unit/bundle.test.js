@@ -3,8 +3,8 @@
 const { strict: assert } = require('assert');
 const fs = require('fs/promises');
 const path = require('path');
-const Porter = require('../..');
-const Bundle = require('../../src/bundle');
+const Porter = require('../..').default;
+const Bundle = require('../../src/bundle').default;
 
 describe('Bundle without preload', function() {
   const root = path.resolve(__dirname, '../../../../examples/app');
@@ -303,7 +303,7 @@ describe('Bundle with preload', function() {
     it('should obtain correct source map', async function() {
       const bundle = porter.packet.bundles['stylesheets/app.css'];
       const { map } = await bundle.obtain();
-      const { sources } = JSON.parse(map.toString());
+      const { sources } = map;
       assert.deepEqual(sources.map(source => source.replace(/^\//, '')), [
         'porter:///components/stylesheets/common/reset.css',
         'porter:///components/stylesheets/common/base.css',
