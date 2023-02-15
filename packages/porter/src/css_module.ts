@@ -6,7 +6,9 @@ import Module, { TranspileOptions } from './module';
 import JsonModule from './json_module';
 import { MODULE_LOADING, MODULE_LOADED } from './constants';
 
-const rAtImport = /(?:^|\n)\s*@import\s+(['"])([^'"]+)\1;/g;
+// FIXME
+// switch to swc css or lightning css perhaps?
+const rAtImport = /(?:^|\n)\s*@import\s+(?:(['"])([^'"]+)\1|url\((['"])?([^\)]+)\3?\));/g;
 
 export default class CssModule extends Module {
   exports?: JsonModule;
@@ -17,9 +19,8 @@ export default class CssModule extends Module {
 
     rAtImport.lastIndex = 0;
     while ((m = rAtImport.exec(code))) {
-      imports.push(m[2]);
+      imports.push(m[2] || m[4]);
     }
-
     this.imports = imports;
   }
 

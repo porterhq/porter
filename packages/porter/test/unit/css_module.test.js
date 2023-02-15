@@ -4,6 +4,7 @@ const path = require('path');
 const assert = require('assert').strict;
 const Porter = require('../..').default;
 const { MODULE_LOADED } = require('../../src/constants');
+const CssModule = require('../../src/css_module').default;
 
 describe('CssModule', function() {
   const root = path.resolve(__dirname, '../../../../examples/app');
@@ -51,5 +52,19 @@ describe('CssModule', function() {
   it('should set status to MODULE_LOADED after parse', async function() {
     const mod = porter.packet.files['stylesheets/app.css'];
     assert.equal(mod.status, MODULE_LOADED);
+  });
+
+  describe('matchImport()', function() {
+    it('should handle @import "/foo.css;', function() {
+      const mod = Object.create(CssModule.prototype);
+      mod.matchImport('@import "./style/index.css";');
+      assert.deepEqual(mod.imports, ['./style/index.css']);
+    });
+
+    it('should handle @import url("./foo.css");', function() {
+      const mod = Object.create(CssModule.prototype);
+      mod.matchImport('@import url(../../theme/index.css);\nbody { margin: 0; }');
+      assert.deepEqual(mod.imports, ['../../theme/index.css']);
+    });
   });
 });
