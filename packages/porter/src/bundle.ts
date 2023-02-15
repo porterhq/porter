@@ -9,8 +9,7 @@ import Module from './module';
 import Packet from './packet';
 import { EXTENSION_MAP } from './constants';
 import Porter from './porter';
-import { LoaderConfig } from '../defs/loader';
-import { PartiallyRequired } from '../defs/common';
+import { LoaderConfig, PartiallyRequired } from './defs';
 
 const debug = Debug('porter');
 const rExt = /(\.\w+)?$/;

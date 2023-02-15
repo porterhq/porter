@@ -3,6 +3,7 @@
   "description": "A middleware for web modules",
   "version": "4.4.7",
   "main": "index.js",
+  "types": "index.d.ts",
   "repository": {
     "type": "git",
     "url": "git@github.com:porterhq/porter.git"
