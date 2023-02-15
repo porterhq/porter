@@ -1,3 +1,13 @@
+4.4.7 / 2023-02-15
+==================
+
+## What's Changed
+* refactor: switch packages/porter to typescript by @cyjake in https://github.com/porterhq/porter/pull/203
+* fix: @import url() in css modules by @cyjake in https://github.com/porterhq/porter/pull/204
+
+
+**Full Changelog**: https://github.com/porterhq/porter/compare/v4.4.6...v4.4.7
+
 4.4.6 / 2023-02-01
 ==================
 
