@@ -14,5 +14,5 @@ module.exports = new Porter({
   preload: 'preload',
   bundle: {
     exclude: ['react', 'react-dom'],
-  }
+  },
 });

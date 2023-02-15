@@ -17,8 +17,7 @@ import Stub from './stub';
 import Bundle, { CompileOptions } from './bundle';
 import { MODULE_LOADED } from './constants';
 import Porter from './porter';
-import { LoaderConfig } from '../defs/loader';
-import { PartiallyRequired } from '../defs/common';
+import { LoaderConfig, PartiallyRequired } from './defs';
 
 const debug = Debug('porter');
 const glob = util.promisify(Glob);

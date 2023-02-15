@@ -8,7 +8,7 @@ import { MODULE_LOADING, MODULE_LOADED } from './constants';
 
 // FIXME
 // switch to swc css or lightning css perhaps?
-const rAtImport = /(?:^|\n)\s*@import\s+(?:(['"])([^'"]+)\1|url\((['"])?([^\)]+)\3?\));/g;
+const rAtImport = /(?:^|\n)\s*@import\s+(?:(['"])([^'"]+)\1|url\((['"])?([^\)]+)\3?\))[ ;]/g;
 
 export default class CssModule extends Module {
   exports?: JsonModule;

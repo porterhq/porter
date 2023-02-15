@@ -66,5 +66,11 @@ describe('CssModule', function() {
       mod.matchImport('@import url(../../theme/index.css);\nbody { margin: 0; }');
       assert.deepEqual(mod.imports, ['../../theme/index.css']);
     });
+
+    it('should handle @import url list-of-media-queries', function() {
+      const mod = Object.create(CssModule.prototype);
+      mod.matchImport('@import url(../../theme/index.css) screen and (orientation:landscape);\nbody { margin: 0; }');
+      assert.deepEqual(mod.imports, ['../../theme/index.css']);
+    });
   });
 });
