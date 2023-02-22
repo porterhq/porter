@@ -32,10 +32,12 @@
     "typescript": "^4.4.4"
   },
   "scripts": {
-    "start": "rm -rf public && DEBUG=porter,$DEBUG porter serve",
-    "test:web": "rm -rf public && DEBUG=porter,$DEBUG porter serve --headless",
-    "test:node": "DEBUG=porter,$DEBUG mocha --recursive --exit --timeout 30000",
+    "prestart": "tsc --project ../../tsconfig.json",
+    "pretest": "tsc --project ../../tsconfig.json",
+    "start": "rm -rf public && DEBUG=porter,$DEBUG NODE_OPTIONS=--enable-source-maps porter serve",
+    "test:web": "rm -rf public && DEBUG=porter,$DEBUG NODE_OPTIONS=--enable-source-maps porter serve --headless",
+    "test:node": "DEBUG=porter,$DEBUG NODE_OPTIONS=--enable-source-maps mocha --recursive --exit --timeout 30000",
     "test": "npm run test:node && npm run test:web",
-    "coverage": "DEBUG=porter,$DEBUG nyc --no-clean --cwd ../.. mocha -- --recursive --exit --timeout 30000"
+    "coverage": "DEBUG=porter,$DEBUG NODE_OPTIONS=--enable-source-maps nyc --no-clean --cwd ../.. mocha -- --recursive --exit --timeout 30000"
   }
 }

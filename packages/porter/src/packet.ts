@@ -274,6 +274,7 @@ export default class Packet {
     const obj = {
       babel: ['babel.config.js', 'babel.config.cjs', '.babelrc'],
       typescript: 'tsconfig.json',
+      swc: '.swcrc',
     };
     const configMappers: { transpiler: string, config: any }[] = [];
     for (const key of Object.keys(obj) as Array<keyof typeof obj>) {

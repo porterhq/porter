@@ -15,9 +15,9 @@
   },
   "scripts": {
     "clean": "tsc --build --clean",
-    "test": "./run-script.sh test",
+    "coverage": "rm -rf .nyc_output && ./run-script.sh coverage && nyc report --reporter=lcov",
     "pretest": "tsc",
-    "coverage": "rm -rf .nyc_output && ./run-script.sh coverage && nyc report --reporter=lcov"
+    "test": "./run-script.sh test"
   },
   "workspaces": [
     "examples/*",

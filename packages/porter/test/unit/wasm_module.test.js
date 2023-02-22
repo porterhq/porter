@@ -2,7 +2,7 @@
 
 const { strict: assert } = require('assert');
 const path = require('path');
-const Porter = require('../..').default;
+const Porter = require('../..');
 const { MODULE_LOADED } = require('../../src/constants');
 
 describe('WasmModule', function() {

@@ -1,3 +1,4 @@
 src/**/*.js
 src/**/*.js.map
+test/unit/import_visitor.test.js*
 types

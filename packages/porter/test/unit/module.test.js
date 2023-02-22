@@ -2,7 +2,7 @@
 
 const { strict: assert } = require('assert');
 const path = require('path');
-const Porter = require('../..').default;
+const Porter = require('../..');
 
 describe('Module', function() {
   const root = path.resolve(__dirname, '../../../../examples/app');

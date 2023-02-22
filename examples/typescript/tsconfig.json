@@ -8,7 +8,8 @@
     "esModuleInterop": true,
     "jsx": "react",
     "allowJs": true,
-    "checkJs": false
+    "checkJs": false,
+    "skipLibCheck": true
   },
   "include": [
     "components"

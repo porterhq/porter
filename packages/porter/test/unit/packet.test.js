@@ -8,7 +8,7 @@ const util = require('util');
 
 const glob = util.promisify(require('glob'));
 
-const Porter = require('../..').default;
+const Porter = require('../..');
 
 describe('Packet', function() {
   const root = path.resolve(__dirname, '../../../../examples/app');
