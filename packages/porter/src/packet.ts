@@ -69,6 +69,7 @@ export interface PacketMeta {
   browserify: Record<string, any>;
   browser: string | Record<string, string | boolean>;
   babel: Record<string, any>;
+  exports: Record<string, string | string[] | Record<string, string | Record<string, string>>>;
 }
 
 interface PacketOptions {
@@ -103,6 +104,7 @@ export default class Packet {
   files: Record<string, Module>;
   folder: Record<string, true>;
   browser: Record< string, string | false>;
+  exports: Record<string, string | string[] | Record<string, string | Record<string, string>>>;
   browserify: Record<string, any>;
   depPaths: string[];
   isolated: boolean;
@@ -156,6 +158,7 @@ export default class Packet {
     this.folder = {};
     this.browser = {};
     this.browserify = packet.browserify;
+    this.exports = packet.exports;
     this.depPaths = [];
     this.isolated = app.bundle.exclude.includes(packet.name);
     this.alias = alias || {};
@@ -417,13 +420,34 @@ export default class Packet {
   }
 
   normalizeFile(file: string) {
-    const { browser } = this;
+    const { browser, exports } = this;
 
     // "browser" mapping in package.json
     let result = browser[`./${file}`];
     if (result === undefined) result = browser[`./${file}.js`];
     if (result === false) return result;
     if (typeof result === 'string') file = result;
+
+    // "exports" mapping in package.json
+    // - https://webpack.js.org/guides/package-exports/
+    let map = exports && exports[`./${file}`];
+    if (map) {
+      result = '';
+      if (typeof map === 'string') {
+        result = map;
+      } else if (Array.isArray(map)) {
+        let found = map.find(item => typeof item === 'string');
+        if (found) result = found;
+      } else if ('require' in map) {
+        result = typeof map.require === 'string' ? map.require : map.require.default;
+      } else if ('import' in map) {
+        result = typeof map.import === 'string' ? map.import : map.import.default;
+      }
+      if (result && result !== `./${file}`) {
+        browser[`./${file}`] = result;
+        file = result;
+      }
+    }
 
     // explicit directory require
     if (file.endsWith('/')) file += 'index';
@@ -435,7 +459,7 @@ export default class Packet {
     const { files, folder, name, alias } = this;
 
     // alias takes precedence over original specifier
-    for (const key in alias) {
+    for (const key of Object.keys(alias)) {
       if (file.startsWith(key)) {
         file = alias[key] + file.slice(key.length);
         break;

@@ -15,6 +15,7 @@ require('../brfs/suite');
 require('../dynamic-import/suite');
 require('../loader/suite');
 require('../import-meta/suite');
+require('../package-exports/suite');
 
 describe('global', function() {
   it('should equal to window', function() {
