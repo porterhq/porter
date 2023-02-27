@@ -86,6 +86,11 @@ describe('Porter_readFile()', function() {
     assert.ok(res.text.includes(`define("yen/${yen.version}/${yen.main}`));
   });
 
+  it('should bundle css dependencies in preload', async function() {
+    const res = await requestPath('/preload.css');
+    assert.ok(res.text.includes('box-sizing:'));
+  });
+
   it('should be mutually exclusive', async function() {
     const { text: mainText } = await requestPath('/home.js?main');
     const mainIds = mainText.match(/define\("([^"]+)"/g);

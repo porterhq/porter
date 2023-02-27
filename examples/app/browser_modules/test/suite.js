@@ -139,7 +139,7 @@ describe('implicit es module should be transpiled as well', function() {
 });
 
 describe('css entries', function() {
-  it('should load corresponding css entries automatically', function() {
+  it('should load corresponding css entries', function() {
     const links = [...document.querySelectorAll('link[rel="stylesheet"]')];
     assert.equal(links.filter(link => link.href.includes('test/suite')).length, 1);
   });
