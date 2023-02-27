@@ -30,7 +30,7 @@ describe('test/app/index.test.js', function() {
   describe('packet.copy', function() {
     it('should manifest preload', function() {
       const { packet } = porter;
-      assert.deepEqual(Object.keys(packet.copy.manifest), [ 'preload.js' ]);
+      assert.deepEqual(Object.keys(packet.copy.manifest), [ 'preload.js', 'preload.css' ]);
     });
 
   });

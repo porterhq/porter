@@ -234,7 +234,7 @@ export default class Bundle {
       done[entry.id] = true;
       yield* iterate(entry, preload);
       if (extensions.includes(path.extname(entry.file))) {
-        if (!(entry.packet.isolated && preload && entry.packet !== preload?.packet)) {
+        if (!(format === '.js' && entry.packet.isolated && preload && entry.packet !== preload?.packet)) {
           yield entry;
         }
       } else if (format === '.js' && 'exports' in entry) {

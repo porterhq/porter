@@ -568,7 +568,7 @@ export default class Packet {
   get copy() {
     const copy: Record<string, any> = {};
     const manifest: Record<string, any> = {};
-    const { dependencies, main, bundles, parent, entries, isolated } = this;
+    const { app, dependencies, main, bundles, parent, entries, isolated } = this;
 
     for (const file in bundles) {
       if (!parent && entries[file] && !entries[file].isPreload) continue;
@@ -581,7 +581,9 @@ export default class Packet {
       // import Worker from 'worker-loader!worker.js'; -> packet.copy
       // import 'react' // isolated; -> packet.copy
       // import Foo from './foo.wasm'; -> packet.copy
-      if (isolated || !bundle.parent) manifest[file] = bundle.output;
+      if (isolated || !bundle.parent || app.preload.includes(bundle.entry)) {
+        manifest[file] = bundle.output;
+      }
     }
 
     if (Object.keys(manifest).length > 0) copy.manifest = manifest;
