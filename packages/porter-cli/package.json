@@ -1,7 +1,7 @@
 {
   "name": "@cara/porter-cli",
   "description": "Toolkit of Porter that helps browser modules development.",
-  "version": "4.4.7",
+  "version": "4.5.0",
   "repository": {
     "type": "git",
     "url": "git@github.com:porterhq/porter.git"

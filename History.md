@@ -1,3 +1,14 @@
+4.5.0 / 2023-02-27
+==================
+
+## What's Changed
+* feat: emit declaration files and export with types by @cyjake in https://github.com/porterhq/porter/pull/205
+* fix: preload css dependencies by @cyjake in https://github.com/porterhq/porter/pull/207
+* feat: a primitive support of pacakge exports by @cyjake in https://github.com/porterhq/porter/pull/206
+
+
+**Full Changelog**: https://github.com/porterhq/porter/compare/v4.4.7...v4.5.0
+
 4.4.7 / 2023-02-15
 ==================
 
