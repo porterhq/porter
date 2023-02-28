@@ -10,7 +10,8 @@
     "main": "target/wasm32-wasi/release/swc_plugin_deheredoc.wasm",
     "scripts": {
         "prepublishOnly": "cargo build-wasi --release",
-        "test": "jest"
+        "pretest": "cargo build-wasi",
+        "test": "cargo test && jest"
     },
     "files": [],
     "devDependencies": {

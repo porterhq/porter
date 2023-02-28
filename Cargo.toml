@@ -1,5 +1,9 @@
 [workspace]
 
 members = [
-    "packages/*"
+    "packages/swc-plugin-deheredoc",
+    "packages/swc-plugin-glob-import",
 ]
+
+[profile.release]
+lto = true

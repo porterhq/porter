@@ -14,3 +14,5 @@ package-lock.json
 docs/Gemfile.lock
 docs/.bundle
 docs/vendor
+target
+Cargo.lock

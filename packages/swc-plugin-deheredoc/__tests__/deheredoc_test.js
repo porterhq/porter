@@ -3,6 +3,6 @@
 const heredoc = require('heredoc');
 
 test('deheredoc', function() {
-  expect(heredoc(function() {/* foobar */}), 'foobar');
+  expect(heredoc(function() {/* foobar */})).toEqual('foobar');
 });
 

@@ -11,7 +11,7 @@ module.exports = {
             plugins: [
               [
                 require.resolve(
-                  './target/wasm32-wasi/debug/swc_plugin_porter.wasm'
+                  '../../target/wasm32-wasi/debug/swc_plugin_deheredoc.wasm'
                 ),
                 {
                   basePath: __dirname,

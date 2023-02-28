@@ -11,3 +11,7 @@ var bar = heredoc(function() {/*
     <body></body>
   </html>
 */})
+
+test('deheredoc', function() {
+  expect(heredoc(function() {/* foobar */})).toEqual('foobar');
+});
