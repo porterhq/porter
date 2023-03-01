@@ -9,7 +9,6 @@ import Module, { ModuleOptions } from './module';
 import CssModule from './css_module';
 import LessModule from './less_module';
 import JsModule from './js_module';
-import TsModule from './ts_module';
 import JsonModule from './json_module';
 import WasmModule from './wasm_module';
 import SassModule from './sass_module';
@@ -43,9 +42,7 @@ function _createModule(opts: ModuleOptions): Module {
     case '.wasm':
       return new WasmModule(opts);
     case '.ts':
-      return opts.file.endsWith('.d.ts') ? new Stub(opts) : new TsModule(opts);
     case '.tsx':
-      return new TsModule(opts);
     case '.js':
     case '.jsx':
     case '.mjs':

@@ -41,8 +41,8 @@ export default class JsModule extends Module {
     const { file, importVisitor } = this;
     const program = parseSync(code, {
       syntax: /\.tsx?/i.test(file) ? 'typescript' : 'ecmascript',
-      tsx: file.endsWith('.tsx'),
-      jsx: file.endsWith('.jsx'),
+      tsx: true,
+      jsx: true,
     });
     importVisitor.visitProgram(program);
     const { imports, dynamicImports, __esModule } = importVisitor;
