@@ -95,8 +95,8 @@ interface PorterOptions {
   uglifyOptions?: MinifyOptions & { keep_fnames: RegExp };
   postcssPlugins?: AcceptedPlugin[];
   baseUrl?: string;
-  lock: Record<string, any>;
-  package: PacketMeta;
+  lock?: Record<string, any>;
+  package?: PacketMeta;
 }
 
 class Porter {
@@ -180,7 +180,7 @@ class Porter {
     const packetOptions = { alias: resolve.alias, dir: root, paths, app: this, packet };
 
     // @ts-ignore
-    this.packet = opts.package
+    this.packet = opts.package && opts.lock
       ? new FakePacket({ ...packetOptions, lock: opts.lock })
       : new Packet(packetOptions);
 
@@ -440,7 +440,7 @@ class Porter {
     const extensions = EXTENSION_MAP[format] || [];
     // lazyloads should not go through `packet.parseEntry(file)`
     let mod: Module | false | undefined = packet.files[file];
-    let bundle = null;
+    let bundle: Bundle | null = null;
     for (const ext of extensions) {
       const key = (mod ? mod.file : file).replace(rExt, ext);
       if ((bundle = packet.bundles[key])) break;
