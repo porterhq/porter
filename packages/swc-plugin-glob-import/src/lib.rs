@@ -1,5 +1,5 @@
 use swc_core::{ecma::{
-    ast::{Program, CallExpr, MemberExpr, MetaPropExpr, Callee, Expr, MetaPropKind, MemberProp, PropOrSpread, ExprOrSpread, Prop, KeyValueProp, PropName, Lit, AssignExpr, ObjectLit, Str, Import, VarDeclarator, Ident, ModuleItem, ModuleDecl, ImportDecl, ImportSpecifier, ImportDefaultSpecifier},
+    ast::{Program, CallExpr, MemberExpr, MetaPropExpr, Callee, Expr, MetaPropKind, MemberProp, PropOrSpread, ExprOrSpread, Prop, KeyValueProp, PropName, Lit, AssignExpr, ObjectLit, Str, Import, VarDeclarator, Ident, ModuleItem, ModuleDecl, ImportDecl, ImportSpecifier, ImportDefaultSpecifier, ArrowExpr, BlockStmtOrExpr},
     visit::{as_folder, FoldWith, VisitMut, VisitMutWith},
     utils::prepend_stmts,
 }, common::DUMMY_SP};
@@ -32,10 +32,8 @@ impl GlobImport {
 
     fn is_eager(&self, n: &ExprOrSpread) -> bool {
         if let Expr::Object(options) = &*n.expr {
-            println!("{:?}", options);
             for prop in options.props.iter() {
                 if let PropOrSpread::Prop(prop) = prop {
-                    println!("??????? {:?}", prop);
                     if let Prop::KeyValue(KeyValueProp { key: PropName::Ident(key), value }) = &**prop {
                         if &*key.sym == "eager" {
                             if let Expr::Lit(Lit::Bool(value)) = &**value {
@@ -71,7 +69,16 @@ impl GlobImport {
         let mut args = Vec::new();
         args.push(ExprOrSpread { spread: None, expr: Box::new(Expr::Lit(Lit::Str(Str::from(specifier)))) });
         let expr = CallExpr { callee, args, span: DUMMY_SP, type_args: None };
-        Expr::Call(expr)
+        let function = ArrowExpr {
+            span: DUMMY_SP,
+            params: Vec::new(),
+            body: BlockStmtOrExpr::Expr(Box::new(Expr::Call(expr))),
+            is_async: false,
+            is_generator: false,
+            type_params: None,
+            return_type: None,
+        };
+        Expr::Arrow(function)
     }
 
     fn glob(&mut self, n: &CallExpr) -> Box<Expr> {
@@ -80,24 +87,28 @@ impl GlobImport {
             Some(expr) => self.is_eager(expr),
             None => false,
         };
-        println!("eager {}", eager);
         let mut props: Vec<PropOrSpread> = Vec::new();
         if let Expr::Lit(Lit::Str(specifier)) = &**expr {
             let base = Path::new(&self.filepath).parent().unwrap();
             let fullpath = base.join(specifier.value.to_string());
             let pattern = fullpath.to_str().expect("pattern required!");
             let mut index = 0;
-            for entry in glob(pattern).expect("Failed to read glob pattern") {
+            for entry in glob(&pattern).expect("Failed to read glob pattern") {
                 match entry {
                     Ok(path) => {
-                        let specifier = path.strip_prefix(base).unwrap().to_str().unwrap();
+                        let filename = path.strip_prefix(base).unwrap().to_str().unwrap();
+                        let specifier = if filename.starts_with(".") {
+                            filename.to_string()
+                        } else {
+                            format!("./{filename}")
+                        };
                         let value = if eager {
                             let local = format!("__glob_{}_{}", self.glob_index, index);
                             index += 1;
                             self.module_items.push((local.to_string(), specifier.to_string()));
                             Expr::Ident(Ident { span: DUMMY_SP, sym: local.into(), optional: false })
                         } else {
-                            self.dynamic_import(specifier)
+                            self.dynamic_import(&specifier)
                         };
                         let kv = KeyValueProp {
                             key: PropName::Str(Str::from(specifier)),
@@ -170,10 +181,12 @@ impl VisitMut for GlobImport {
 pub fn process_transform(program: Program, metadata: TransformPluginProgramMetadata) -> Program {
     let cwd = metadata.get_context(&TransformPluginMetadataContextKind::Cwd).expect("cwd required");
     let filename = metadata.get_context(&TransformPluginMetadataContextKind::Filename).expect("filename required");
-    let filepath = Path::new(&cwd).join(&filename);
+    // cwd is exposed to wasi at /cwd
+    // - https://github.com/kwonoj/swc/blob/main/crates/swc_plugin_runner/src/load_plugin.rs#L54
+    let filepath = filename.replace(&cwd, "/cwd");
     program.fold_with(
         &mut as_folder(GlobImport {
-            filepath: filepath.to_str().unwrap().to_string(),
+            filepath,
             module_items: Vec::new(),
             glob_index: 0
         })

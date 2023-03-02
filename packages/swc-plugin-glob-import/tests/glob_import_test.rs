@@ -21,6 +21,7 @@ use swc_plugin_glob_import::glob_import_transform;
 #[testing::fixture("tests/fixture/**/input.js")]
 fn fixture(input: PathBuf) {
     let output = input.parent().unwrap().join("output.js");
+    println!("{} -> {}", input.to_str().unwrap(), output.to_str().unwrap());
 
     test_fixture(
         Default::default(),
