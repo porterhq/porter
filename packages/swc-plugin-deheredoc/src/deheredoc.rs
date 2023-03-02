@@ -1,3 +1,4 @@
+use swc_core::ecma::ast::BlockStmtOrExpr;
 use swc_core::plugin::{plugin_transform, proxies::TransformPluginProgramMetadata};
 use swc_core::{
     common::{comments::Comments, util::take::Take, BytePos, DUMMY_SP},
@@ -100,6 +101,19 @@ where
                                 return Some(self.deindent(comment.text.to_string()));
                             }
                         }
+                    }
+                }
+                if let Expr::Arrow(func) = &**expr {
+                    match &func.body {
+                        BlockStmtOrExpr::BlockStmt(block) => {
+                            let comments = self.comments.take_trailing(BytePos(block.span.lo.0 + 1));
+                            if let Some(comments) = comments {
+                                for comment in comments.iter() {
+                                    return Some(self.deindent(comment.text.to_string()));
+                                }
+                            }
+                        },
+                        _ => {},
                     }
                 }
             }

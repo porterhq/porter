@@ -4,3 +4,6 @@ var bar = "<!doctype html>\n<html>\n  <head>\n    <style>\n\n    </style>\n  </h
 test('deheredoc', function() {
   expect("foobar").toEqual('foobar');
 });
+
+var baz = "arrow function";
+console.log("heredoc as argument");

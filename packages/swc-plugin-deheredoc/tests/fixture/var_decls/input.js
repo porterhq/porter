@@ -15,3 +15,9 @@ var bar = heredoc(function() {/*
 test('deheredoc', function() {
   expect(heredoc(function() {/* foobar */})).toEqual('foobar');
 });
+
+var baz = heredoc(() => {/*
+  arrow function
+*/})
+
+console.log(heredoc(() => {/* heredoc as argument */}))
