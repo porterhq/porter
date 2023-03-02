@@ -5,6 +5,7 @@ dist
 coverage
 .nyc_output
 .porter-cache
+.swc
 
 .DS_Store
 *~

@@ -43,12 +43,12 @@
   },
   "scripts": {
     "coverage": "DEBUG=porter NODE_OPTIONS=--enable-source-maps nyc --no-clean --cwd ../.. mocha -- --recursive --require test/hooks.mjs --exit --timeout 60000",
-    "prepack": "tsc",
+    "prepack": "tsc && cargo build-wasi --release && cp ../../target/wasm32-wasi/release/*.wasm .",
     "pretest": "tsc",
     "test": "DEBUG=porter NODE_OPTIONS=--enable-source-maps mocha --recursive --require test/hooks.mjs --exit --timeout 60000"
   },
   "engines": {
-    "node": ">= 16.19.0"
+    "node": ">= 16.17.0"
   },
   "license": "BSD-3-Clause"
 }

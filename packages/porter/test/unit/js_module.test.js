@@ -99,6 +99,6 @@ describe('JsModule uglifyOptions', function() {
   it('should pass on uglify options', async function() {
     const mod = porter.packet.files['home.js'];
     const result = await mod.minify();
-    assert(result.code.includes('function demoCropper'));
+    assert(result.code.includes('function home()'));
   });
 });

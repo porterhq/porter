@@ -38,7 +38,7 @@ async function checkReload({ sourceFile, targetFile, pathname }) {
   const mark = Math.floor((Math.random() * (16 ** 6))).toString(16).padStart(0);
   const change = /\.(?:css)$/.test(sourcePath)
     ? `div { color: #${mark}}`
-    : `/* changed ${mark} */`;
+    : `console.log(${JSON.stringify(mark)});`;
   await writeFile(sourcePath, `${source}${change}`);
 
   try {

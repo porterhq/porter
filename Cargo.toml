@@ -3,6 +3,7 @@
 members = [
     "packages/swc-plugin-deheredoc",
     "packages/swc-plugin-glob-import",
+    "packages/swc-plugin-porter",
 ]
 
 [profile.release]

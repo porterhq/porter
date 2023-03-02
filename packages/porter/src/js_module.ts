@@ -1,9 +1,9 @@
 import Debug from 'debug';
 import path from 'path';
 import UglifyJS from 'uglify-js';
-import { readFile } from 'fs/promises';
+import fs from 'fs/promises';
 import merge from 'lodash/merge';
-import { parseSync} from '@swc/core';
+import { transform, parseSync, JsMinifyOptions, Program } from '@swc/core';
 
 import Module, { ModuleCache, SourceOptions, TranspileOptions } from './module';
 import * as namedImport from './named_import';
@@ -19,6 +19,27 @@ interface Stream {
   on: <T extends Stream>(this: T, event: string, callback: (chunk: string) => {}) => T;
   pipe: (stream: Stream) => Stream;
 }
+
+type Plugins = [string, Record<string, any>][];
+
+function loadPlugins(): Plugins {
+  const plugins = [
+    'swc_plugin_deheredoc.wasm',
+    'swc_plugin_glob_import.wasm',
+    'swc_plugin_porter.wasm',
+  ];
+  return plugins.map(name => {
+    let fpath = '';
+    try {
+      fpath = require.resolve(`../${name}`)
+    } catch {
+      fpath = require.resolve(`../../../target/wasm32-wasi/debug/${name}`);
+    }
+    return [fpath, { displayName: true }]
+  });
+}
+
+let plugins: Plugins;
 
 export default class JsModule extends Module {
   importVisitor = new ImportVisitor();
@@ -38,12 +59,22 @@ export default class JsModule extends Module {
   }
 
   matchImport(code: string) {
-    const { file, importVisitor } = this;
-    const program = parseSync(code, {
-      syntax: /\.tsx?/i.test(file) ? 'typescript' : 'ecmascript',
-      tsx: true,
-      jsx: true,
-    });
+    const { app, file, fpath, importVisitor } = this;
+    let program: Program;
+    try {
+      program = parseSync(code, {
+        syntax: /\.tsx?/i.test(file) ? 'typescript' : 'ecmascript',
+        tsx: true,
+        jsx: true,
+        decorators: true,
+        decoratorsBeforeExport: true,
+      });
+    } catch (err) {
+      if (err instanceof Error) {
+        err.message = err.message.replace('Syntax Error', `Syntax Error (${path.relative(app.root, fpath)})`)
+      }
+      throw err;
+    }
     importVisitor.visitProgram(program);
     const { imports, dynamicImports, __esModule } = importVisitor;
     this.imports = this.mergeImports(imports);
@@ -129,7 +160,7 @@ export default class JsModule extends Module {
   async load(): Promise<{ code: string, map?: RawSourceMap}> {
     const { fpath, app } = this;
     // fake entries will provide code directly
-    const source = this.code || await readFile(fpath, 'utf8');
+    const source = this.code || await fs.readFile(fpath, 'utf8');
     let code = await this.browserify(fpath, source);
     if (app.resolve.import) {
       for (const options of app.resolve.import) {
@@ -140,10 +171,11 @@ export default class JsModule extends Module {
   }
 
   async transpile(options: TranspileOptions) {
+    const { app } = this;
     let result;
 
     try {
-      result = await this._transpile(options);
+      result = app.legacy ? await this._transpile(options) : await this._transform(options);
     } catch (err) {
       debug('unable to transpile %s', this.fpath);
       throw err;
@@ -153,15 +185,7 @@ export default class JsModule extends Module {
     if (result) {
       await this.checkImports({ code: result.code, intermediate: true });
     }
-
-    const { id, imports } = this;
-    return {
-      ...result,
-      code: [
-        `porter.define(${JSON.stringify(id)}, ${JSON.stringify(imports)}, function(require, exports, module, __module) {${result.code}`,
-        '})'
-      ].join('\n'),
-    };
+    return result;
   }
 
   /**
@@ -207,24 +231,96 @@ export default class JsModule extends Module {
     const { code, map } = await this.load();
     if (!this.imports) this.matchImport(code);
     this.setCache(code, {
-      ...this.uglify(await this.transpile({ code, map })),
+      ...(this.app.legacy ? await this._minify({ code, map }) : await this._transform({ code, map, minify: true })),
       minified: true
     });
 
     return this.cache!;
   }
 
-  async _transpile({ code, map }: TranspileOptions) {
+  async _minify({ code, map }: TranspileOptions) {
+    return this.uglify(await this.transpile({ code, map }))
+  }
+
+  _declare(code: string): string {
+    const { id, imports } = this;
+    return [
+      `porter.define(${JSON.stringify(id)}, ${JSON.stringify(imports)}, function(require, exports, module) {${code}`,
+      '})',
+    ].join('\n');
+  }
+
+  async _transform({ code, map, minify }: TranspileOptions) {
     const { fpath, packet, app } = this;
-    const babel = packet.transpiler === 'babel' && packet.tryRequire('@babel/core');
-    if (!babel) return { code, map };
 
     /**
      * `babel.transform` finds presets and plugins relative to `fpath`. If `fpath`
      * doesn't start with packet.dir, it's quite possible that the needed presets or
      * plugins might not be found.
      */
-    if (!fpath.startsWith(packet.dir)) return { code, map };
+    if (!(packet.transpiler === 'babel' && fpath.startsWith(packet.dir)) && !minify) {
+      return { code: this._declare(code), map };
+    }
+
+    if (!plugins) plugins = loadPlugins();
+    const filenameRelative = path.relative(app.root, fpath);
+    const minifyOptions: JsMinifyOptions = minify ? this.getMinifyOptions() : {};
+    const { keep_fnames } = minifyOptions;
+    if (keep_fnames != null) {
+      // - https://github.com/swc-project/swc/issues/6996
+      delete minifyOptions.keep_fnames;
+      merge(minifyOptions, { compress: { keep_fnames }, mangle: { keep_fnames } });
+    }
+    const result = await transform(code, {
+      // ...packet.transpilerOpts,
+      sourceMaps: true,
+      inputSourceMap: JSON.stringify(map),
+      filename: fpath,
+      sourceFileName: `porter:///${filenameRelative}`,
+      cwd: app.root,
+      env: {
+        targets: app.browserslistrc,
+      },
+      jsc: {
+        parser: {
+          syntax: /\.tsx?$/i.test(fpath) ? 'typescript' : 'ecmascript',
+          jsx: true,
+          tsx: true,
+          decorators: true,
+          decoratorsBeforeExport: true,
+        },
+        // externalHelpers: true,
+        experimental: {
+          plugins: [
+            ...plugins,
+          ],
+        },
+        minify: minifyOptions,
+      },
+      module: {
+        type: 'commonjs',
+      },
+      minify,
+    });
+
+    return { ...result,
+      // TODO customize module type
+      code: `porter.define(${JSON.stringify(this.id)},${JSON.stringify(this.imports)},function(require,exports,module){${result.code}});`,
+      map: result.map && JSON.parse(result.map),
+    };
+  }
+
+  async _transpile({ code, map }: TranspileOptions) {
+    const { fpath, packet, app } = this;
+    const babel = packet.transpiler === 'babel' && packet.tryRequire('@babel/core');
+    if (!babel) return { code: this._declare(code), map };
+
+    /**
+     * `babel.transform` finds presets and plugins relative to `fpath`. If `fpath`
+     * doesn't start with packet.dir, it's quite possible that the needed presets or
+     * plugins might not be found.
+     */
+    if (!fpath.startsWith(packet.dir)) return { code: this._declare(code), map };
 
     const filenameRelative = path.relative(app.root, fpath);
     const transpilerOptions = {
@@ -237,16 +333,18 @@ export default class JsModule extends Module {
       sourceFileName: `porter:///${filenameRelative}`,
       cwd: app.root,
     };
-    return await babel.transform(code, transpilerOptions);
+
+    const result = await babel.transform(code, transpilerOptions);
+    return {...result, code: this._declare(result.code)}
   }
 
-  uglify({ code, map }: SourceOptions) {
+  getMinifyOptions() {
     const { fpath, app } = this;
     const source = `porter:///${path.relative(app.root, fpath)}`;
     const { uglifyOptions = {} } = app;
     const { keep_fnames } = uglifyOptions;
 
-    const result = UglifyJS.minify({ [source]: code }, merge({}, uglifyOptions, {
+    return merge({}, uglifyOptions, {
       compress: {
         dead_code: true,
         global_defs: {
@@ -259,9 +357,17 @@ export default class JsModule extends Module {
         },
       },
       keep_fnames: keep_fnames instanceof RegExp ? keep_fnames.test(source) : keep_fnames,
+    });
+  }
+
+  uglify({ code, map }: SourceOptions) {
+    const { fpath, app } = this;
+    const source = `porter:///${path.relative(app.root, fpath)}`;
+    const result = UglifyJS.minify({ [source]: code }, {
+      ...this.getMinifyOptions(),
       output: { ascii_only: true },
       sourceMap: { content: map as any },
-    }));
+    });
 
     if (result.error) {
       // @ts-ignore

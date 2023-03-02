@@ -45,8 +45,16 @@ describe('ImportVisitor', function() {
       const { imports } = await findAll(`
         import { Foo } from "./foo";
         import { Bar } from "./bar";
+        import { Baz } from "./baz";
+        import { Egg } from "./egg";
         const foo: Foo = {};
         console.log(foo, Bar);
+        function baz(options: Baz.Options) {
+          console.log(options);
+        }
+        function egg(foo: string, ...args: Egg.Argument[]) {
+          console.log(foo, ...args);
+        }
       `, { syntax: 'typescript' });
       assert.deepEqual(imports,
         [ { source: './bar', names: [ { export: 'Bar', local: 'Bar' } ] } ]);
@@ -279,7 +287,7 @@ describe('ImportVisitor', function() {
       assert.deepEqual(imports, [ { source: 'color-extractor/lib/color-extractor-canvas' } ]);
     });
 
-    it ('should match one liners with ternary operator', async function() {
+    it('should match one liners with ternary operator', async function() {
       const { imports } = await findAll(`
         const foo = (true ? require('./foo') : require('./bar')) || 'foo'
       `);
@@ -315,6 +323,26 @@ describe('ImportVisitor', function() {
           { source: 'babel-traverse', names: [ { export: 'default', local: 'traverse' } ] },
           { source: 'fs', names: [ { export: 'existsSync', local: 'exists' } ] },
           { source: 'path', names: [ { export: 'resolve', local: 'resolve' } ] } ]);
+    });
+  });
+
+  describe('decorators', function() {
+    it('should be able to handle decorators (ecmascript)', async function() {
+      const { imports } = await findAll(`
+        import { observer } from 'mobx-react';
+        @observer class App extends React.component {}
+      `, { syntax: 'ecmascript', decorators: true })
+      assert.deepEqual(imports,
+        [ { source: 'mobx-react', names: [ { export: 'observer', local: 'observer' } ] } ]);
+    });
+
+    it('should be able to handle decorators (typescript)', async function() {
+      const { imports } = await findAll(`
+        import { observer } from 'mobx-react';
+        @observer class App extends React.component {}
+      `, { syntax: 'typescript', decorators: true })
+      assert.deepEqual(imports,
+        [ { source: 'mobx-react', names: [ { export: 'observer', local: 'observer' } ] } ]);
     });
   });
 });

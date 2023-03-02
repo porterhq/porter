@@ -270,7 +270,6 @@ export default class Packet {
     if (this.transpiler) return;
     const obj = {
       babel: ['babel.config.js', 'babel.config.cjs', '.babelrc'],
-      typescript: 'tsconfig.json',
       swc: '.swcrc',
     };
     const configMappers: { transpiler: string, config: any }[] = [];
@@ -321,12 +320,7 @@ export default class Packet {
     if (this.transpiler === 'babel') {
       const babel = this.tryRequire('@babel/core/package.json');
       this.transpilerVersion = babel && babel.version;
-    } else if (this.transpiler === 'typescript') {
-      const ts = this.tryRequire('typescript/package.json');
-      this.transpilerVersion = ts && ts.version;
-    }
 
-    if (this.transpiler === 'babel') {
       const { plugins = [] } = this.transpilerOpts;
       const pluginPath = path.join(__dirname, 'babel_plugin.js');
       if (!plugins.includes(pluginPath)) {

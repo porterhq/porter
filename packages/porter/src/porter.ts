@@ -140,8 +140,10 @@ class Porter {
   lessOptions?: Record<string, any>;
   uglifyOptions?: Record<string, any>;
   browsers: string[];
+  browserslistrc?: string;
   targets?: { [key: string]: number };
   lock?: Record<string, any>;
+  legacy = false;
 
   constructor(opts: PorterOptions) {
     const root = opts.root || process.cwd();
@@ -292,6 +294,8 @@ class Porter {
 
     // enable envify for root packet by default
     if (!packet.browserify) packet.browserify = { transform: ['envify'] };
+
+    this.browserslistrc = await fs.readFile(path.join(this.root, '.browserslistrc'), 'utf8').catch(() => '');
 
     await cache.prepare(this);
     await packet.prepare();

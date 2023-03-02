@@ -50,7 +50,7 @@ describe('TsModule', function() {
         });
         const line = result.code.split('\n')[mapping.line - 1];
         assert.ok(line);
-        assert.ok(line.includes("document.querySelector('#ReactApp')"));
+        assert.ok(line.match(/document.querySelector\((['"])#ReactApp\1\)/));
       });
     });
   });

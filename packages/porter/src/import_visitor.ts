@@ -1,4 +1,4 @@
-import { Argument, CallExpression, ConditionalExpression, ExportAllDeclaration, ExportNamedDeclaration, Expression, Identifier, IfStatement, ImportDeclaration, ModuleDeclaration, Program, Statement, TsInstantiation, TsType, TsTypeAnnotation } from '@swc/core';
+import { Argument, CallExpression, ConditionalExpression, ExportAllDeclaration, ExportNamedDeclaration, Expression, Identifier, IfStatement, ImportDeclaration, ModuleDeclaration, Param, Program, Statement, TsInstantiation, TsQualifiedName, TsType, TsTypeAnnotation } from '@swc/core';
 import Visitor from '@swc/core/Visitor';
 
 interface ImportName { export: string, local: string }
@@ -53,7 +53,6 @@ function globImport(args: Argument[]) {
 export default class ImportVisitor extends Visitor {
   imports: Import[] = [];
   dynamicImports: DynamicImport[] = [];
-  globImports: GlobImport[] = [];
   typeImports: string[] = [];
   __esModule = false;
 
@@ -179,16 +178,22 @@ export default class ImportVisitor extends Visitor {
     return n;
   }
 
-  visitTsTypeAnnotation(a: TsTypeAnnotation | undefined): TsTypeAnnotation | undefined {
-    if (!a) return a;
-    const ta = a.typeAnnotation;
-    if (ta.type === 'TsTypeReference' && ta.typeName.type === 'Identifier') {
-      this.typeImports.push(ta.typeName.value);
-    }
-    return a;
+  visitTsQualifiedName(n: TsQualifiedName): TsQualifiedName {
+    if (n.left.type === 'Identifier') this.typeImports.push(n.left.value);
+    return super.visitTsQualifiedName(n);
   }
 
   visitTsType(n: TsType): TsType {
+    if (n.type === 'TsTypeReference') {
+      if (n.typeName.type === 'Identifier') {
+        this.typeImports.push(n.typeName.value);
+        n.typeName = this.visitIdentifier(n.typeName);
+      } else if (n.typeName.type === 'TsQualifiedName') {
+        n.typeName = this.visitTsQualifiedName(n.typeName);
+      }
+    } else if (n.type === 'TsArrayType') {
+      n.elemType = this.visitTsType(n.elemType);
+    }
     return n;
   }
 

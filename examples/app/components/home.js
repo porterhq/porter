@@ -136,6 +136,8 @@ function main() {
   */}));
 }
 
+module.exports = function home() {
+  console.log('home');
+};
+
 main();
-/* changed jr8pgydh */
-/* changed a717a4 */
