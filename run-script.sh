@@ -8,4 +8,5 @@ set -e
 
 for workspace in $(ls -d packages/* examples/*); do
   npm run $1 --workspace ./${workspace} --if-present
+  SWC=true npm run $1 --workspace ./${workspace} --if-present
 done

@@ -175,16 +175,12 @@ export default class JsModule extends Module {
     let result;
 
     try {
-      result = app.legacy ? await this._transpile(options) : await this._transform(options);
+      result = app.swc !== true ? await this._transpile(options) : await this._transform(options);
     } catch (err) {
       debug('unable to transpile %s', this.fpath);
       throw err;
     }
 
-    // if fpath is ignored, @babel/core returns nothing
-    if (result) {
-      await this.checkImports({ code: result.code, intermediate: true });
-    }
     return result;
   }
 
@@ -196,31 +192,33 @@ export default class JsModule extends Module {
     const { imports = [], dynamicImports = [] } = this;
     this.matchImport(code);
 
-    for (const dep of this.imports!) {
-      if (!imports.includes(dep) && !dynamicImports.includes(dep)) {
-        const child = await this.parseImport(dep);
-        if (child && this.dynamicImports!.includes(dep)) this.dynamicChildren.push(child);
+    // when checking imports introduced by intermediate code, dynamic imports need reset
+    if (intermediate) {
+      this.dynamicImports = dynamicImports;
+      // import(specifier) -> Promise.resolve(require(specifier))
+      for (let i = this.imports!.length; i >= 0; i--) {
+        const specifier = this.imports![i];
+        if (dynamicImports.includes(specifier)) this.imports!.splice(i, 1);
       }
-    }
-
-    for (const dep of imports) {
-      if (!this.fake && !this.imports!.includes(dep)) {
-        if (/\.(?:css|less|sass|scss)$/.test(dep)) {
+      // babel plugin currently removes css imports, which interferes with dependency parsing at css module
+      for (const dep of imports) {
+        if (!this.imports!.includes(dep) && /\.(?:css|less|sass|scss)$/.test(dep)) {
           // import './baz.less';
           this.imports!.push(dep);
         }
       }
     }
 
-    // when checking imports introduced by intermediate code, dynamic imports need reset
-    // import(specifier) -> Promise.resolve(require(specifier))
-    if (intermediate) {
-      for (const specifier of dynamicImports) {
-        if (!this.dynamicImports!.includes(specifier)) this.dynamicImports!.push(specifier);
-      }
-      for (let i = this.imports!.length; i >= 0; i--) {
-        const specifier = this.imports![i];
-        if (this.dynamicImports!.includes(specifier)) this.imports!.splice(i, 1);
+    // when reloading module, parse new imports incrementally
+    for (const dep of this.imports!) {
+      if (!imports.includes(dep)) await this.parseImport(dep);
+    }
+
+    // when reloading module, new dynamic imports might be added
+    for (const dep of this.dynamicImports!) {
+      if (!dynamicImports.includes(dep)) {
+        const child = await this.parseImport(dep);
+        if (child) this.dynamicChildren.push(child);
       }
     }
   }
@@ -231,7 +229,7 @@ export default class JsModule extends Module {
     const { code, map } = await this.load();
     if (!this.imports) this.matchImport(code);
     this.setCache(code, {
-      ...(this.app.legacy ? await this._minify({ code, map }) : await this._transform({ code, map, minify: true })),
+      ...(this.app.swc !== true ? await this._minify({ code, map }) : await this._transform({ code, map, minify: true })),
       minified: true
     });
 
@@ -302,6 +300,7 @@ export default class JsModule extends Module {
       },
       minify,
     });
+    await this.checkImports({ code: result.code, intermediate: true });
 
     return { ...result,
       // TODO customize module type
@@ -333,8 +332,9 @@ export default class JsModule extends Module {
       sourceFileName: `porter:///${filenameRelative}`,
       cwd: app.root,
     };
-
     const result = await babel.transform(code, transpilerOptions);
+    await this.checkImports({ code: result.code, intermediate: true });
+
     return {...result, code: this._declare(result.code)}
   }
 

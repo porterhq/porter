@@ -97,6 +97,10 @@ interface PorterOptions {
   baseUrl?: string;
   lock?: Record<string, any>;
   package?: PacketMeta;
+  /**
+   * transform javascript and typescript with swc or not, disabled by default
+   */
+  swc?: boolean;
 }
 
 class Porter {
@@ -143,7 +147,7 @@ class Porter {
   browserslistrc?: string;
   targets?: { [key: string]: number };
   lock?: Record<string, any>;
-  legacy = false;
+  swc: boolean = process.env.SWC === 'true';
 
   constructor(opts: PorterOptions) {
     const root = opts.root || process.cwd();
