@@ -1,3 +1,12 @@
+4.5.1 / 2023-03-03
+==================
+
+## What's Changed
+* fix: both {lock, package} are optional in PorterOptions by @cyjake in https://github.com/porterhq/porter/pull/209
+
+
+**Full Changelog**: https://github.com/porterhq/porter/compare/v4.5.0...v4.5.1
+
 4.5.0 / 2023-02-27
 ==================
 
