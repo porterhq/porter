@@ -1,3 +1,12 @@
+4.5.2 / 2023-03-07
+==================
+
+## What's Changed
+* fix: ImportOption.style of named import accepts string by @cyjake in https://github.com/porterhq/porter/pull/210
+
+
+**Full Changelog**: https://github.com/porterhq/porter/compare/v4.5.1...v4.5.2
+
 4.5.1 / 2023-03-03
 ==================
 
