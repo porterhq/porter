@@ -9,7 +9,7 @@ export interface ImportOption {
   libraryDirectory?: string;
   camel2DashComponentName?: boolean;
   componentCase?: ComponentCase;
-  style?: boolean;
+  style?: boolean | string;
   cjs?: boolean;
 }
 
