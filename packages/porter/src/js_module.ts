@@ -262,15 +262,9 @@ export default class JsModule extends Module {
 
     if (!plugins) plugins = loadPlugins();
     const filenameRelative = path.relative(app.root, fpath);
-    const minifyOptions: JsMinifyOptions = minify ? this.getMinifyOptions() : {};
-    const { keep_fnames } = minifyOptions;
-    if (keep_fnames != null) {
-      // - https://github.com/swc-project/swc/issues/6996
-      delete minifyOptions.keep_fnames;
-      merge(minifyOptions, { compress: { keep_fnames }, mangle: { keep_fnames } });
-    }
+    const { jsc = {} } = packet.transpiler === 'swc' ? packet.transpilerOpts : {};
     const result = await transform(code, {
-      // ...packet.transpilerOpts,
+      swcrc: false,
       sourceMaps: true,
       inputSourceMap: JSON.stringify(map),
       filename: fpath,
@@ -280,20 +274,32 @@ export default class JsModule extends Module {
         targets: app.browserslistrc,
       },
       jsc: {
+        ...jsc,
         parser: {
+          ...jsc.parser,
           syntax: /\.tsx?$/i.test(fpath) ? 'typescript' : 'ecmascript',
           jsx: true,
           tsx: true,
-          decorators: true,
-          decoratorsBeforeExport: true,
         },
-        // externalHelpers: true,
         experimental: {
           plugins: [
             ...plugins,
           ],
         },
-        minify: minifyOptions,
+        minify: minify ? (jsc.minify || {
+          compress: {
+            dead_code: true,
+            global_defs: {
+              process: {
+                browser: true,
+                env: {
+                  BROWSER: true,
+                  NODE_ENV: process.env.NODE_ENV,
+                },
+              },
+            },
+          }
+        }) : {},
       },
       module: {
         type: 'commonjs',

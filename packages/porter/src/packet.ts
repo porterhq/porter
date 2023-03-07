@@ -272,8 +272,11 @@ export default class Packet {
       babel: ['babel.config.js', 'babel.config.cjs', '.babelrc'],
       swc: '.swcrc',
     };
+    const types = Object.keys(obj) as Array<keyof typeof obj>;
+    // prefer swc if enabled
+    if (this.app.swc) types.reverse();
     const configMappers: { transpiler: string, config: any }[] = [];
-    for (const key of Object.keys(obj) as Array<keyof typeof obj>) {
+    for (const key of types) {
       const value = obj[key];
       if (Array.isArray(value)) {
         for (const config of value) {

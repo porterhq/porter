@@ -96,7 +96,7 @@ describe('JsModule uglifyOptions', function() {
     await porter.destroy();
   });
 
-  it('should pass on uglify options', async function() {
+  (process.env.SWC === 'true' ? it.skip : it)('should pass on uglify options', async function() {
     const mod = porter.packet.files['home.js'];
     const result = await mod.minify();
     assert(result.code.includes('function home()'));

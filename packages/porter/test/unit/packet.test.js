@@ -204,6 +204,27 @@ describe('Packet', function() {
       const packet = porter2.packet.find({ name: 'yen' });
       assert.equal(packet.transpiler, 'babel');
     });
+
+    it('should default to babel if swc is not enabled', async function() {
+      const porter3 = new Porter({
+        root: path.join(__dirname, '../fixtures/demo-package-swc'),
+        paths: ['components'],
+        swc: false,
+      });
+      await porter3.ready();
+      assert.equal(porter3.packet.transpiler, 'babel');
+    });
+
+    it('should prefer .swcrc if swc is enabled', async function() {
+      const porter3 = new Porter({
+        root: path.join(__dirname, '../fixtures/demo-package-swc'),
+        paths: ['components'],
+        swc: true,
+      });
+      await porter3.ready();
+      assert.equal(porter3.packet.transpiler, 'swc');
+      assert.deepEqual(porter3.packet.transpilerOpts.jsc, { externalHelpers: true });
+    });
   });
 
   describe('packet.find()', function() {

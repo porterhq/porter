@@ -147,7 +147,7 @@ class Porter {
   browserslistrc?: string;
   targets?: { [key: string]: number };
   lock?: Record<string, any>;
-  swc: boolean = process.env.SWC === 'true';
+  swc: boolean;
 
   constructor(opts: PorterOptions) {
     const root = opts.root || process.cwd();
@@ -199,6 +199,7 @@ class Porter {
     this.preload = ([] as string[]).concat(opts.preload || []);
     this.lazyload = ([] as string[]).concat(opts.lazyload || []);
 
+    this.swc = typeof opts.swc === 'boolean' ? opts.swc : process.env.SWC === 'true';
     this.source = { serve: false, inline: false, root: 'http://localhost/', ...opts.source };
     this.cssTranspiler = postcss(([ AtImport ] as AcceptedPlugin[]).concat(opts.postcssPlugins || []));
     this.lessOptions = opts.lessOptions;
