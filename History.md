@@ -1,3 +1,12 @@
+4.6.0 / 2023-03-08
+==================
+
+## What's Changed
+* feat: transform and minify jsx? and tsx? with swc by @cyjake in https://github.com/porterhq/porter/pull/208
+
+
+**Full Changelog**: https://github.com/porterhq/porter/compare/v4.5.2...v4.6.0
+
 4.5.2 / 2023-03-07
 ==================
 
