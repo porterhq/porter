@@ -33,11 +33,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+
       - uses: actions/setup-node@v3
         with:
           node-version: 18
           registry-url: https://registry.npmjs.org/
-      - run: npm install
+
+      - name: rustup nightly
+        run: |
+          rustup default nightly-2022-10-15
+          rustup target add wasm32-wasi
+
+      - run: npm install and publish
       - run: |
           npm publish --workspace ./packages/porter
           npm publish --workspace ./packages/porter-cli
