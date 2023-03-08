@@ -8,7 +8,7 @@ const util = require('util');
 
 const glob = util.promisify(require('glob'));
 
-const Porter = require('../..').default;
+const Porter = require('../..');
 
 describe('Packet', function() {
   const root = path.resolve(__dirname, '../../../../examples/app');
@@ -203,6 +203,27 @@ describe('Packet', function() {
       await porter2.ready();
       const packet = porter2.packet.find({ name: 'yen' });
       assert.equal(packet.transpiler, 'babel');
+    });
+
+    it('should default to babel if swc is not enabled', async function() {
+      const porter3 = new Porter({
+        root: path.join(__dirname, '../fixtures/demo-package-swc'),
+        paths: ['components'],
+        swc: false,
+      });
+      await porter3.ready();
+      assert.equal(porter3.packet.transpiler, 'babel');
+    });
+
+    it('should prefer .swcrc if swc is enabled', async function() {
+      const porter3 = new Porter({
+        root: path.join(__dirname, '../fixtures/demo-package-swc'),
+        paths: ['components'],
+        swc: true,
+      });
+      await porter3.ready();
+      assert.equal(porter3.packet.transpiler, 'swc');
+      assert.deepEqual(porter3.packet.transpilerOpts.jsc, { externalHelpers: true });
     });
   });
 

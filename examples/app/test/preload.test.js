@@ -35,7 +35,7 @@ async function checkReload({ packet = porter.packet, sourceFile, targetFile, pat
   const mark = Math.floor((Math.random() * (16 ** 6))).toString(16).padStart(0);
   const change = /\.(?:css)$/.test(sourcePath)
     ? `div { color: #${mark}}`
-    : `/* changed ${mark} */`;
+    : `console.log(${JSON.stringify(mark)});`;
   await writeFile(sourcePath, `${source}${change}`);
 
   try {
@@ -44,7 +44,7 @@ async function checkReload({ packet = porter.packet, sourceFile, targetFile, pat
       await packet.reload('change', sourceFile);
     }
     // {@link Package#watch} takes time to reload
-    await new Promise(resolve => setTimeout(resolve, 200));
+    await new Promise(resolve => setTimeout(resolve, 300));
 
     const res = await requestPath(pathname);
     assert(res.text.includes(mark));

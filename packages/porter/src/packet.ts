@@ -9,7 +9,6 @@ import Module, { ModuleOptions } from './module';
 import CssModule from './css_module';
 import LessModule from './less_module';
 import JsModule from './js_module';
-import TsModule from './ts_module';
 import JsonModule from './json_module';
 import WasmModule from './wasm_module';
 import SassModule from './sass_module';
@@ -43,9 +42,7 @@ function _createModule(opts: ModuleOptions): Module {
     case '.wasm':
       return new WasmModule(opts);
     case '.ts':
-      return opts.file.endsWith('.d.ts') ? new Stub(opts) : new TsModule(opts);
     case '.tsx':
-      return new TsModule(opts);
     case '.js':
     case '.jsx':
     case '.mjs':
@@ -273,10 +270,13 @@ export default class Packet {
     if (this.transpiler) return;
     const obj = {
       babel: ['babel.config.js', 'babel.config.cjs', '.babelrc'],
-      typescript: 'tsconfig.json',
+      swc: '.swcrc',
     };
+    const types = Object.keys(obj) as Array<keyof typeof obj>;
+    // prefer swc if enabled
+    if (this.app.swc) types.reverse();
     const configMappers: { transpiler: string, config: any }[] = [];
-    for (const key of Object.keys(obj) as Array<keyof typeof obj>) {
+    for (const key of types) {
       const value = obj[key];
       if (Array.isArray(value)) {
         for (const config of value) {
@@ -323,12 +323,7 @@ export default class Packet {
     if (this.transpiler === 'babel') {
       const babel = this.tryRequire('@babel/core/package.json');
       this.transpilerVersion = babel && babel.version;
-    } else if (this.transpiler === 'typescript') {
-      const ts = this.tryRequire('typescript/package.json');
-      this.transpilerVersion = ts && ts.version;
-    }
 
-    if (this.transpiler === 'babel') {
       const { plugins = [] } = this.transpilerOpts;
       const pluginPath = path.join(__dirname, 'babel_plugin.js');
       if (!plugins.includes(pluginPath)) {

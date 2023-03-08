@@ -44,7 +44,7 @@ describe('test/unit/babel_plugin.test.js', function() {
       greet(import.meta)
     })`, { plugins: [ plugin ] });
     assert.equal(result.code, `import('./dynamic/greet').then(greet => {
-  greet(__module.meta);
+  greet(require.meta);
 });`);
   });
 
@@ -53,13 +53,13 @@ describe('test/unit/babel_plugin.test.js', function() {
       greet(import.meta.url)
     })`, { plugins: [ plugin ] });
     assert.equal(result.code, `import('./dynamic/greet').then(greet => {
-  greet(__module.meta.url);
+  greet(require.meta.url);
 });`);
   });
 
   it('should replace import.meta.resolve()', function() {
     const result = babel.transform("import.meta.resolve('./foo')", { plugins: [ plugin ] });
-    assert.equal(result.code, "__module.meta.resolve('./foo');");
+    assert.equal(result.code, "require.meta.resolve('./foo');");
   });
 
   it('should replace import.meta.glob()', function() {

@@ -272,9 +272,9 @@ describe('test/complex/index.test.js', function() {
       const bundle = porter.packet.bundles['test/suite.js'];
       assert.deepEqual(Array.from(bundle.children, depBundle => depBundle.entry), [
         'test/suite.js',
-        'test/foo.jsx',
         'test/glob-import/egg ham.json',
         'test/glob-import/egg.json',
+        'test/foo.jsx',
       ]);
     });
   });

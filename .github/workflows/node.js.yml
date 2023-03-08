@@ -14,7 +14,8 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [14.x, 16.x, 18.x]
+        node-version: [16.x, 18.x]
+        compiler: [babel, swc]
         # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
 
     steps:
@@ -28,14 +29,19 @@ jobs:
     - name: Setup Chrome
       uses: browser-actions/setup-chrome@latest
 
-    - name: npm install, build, and test
+    - name: rustup nightly
+      run: |
+        rustup default nightly-2022-10-15
+        rustup target add wasm32-wasi
+
+    - name: npm install, build, and test with ${{ matrix.compiler }}
       run: |
         chrome --version
         export CHROMIUM_BIN=$(which chrome)
         if [ $(npm --version | grep -Eo [0-9]+ | head -n 1) -lt 8 ]; then npm install npm@8 -g; fi
         npm install
         npm run build --if-present
-        npm run coverage
+        SWC=$([ "$compiler" = "swc" ] && echo "true" || echo "false") npm run coverage
 
     - name: Codecov
       uses: codecov/codecov-action@v3

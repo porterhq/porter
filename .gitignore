@@ -5,6 +5,7 @@ dist
 coverage
 .nyc_output
 .porter-cache
+.swc
 
 .DS_Store
 *~
@@ -14,5 +15,5 @@ package-lock.json
 docs/Gemfile.lock
 docs/.bundle
 docs/vendor
-
-packages/swc-plugin-*
+target
+Cargo.lock

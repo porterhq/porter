@@ -3,7 +3,7 @@
 const { strict: assert } = require('assert');
 const fs = require('fs/promises');
 const path = require('path');
-const Porter = require('../..').default;
+const Porter = require('../..');
 const Bundle = require('../../src/bundle').default;
 
 describe('Bundle without preload', function() {
@@ -368,8 +368,8 @@ describe('Bundle with WebAssembly', function() {
     porter = new Porter({
       root,
       entries: [ 'home.js', 'test/suite.js' ],
+      cache: { clean: true },
     });
-    await fs.rm(porter.cache.path, { recursive: true, force: true });
     await porter.ready();
   });
 

@@ -57,7 +57,7 @@ module.exports = function({ types: t, template }) {
     },
 
     /**
-     * Transform `import.meta.url` to `__module.meta.url`
+     * Transform `import.meta.url` to `require.meta.url`
      * Transform `import.meta.glob(pattern, options)` like vite https://vitejs.dev/guide/features.html#glob-import
      * @param {import("@babel/core").NodePath} path
      * @param {import('@babel/core').PluginPass} state
@@ -97,7 +97,7 @@ module.exports = function({ types: t, template }) {
           callExpression.replaceWith(t.objectExpression(properties));
         }
       } else {
-        path.replaceWith(t.memberExpression(t.identifier('__module'), t.identifier('meta')));
+        path.replaceWith(t.memberExpression(t.identifier('require'), t.identifier('meta')));
       }
     },
 

@@ -496,15 +496,16 @@
       return dep.exports;
     }
 
+    require.meta = mod.meta;
     require.async = importFactory(context);
     require.resolve = function(specifier) {
       return basePath + Module.resolve(specifier, mod.id);
     };
     mod.status = MODULE_LOADED;
 
-    // function(require, exports, module, __module) {}
+    // function(require, exports, module) {}
     var exports = typeof factory === 'function'
-      ? factory.call(null, require, mod.exports, mod, mod)
+      ? factory.call(null, require, mod.exports, mod)
       : factory;
 
     if (exports) mod.exports = exports;

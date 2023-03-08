@@ -3,7 +3,7 @@
 const { strict: assert } = require('assert');
 const path = require('path');
 // const fs = require('fs/promises');
-const Porter = require('../..').default;
+const Porter = require('../..');
 const { SourceMapConsumer } = require('source-map');
 
 describe('TsModule', function() {
@@ -50,7 +50,7 @@ describe('TsModule', function() {
         });
         const line = result.code.split('\n')[mapping.line - 1];
         assert.ok(line);
-        assert.ok(line.includes("document.querySelector('#ReactApp')"));
+        assert.ok(line.match(/document.querySelector\((['"])#ReactApp\1\)/));
       });
     });
   });

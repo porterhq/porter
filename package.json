@@ -15,9 +15,9 @@
   },
   "scripts": {
     "clean": "tsc --build --clean",
-    "test": "./run-script.sh test",
-    "pretest": "tsc",
-    "coverage": "rm -rf .nyc_output && ./run-script.sh coverage && nyc report --reporter=lcov"
+    "coverage": "rm -rf .nyc_output && npm run pretest && ./run-script.sh coverage && nyc report --reporter=lcov",
+    "pretest": "tsc && cargo build-wasi",
+    "test": "./run-script.sh test"
   },
   "workspaces": [
     "examples/*",

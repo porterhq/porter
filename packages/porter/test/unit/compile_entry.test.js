@@ -3,7 +3,7 @@
 const path = require('path');
 const expect = require('expect.js');
 
-const Porter = require('../..').default;
+const Porter = require('../..');
 
 describe('porter.compileEntry()', function() {
   const root = path.resolve(__dirname, '../../../../examples/app');

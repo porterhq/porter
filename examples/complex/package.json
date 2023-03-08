@@ -31,11 +31,13 @@
   },
   "scripts": {
     "build": "rm -rf public && node bin/build.js",
-    "dev": "rm -rf public && DEBUG=porter,$DEBUG node-dev app.js",
-    "start": "rm -rf public && DEBUG=porter,$DEBUG porter serve --paths app/web",
-    "test:web": "rm -rf public && DEBUG=porter,$DEBUG porter serve --paths app/web --headless",
-    "test:node": "DEBUG=porter,$DEBUG mocha --recursive --exit --timeout 30000",
-    "test": "DEBUG=porter,$DEBUG npm run test:node && npm run test:web",
-    "coverage": "DEBUG=porter,$DEBUG nyc --no-clean --cwd ../.. mocha -- --recursive --exit --timeout 30000"
+    "dev": "rm -rf public && DEBUG=porter,$DEBUG NODE_OPTIONS=--enable-source-maps node-dev app.js",
+    "prestart": "tsc",
+    "pretest": "tsc",
+    "start": "rm -rf public && DEBUG=porter,$DEBUG NODE_OPTIONS=--enable-source-maps porter serve --paths app/web",
+    "test:web": "rm -rf public && DEBUG=porter,$DEBUG NODE_OPTIONS=--enable-source-maps porter serve --paths app/web --headless",
+    "test:node": "DEBUG=porter,$DEBUG NODE_OPTIONS=--enable-source-maps mocha --recursive --exit --timeout 30000",
+    "test": "npm run test:node && npm run test:web",
+    "coverage": "DEBUG=porter,$DEBUG NODE_OPTIONS=--enable-source-maps nyc --no-clean --cwd ../.. mocha -- --recursive --exit --timeout 30000"
   }
 }
