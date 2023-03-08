@@ -3,7 +3,7 @@ import path from 'path';
 import UglifyJS from 'uglify-js';
 import fs from 'fs/promises';
 import merge from 'lodash/merge';
-import { transform, parseSync, JsMinifyOptions, Program } from '@swc/core';
+import { transform, parseSync, Program } from '@swc/core';
 
 import Module, { ModuleCache, SourceOptions, TranspileOptions } from './module';
 import * as namedImport from './named_import';
@@ -261,6 +261,8 @@ export default class JsModule extends Module {
     }
 
     if (!plugins) plugins = loadPlugins();
+    let { keep_fnames: keep_classnames = false } = app.uglifyOptions || {};
+    if (keep_classnames instanceof RegExp) keep_classnames = keep_classnames.test(fpath);
     const filenameRelative = path.relative(app.root, fpath);
     const { jsc = {} } = packet.transpiler === 'swc' ? packet.transpilerOpts : {};
     const result = await transform(code, {
@@ -294,11 +296,15 @@ export default class JsModule extends Module {
                 browser: true,
                 env: {
                   BROWSER: true,
-                  NODE_ENV: process.env.NODE_ENV,
+                  NODE_ENV: 'production',
                 },
               },
             },
-          }
+            keep_classnames,
+          },
+          mangle: {
+            keep_classnames,
+          },
         }) : {},
       },
       module: {
