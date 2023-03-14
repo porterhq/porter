@@ -72,7 +72,7 @@ impl GlobImport {
         let function = ArrowExpr {
             span: DUMMY_SP,
             params: Vec::new(),
-            body: BlockStmtOrExpr::Expr(Box::new(Expr::Call(expr))),
+            body: Box::new(BlockStmtOrExpr::Expr(Box::new(Expr::Call(expr)))),
             is_async: false,
             is_generator: false,
             type_params: None,

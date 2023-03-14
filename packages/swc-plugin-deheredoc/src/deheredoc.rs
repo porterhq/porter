@@ -104,7 +104,7 @@ where
                     }
                 }
                 if let Expr::Arrow(func) = &**expr {
-                    match &func.body {
+                    match &*func.body {
                         BlockStmtOrExpr::BlockStmt(block) => {
                             let comments = self.comments.take_trailing(BytePos(block.span.lo.0 + 1));
                             if let Some(comments) = comments {
