@@ -1,3 +1,12 @@
+4.6.1 / 2023-03-14
+==================
+
+## What's Changed
+* chore: upgrade swc_core@0.69.* by @cyjake in https://github.com/porterhq/porter/pull/211
+
+
+**Full Changelog**: https://github.com/porterhq/porter/compare/v4.6.0...v4.6.1
+
 4.6.0 / 2023-03-08
 ==================
 
