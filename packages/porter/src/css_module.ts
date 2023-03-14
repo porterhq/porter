@@ -99,17 +99,19 @@ export default class CssModule extends Module {
         targets: app.targets,
       });
     } catch (err) {
-      const { data, source, loc } = err as (Error & { data: Record<string, any>, source: string, loc: { line: number, column: number } });
+      if (!(err instanceof SyntaxError)) throw err;
+      const { source, loc } = err as (Error & { data: Record<string, any>, source: string, loc: { line: number, column: number } });
       let line = source.split('\n')[loc.line - 1];
       let column = loc.column;
       if (line.length > 2058) {
         column = 128;
         line = `... ${line.slice(Math.max(0, loc.column - 128), Math.min(loc.column + 128, line.length))}`;
       }
-      console.error(`${data.type}: ${data.value.type} (${path.relative(process.cwd(), fpath)})
+      console.error(`${err.message} (${path.relative(app.root, fpath)})
 
-      ${line}
-      ${' '.repeat(column - 1)}↑`);
+        ${line}
+        ${' '.repeat(column - 1)}↑
+      `);
       return { code, map };
     }
 
