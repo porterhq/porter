@@ -315,6 +315,8 @@ export default class Packet {
         break outer;
       }
     }
+
+    if (!this.transpiler) this.app.swc = true;
   }
 
   async prepareTranspiler() {
