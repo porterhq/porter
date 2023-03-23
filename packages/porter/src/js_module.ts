@@ -143,7 +143,7 @@ export default class JsModule extends Module {
     if (!this.imports) this.matchImport(code);
 
     if (this.__esModule && !packet.transpiler) {
-      packet.transpiler = app.packet.transpiler;
+      packet.transpiler = app.packet.transpiler || 'swc';
       packet.transpilerOpts = app.packet.transpilerOpts;
     }
 
@@ -251,12 +251,7 @@ export default class JsModule extends Module {
   async _transform({ code, map, minify }: TranspileOptions) {
     const { fpath, packet, app } = this;
 
-    /**
-     * `babel.transform` finds presets and plugins relative to `fpath`. If `fpath`
-     * doesn't start with packet.dir, it's quite possible that the needed presets or
-     * plugins might not be found.
-     */
-    if (!(packet.transpiler === 'babel' && fpath.startsWith(packet.dir)) && !minify) {
+    if (!(packet.transpiler && fpath.startsWith(packet.dir)) && !minify) {
       return { code: this._declare(code), map };
     }
 
