@@ -14,13 +14,13 @@ title: 模块
 支持 ES Modules 和 CommonJS 两种写法，推荐使用前者，基于前者比较容易实现剪枝，而后者就需要一些代码约定（参考 require.resolve 配置项)：
 
 ```js
-// 可以通过标记 lodash exports 来实现剪枝，移除没有被 import 过的 exports，剩下的交给代码压缩工具
+// 可以配置 require.import 转换成按需依赖 require('lodash/debounce');
 import { throttle } from 'lodash';
-// 需要配置 require.resolve 转换成 require('lodash/debounce');
+// 如果配置 require.import，同样会被转换成按需依赖
 const { debounce } = require('lodash');
 ```
 
-在实现方式上，ES Modules 和 CommonJS 的处理方式是一致的，会将前者转换为 CommonJS 并保留必要的信息，然后将 CommonJS 处理成 AMD 格式，类似：
+在实现方式上，ES Modules 和 CommonJS 的处理方式是一致的，会被转换为 PorterJS 格式，类似：
 
 ```js
 define('foo/bar.js', ['./baz', 'react'], function(require, exports, module) {
@@ -65,8 +65,6 @@ const text = heredoc(function() {/*
   </html>
 */});
 ```
-
-因此实际上 Babel 是必须而非可选配置，未来 Porter 切换代码转换器时可能调整这部分的配置，但项目代码所支持的编写方式会保持不变。
 
 ### import.meta.glob
 
@@ -136,9 +134,9 @@ define('app.js', ['./data/a.json'], function(require) {
 
 ## TypeScript 模块
 
-支持 .ts、.tsx、.d.ts 扩展名，默认使用 tsc 编译 TypeScript，好处是类型严格校验，坏处是目前的实现只会过一次 tsc，不会像 webpack 那样还会额外过一次 Babel 来处理 webpack 内部逻辑，也就是说，前文提及的 import.meta.glob、heredoc 等特殊处理在 TypeScript 中都没有。.d.ts 扩展名的文件只会在依赖解析阶段被读取，tsc 编译会移除掉仅引入类型的依赖，Porter 会在这个阶段排除掉 .d.ts 文件，避免这些运行时无关的文件被打包到构建产物中去。
+TypeScript 模块同样使用项目配置的编译器来处理，也就是 Babel 或者 SWC，所有有关 JavaScript 模块的特性都支持（import.meta.glob、heredoc 等等）
 
-理论上也可以用 Babel 或者其他代码转换器来处理 TypeScript 编译，从而统一两种模块的处理方式，暂时放到 v5 规划中。
+因为 Babel 或者 SWC 并不做类型校验，所以打包构建阶段将不会识别相关错误，需要在编码或者 lint 阶段由 tsc 提前完成。
 
 ## CSS 模块
 
@@ -167,7 +165,7 @@ import './app.css';
 @import './app.css';
 ```
 
-### CSS Modules
+### .module.css
 
 支持获取 CSS exports：
 

@@ -75,6 +75,10 @@
     pre code {
       background-color: transparent;
     }
+
+    blockquote {
+      border-color: #6a737d;
+    }
   }
 
   .border-gray-light {
@@ -243,6 +247,16 @@ a {
 
   code br {
     display: block;
+  }
+}
+
+.markdown-body {
+  .task-list-item {
+    list-style-type: none;
+
+    input[type="checkbox"] {
+      margin-right: 0.25em;
+    }
   }
 }
 

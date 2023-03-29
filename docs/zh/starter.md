@@ -11,12 +11,12 @@ title: 快速上手
 
 ## 开发环境
 
-假设我们要开始编写一个前端项目，这个项目没有服务段逻辑，只需要完成前端 HTML/JavaScript/CSS 的编写，有前端依赖比如 React、PrismJS 等需要通过 npm 安装：
+假设我们要开始编写一个前端项目，这个项目没有服务端逻辑，只需要完成前端 HTML/JavaScript/CSS 的编写，有前端依赖比如 React、PrismJS 等需要通过 npm 安装：
 
 ```bash
 $ mkdir examples/cli
 $ cd examples/cli
-$ npm install react prismjs @cara/porter-cli
+$ npm install react prismjs @cara/porter-cli --save-dev
 $ touch index.html
 ```
 
@@ -107,7 +107,7 @@ Server started at 5000
 本地完成代码编写准备交付的时候，可以使用如下命令完成代码构建：
 
 ```bash
-➜  examples/cli git:(master) npx porter build --entry app.js
+➜  examples/cli git:(master) npx porter build --entry app.js app.css
 ```
 
 将根据 `--entry` 参数指定的入口模块查找相关依赖、编译代码、合并依赖、以及压缩构建产物，默认将构建结果输出到 dist 目录。
