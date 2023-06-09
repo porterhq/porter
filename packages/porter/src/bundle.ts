@@ -514,7 +514,7 @@ export default class Bundle {
   async fuzzyObtain({ loader, minify = false }: ObtainOptions = {}) {
     const { children, packet, entries, format } = this;
     const loaderConfig = Object.assign(packet.loaderConfig, this.loaderConfig);
-    const chunks = [];
+    const chunks: string[] = [];
 
     // new descendents might be introduced during the first iteration
     for (const mod of this) await (minify ? mod.minify() : mod.obtain());

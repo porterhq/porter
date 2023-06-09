@@ -1,3 +1,14 @@
+4.6.2 / 2023-06-09
+==================
+
+## What's Changed
+* fix: fallback to swc if no transpiler were found by @cyjake in https://github.com/porterhq/porter/pull/212
+* docs: en documentations; overview of the migration to SWC by @cyjake in https://github.com/porterhq/porter/pull/213
+* fix: handle css bundles first to generate css module exports by @cyjake in https://github.com/porterhq/porter/pull/214
+
+
+**Full Changelog**: https://github.com/porterhq/porter/compare/v4.6.1...v4.6.2
+
 4.6.1 / 2023-03-14
 ==================
 
