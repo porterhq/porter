@@ -14,7 +14,7 @@ export default class CssModule extends Module {
   exports?: JsonModule;
 
   matchImport(code: string) {
-    const imports = [];
+    const imports: string[] = [];
     let m;
 
     rAtImport.lastIndex = 0;
@@ -116,13 +116,6 @@ export default class CssModule extends Module {
     }
 
     const { exports, dependencies = [] } = result;
-
-    if (exports) {
-      const mapping: Record<string, string> = {};
-      for (const key in exports) mapping[key] = exports[key].name;
-      this.exports = new JsonModule({ file, fpath, packet, code: JSON.stringify(mapping) });
-    }
-
     let resultCode = result.code.toString();
     for (const dep of dependencies) {
       if (dep.type === 'url') {
@@ -132,8 +125,20 @@ export default class CssModule extends Module {
 
     return {
       code: resultCode,
+      exports,
       map: JSON.parse(result.map!.toString()),
     };
+  }
+
+  async obtain() {
+    const result = await super.obtain();
+    const { file, fpath, packet } = this;
+    if (result.exports) {
+      const mapping: Record<string, string> = {};
+      for (const key in exports) mapping[key] = exports[key].name;
+      this.exports = new JsonModule({ file, fpath, packet, code: JSON.stringify(mapping) });
+    }
+    return result;
   }
 
   async minify() {

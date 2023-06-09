@@ -375,7 +375,7 @@ export default class Packet {
     });
   }
 
-  async onChange(eventType: string, filename: string) {
+  async onChange(eventType: string, filename: string | null) {
     if (filename && filename in this.files) await this.reload(eventType, filename);
   }
 

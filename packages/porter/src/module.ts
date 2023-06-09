@@ -18,6 +18,7 @@ export interface ModuleCache {
   code: string;
   map: RawSourceMap;
   imports: string[];
+  exports?: Record<string, any>;
   dynamicImports: string[];
   minified?: boolean;
   __esModule?: boolean;
