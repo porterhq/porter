@@ -459,6 +459,12 @@ export default class Bundle {
     // new bundles might be needed if new dynamic imports were generated
     Bundle.wrap({ packet, entries });
 
+    const entryModule = await this.getEntryModule({ minify });
+    // bundle dependencies should be obtained first, in case new deps were introduced
+    if (entryModule.isRootEntry && !entryModule.isPreload && format === '.js') {
+      await Promise.all(children.map(child => child.obtain({ minify })));
+    }
+
     for (const mod of this) {
       const { code, map } = await (minify ? mod.minify() : mod.obtain());
       const subnode = await this.createSourceNode({
@@ -472,20 +478,17 @@ export default class Bundle {
       node.add(subnode);
     }
 
-    const mod = await this.getEntryModule({ minify });
-
-    if (mod.isRootEntry && !mod.isPreload && format === '.js') {
-      await Promise.all(children.map(child => child.obtain({ minify })));
-      node.prepend(`porter.merge(porter.lock, ${JSON.stringify(mod.lock)})`);
+    if (entryModule.isRootEntry && !entryModule.isPreload && format === '.js') {
+      node.prepend(`porter.merge(porter.lock, ${JSON.stringify(entryModule.lock)})`);
     }
 
-    if (mod.isRootEntry && loader !== false && format === '.js') {
+    if (entryModule.isRootEntry && loader !== false && format === '.js') {
       // bundle with loader unless turned off specifically
       const result = minify
         ? await this.minifyLoader(loaderConfig)
         : await this.obtainLoader(loaderConfig);
       node.prepend(await this.createSourceNode(result));
-      node.add(`porter["import"](${JSON.stringify(mod.id)})`);
+      node.add(`porter["import"](${JSON.stringify(entryModule.id)})`);
     }
 
     const result = node.join('\n').toStringWithSourceMap();
