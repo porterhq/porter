@@ -133,7 +133,8 @@ export default class CssModule extends Module {
   async obtain() {
     const result = await super.obtain();
     const { file, fpath, packet } = this;
-    if (result.exports) {
+    if ('exports' in result) {
+      const { exports } = result;
       const mapping: Record<string, string> = {};
       for (const key in exports) mapping[key] = exports[key].name;
       this.exports = new JsonModule({ file, fpath, packet, code: JSON.stringify(mapping) });

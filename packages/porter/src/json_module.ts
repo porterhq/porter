@@ -1,7 +1,7 @@
 'use strict';
 
 import { readFile } from 'fs/promises';
-import Module, { ModuleOptions } from './module';
+import Module, { ModuleCache, ModuleOptions } from './module';
 import { MODULE_LOADED } from './constants';
 
 export default class JsonModule extends Module {
@@ -34,7 +34,11 @@ export default class JsonModule extends Module {
     };
   }
 
+  async obtain() {
+    return await this.transpile() as ModuleCache;
+  }
+
   async minify() {
-    return this.transpile();
+    return await this.transpile();
   }
 };
