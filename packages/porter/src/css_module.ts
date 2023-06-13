@@ -1,6 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
-import css from '@parcel/css';
+import css, { CSSModuleExports } from '@parcel/css';
 
 import Module, { TranspileOptions } from './module';
 import JsonModule from './json_module';
@@ -130,25 +130,26 @@ export default class CssModule extends Module {
     };
   }
 
+  async setExports({ exports }: { exports?: CSSModuleExports | void}) {
+    if (!exports) return;
+    const { file, fpath, packet } = this;
+    const mapping: Record<string, string> = {};
+    for (const key in exports) mapping[key] = exports[key].name;
+    this.exports = new JsonModule({ file, fpath, packet, code: JSON.stringify(mapping) });
+  }
+
   async obtain() {
     const result = await super.obtain();
-    const { file, fpath, packet } = this;
-    if ('exports' in result) {
-      const { exports } = result;
-      const mapping: Record<string, string> = {};
-      for (const key in exports) mapping[key] = exports[key].name;
-      this.exports = new JsonModule({ file, fpath, packet, code: JSON.stringify(mapping) });
-    }
+    if ('exports' in result) this.setExports(result);
     return result;
   }
 
   async minify() {
     if (this.cache && this.cache.minified) return this.cache;
     const { code, } = await this.load();
-    this.setCache(code, {
-      ...await this.transpile({ code, minify: true }),
-      minified: true,
-    });
+    const result = await this.transpile({ code, minify: true });
+    this.setCache(code, { ...result, minified: true });
+    if ('exports' in result) this.setExports(result);
     return this.cache!;
   }
 };
