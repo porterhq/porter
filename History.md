@@ -1,3 +1,12 @@
+4.6.3 / 2023-06-13
+==================
+
+## What's Changed
+* fix: css module exports were referencing wrong var by @cyjake in https://github.com/porterhq/porter/pull/215
+
+
+**Full Changelog**: https://github.com/porterhq/porter/compare/v4.6.2...v4.6.3
+
 4.6.2 / 2023-06-09
 ==================
 
