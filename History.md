@@ -1,3 +1,12 @@
+4.6.4 / 2023-06-14
+==================
+
+## What's Changed
+* fix: css module exports need to be handled at compile phase as well by @cyjake in https://github.com/porterhq/porter/pull/216
+
+
+**Full Changelog**: https://github.com/porterhq/porter/compare/v4.6.3...v4.6.4
+
 4.6.3 / 2023-06-13
 ==================
 
