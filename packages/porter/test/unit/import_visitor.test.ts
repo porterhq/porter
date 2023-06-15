@@ -59,6 +59,17 @@ describe('ImportVisitor', function() {
       assert.deepEqual(imports,
         [ { source: './bar', names: [ { export: 'Bar', local: 'Bar' } ] } ]);
     });
+
+    it('import { Bar } from "./bar"', async function() {
+      // used as both type and value
+      const { imports } = await findAll(`
+        import { Bar } from "./bar";
+        const a: Bar = new Bar();
+        console.log(a);
+      `, { syntax: 'typescript' });
+      assert.deepEqual(imports,
+        [ { source: './bar', names: [ { export: 'Bar', local: 'Bar' } ] } ]);
+    });
   });
 
   describe('import wasm', function() {

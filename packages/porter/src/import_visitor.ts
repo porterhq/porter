@@ -1,4 +1,20 @@
-import { Argument, CallExpression, ConditionalExpression, ExportAllDeclaration, ExportNamedDeclaration, Expression, Identifier, IfStatement, ImportDeclaration, ModuleDeclaration, Param, Program, Statement, TsInstantiation, TsQualifiedName, TsType, TsTypeAnnotation } from '@swc/core';
+import {
+  Argument,
+  CallExpression,
+  ConditionalExpression,
+  ExportAllDeclaration,
+  ExportNamedDeclaration,
+  Expression,
+  Identifier,
+  IfStatement,
+  ImportDeclaration,
+  ModuleDeclaration,
+  Program,
+  Statement,
+  TsQualifiedName,
+  TsType,
+  TsTypeAnnotation,
+} from '@swc/core';
 import Visitor from '@swc/core/Visitor';
 
 interface ImportName { export: string, local: string }
@@ -54,6 +70,8 @@ export default class ImportVisitor extends Visitor {
   imports: Import[] = [];
   dynamicImports: DynamicImport[] = [];
   typeImports: string[] = [];
+  identifiers: Record<string, number> = {};
+  typeIdentifiers: Record<string, number> = {};
   __esModule = false;
 
   visitImportDeclaration(node: ImportDeclaration): ImportDeclaration {
@@ -179,7 +197,10 @@ export default class ImportVisitor extends Visitor {
   }
 
   visitTsQualifiedName(n: TsQualifiedName): TsQualifiedName {
-    if (n.left.type === 'Identifier') this.typeImports.push(n.left.value);
+    if (n.left.type === 'Identifier') {
+      this.typeImports.push(n.left.value);
+      this.typeIdentifiers[n.left.value] = (this.typeIdentifiers[n.left.value] || 0) + 1;
+    }
     return super.visitTsQualifiedName(n);
   }
 
@@ -187,6 +208,7 @@ export default class ImportVisitor extends Visitor {
     if (n.type === 'TsTypeReference') {
       if (n.typeName.type === 'Identifier') {
         this.typeImports.push(n.typeName.value);
+        this.typeIdentifiers[n.typeName.value] = (this.typeIdentifiers[n.typeName.value] || 0) + 1;
         n.typeName = this.visitIdentifier(n.typeName);
       } else if (n.typeName.type === 'TsQualifiedName') {
         n.typeName = this.visitTsQualifiedName(n.typeName);
@@ -202,12 +224,22 @@ export default class ImportVisitor extends Visitor {
     return n;
   }
 
+  visitIdentifier(n: Identifier): Identifier {
+    this.identifiers[n.value] = (this.identifiers[n.value] || 0) + 1;
+    return n;
+  }
+
   visitProgram(n: Program): Program {
     this.imports = [];
     this.dynamicImports = [];
     super.visitProgram(n);
 
-    const { imports, typeImports } = this;
+    const { imports, typeImports, identifiers, typeIdentifiers } = this;
+
+    for (let i = typeImports.length - 1; i >= 0; i--) {
+      const local = typeImports[i];
+      if (identifiers[local] > typeIdentifiers[local]) typeImports.splice(i, 1);
+    }
 
     for (let i = imports.length - 1; i >= 0; i--) {
       const entry = imports[i];
