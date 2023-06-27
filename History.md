@@ -1,3 +1,12 @@
+4.6.6 / 2023-06-27
+==================
+
+## What's Changed
+* deps: upgrade swc_core for jimp fix by @cyjake in https://github.com/porterhq/porter/pull/218
+
+
+**Full Changelog**: https://github.com/porterhq/porter/compare/v4.6.5...v4.6.6
+
 4.6.5 / 2023-06-15
 ==================
 
