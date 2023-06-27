@@ -8,7 +8,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 serde = "1"
-swc_core = { version = "0.76.*", features = ["ecma_plugin_transform", "ecma_utils"] }
+swc_core = { version = "0.78.*", features = ["ecma_plugin_transform", "ecma_utils"] }
 glob = "0.3.1"
 
 # .cargo/config defines few alias to build plugin.
