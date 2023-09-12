@@ -41,7 +41,7 @@ jobs:
 
       - name: rustup nightly
         run: |
-          rustup default nightly-2022-10-15
+          rustup default nightly-2023-07-03
           rustup target add wasm32-wasi
 
       - run: npm install and publish
