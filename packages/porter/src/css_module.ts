@@ -1,6 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
-import css, { CSSModuleExports } from '@parcel/css';
+import css, { CSSModuleExports } from 'lightningcss';
 
 import Module, { TranspileOptions } from './module';
 import JsonModule from './json_module';
