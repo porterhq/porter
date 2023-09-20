@@ -92,7 +92,7 @@ export default class JsModule extends Module {
     const transforms = (packet.browserify && packet.browserify.transform) || [];
     const env = {
       RBOWSER: true,
-      NODE_ENV: process.env.NODE_ENV || 'development',
+      NODE_ENV: process.env.NODE_ENV ?? 'development',
     };
     const whitelist = ['envify', 'loose-envify', 'brfs'];
     let stream: Stream | null = null;

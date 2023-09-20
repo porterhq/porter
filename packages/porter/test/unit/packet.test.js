@@ -139,6 +139,11 @@ describe('Packet', function() {
       const restructure = porter.packet.find({ name: 'restructure' });
       assert.deepEqual(restructure.browser, { stream: 'readable-stream' });
     });
+
+    it('should prevent extesions like .cjs.js from being shorten', async () => {
+      const { packet } = await porter.packet.parsePacket({ name: '@pixi/react' });
+      assert.equal(packet.browser['./dist/index.cjs'], './dist/index.cjs.js');
+    });
   });
 
   describe('packet.prepare()', function() {

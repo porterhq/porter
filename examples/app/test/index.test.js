@@ -5,7 +5,7 @@ const path = require('path');
 const assert = require('assert').strict;
 const Porter = require('@cara/porter');
 
-describe('test/app/index.test.js', function() {
+describe('examples/app/test/index.test.js', function() {
   const root = path.resolve(__dirname, '..');
   let porter;
 
@@ -55,8 +55,8 @@ describe('test/app/index.test.js', function() {
       const packet = porter.packet.find({ name: 'react' });
       const bundle = packet.bundle;
       assert.deepEqual(Array.from(bundle, child => path.relative(root, child.fpath)), [
-        '../../node_modules/react/cjs/react.development.js',
-        '../../node_modules/react/index.js',
+        'node_modules/react/cjs/react.development.js',
+        'node_modules/react/index.js',
       ]);
     });
   });

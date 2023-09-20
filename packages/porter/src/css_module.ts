@@ -93,7 +93,7 @@ export default class CssModule extends Module {
         analyzeDependencies: true,
         cssModules,
         drafts: {
-          nesting: true,
+          // nesting: true,
           customMedia: true,
         },
         targets: app.targets,
