@@ -4,7 +4,7 @@ const path = require('path');
 const assert = require('assert').strict;
 const Porter = require('@cara/porter');
 
-describe('test/complex/index.test.js', function() {
+describe('examples/complex/test/index.test.js', function() {
   const root = path.resolve(__dirname, '..');
   let porter;
 

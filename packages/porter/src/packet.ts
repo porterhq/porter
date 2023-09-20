@@ -453,7 +453,7 @@ export default class Packet {
   }
 
   async parseModule(file: string) {
-    const { files, folder, name, alias } = this;
+    const { files, folder, name, alias, browser } = this;
 
     // alias takes precedence over original specifier
     for (const key of Object.keys(alias)) {
@@ -483,6 +483,12 @@ export default class Packet {
 
       // ignore d.ts
       if (fpath.endsWith('.d.ts')) return false;
+
+      // @pixi/react/dist/index.cjs.js
+      const ext = path.extname(originFile);
+      if (ext === '.cjs' && path.extname(fpath) !== ext) {
+        browser[`./${originFile}`] = `./${path.relative(this.dir, fpath)}`;
+      }
 
       file += suffix;
       if (suffix.startsWith('/index')) folder[originFile] = true;
