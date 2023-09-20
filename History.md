@@ -1,3 +1,14 @@
+4.6.7 / 2023-09-20
+==================
+
+## What's Changed
+* chore: remove unused dev dep by @cyjake in https://github.com/porterhq/porter/pull/219
+* deps: upgrade to lightningcss by @cyjake in https://github.com/porterhq/porter/pull/220
+* fix: ./dist/index.cjs => @pixi/react/dist/index.cjs.js by @cyjake in https://github.com/porterhq/porter/pull/221
+
+
+**Full Changelog**: https://github.com/porterhq/porter/compare/v4.6.6...v4.6.7
+
 4.6.6 / 2023-06-27
 ==================
 
